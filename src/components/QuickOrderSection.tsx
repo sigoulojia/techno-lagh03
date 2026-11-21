@@ -17,9 +17,10 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { WILAYA_DELIVERY_RATES, findWilayaRate } from '../data/deliveryRates';
-import { formatDzd } from '../utils/storeLogic';
+import { formatDzd, type SavedOrder } from '../utils/storeLogic';
+import { sendOrderNotifications } from '../utils/notificationService';
 import { TechnoLogo } from './TechnoLogo';
-import { type Product, PRODUCTS } from '../data/products';
+import { type Product } from '../data/products';
 
 interface QuickProductItem {
   id: string;
@@ -29,19 +30,12 @@ interface QuickProductItem {
   imageUrl?: string;
 }
 
-const FALLBACK_QUICK_PRODUCTS: QuickProductItem[] = [
-  { id: 'probag-04-brown', sku: '71638', name: 'حقيبة تكنو PROBAG-04 التنفيذية — بني كونياك', basePriceDzd: 4800 },
-  { id: 'probag-04-black', sku: '71639', name: 'حقيبة تكنو PROBAG-04 التنفيذية — أسود كلاسيكي', basePriceDzd: 4800 },
-  { id: 'techno-classic-caramel', sku: '71640', name: 'حقيبة تكنو التراثية الكلاسيكية — بني كراميل', basePriceDzd: 5400 },
-  { id: 'techno-classic-black', sku: '71641', name: 'حقيبة تكنو التراثية الكلاسيكية — أسود فاحم', basePriceDzd: 5400 },
-  { id: 'versal-executive-black', sku: '71642', name: 'حقيبة Versal الرسمية — أسود مطفي', basePriceDzd: 4500 },
-];
-
 interface QuickOrderSectionProps {
   products?: Product[];
+  onOrderCompleted?: (order: SavedOrder) => void;
 }
 
-export function QuickOrderSection({ products }: QuickOrderSectionProps) {
+export function QuickOrderSection({ products, onOrderCompleted }: QuickOrderSectionProps) {
   // Available catalog
   const catalog: QuickProductItem[] = useMemo(() => {
     if (products && products.length > 0) {
@@ -53,7 +47,7 @@ export function QuickOrderSection({ products }: QuickOrderSectionProps) {
         imageUrl: p.image || p.images?.[0],
       }));
     }
-    return FALLBACK_QUICK_PRODUCTS;
+    return [];
   }, [products]);
 
   const [selectedProduct, setSelectedProduct] = useState<QuickProductItem | null>(() => catalog[0] || null);
@@ -143,59 +137,62 @@ export function QuickOrderSection({ products }: QuickOrderSectionProps) {
 
     setIsSubmitting(true);
 
-    try {
-      const res = await fetch('https://techno-laghouat-backend.hotel-saharien.workers.dev/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          customer: {
-            fullName: cleanName,
-            phone: cleanPhone,
-            wilaya: `${selectedRate.code} - ${selectedRate.nameAr}`,
-            commune: '',
-            address: '',
-            deliveryMethod: deliveryMethod === 'stop_desk' ? 'stop_desk' : 'home',
-            notes: `طلب سريع ومباشر: ${selectedProduct.name} (#${selectedProduct.sku || selectedProduct.id})`,
-          },
-          items: [
-            {
-              productId: selectedProduct.id,
-              name: selectedProduct.name,
-              sku: selectedProduct.sku,
-              quantity: 1,
-              priceDzd: selectedProduct.basePriceDzd,
-            },
-          ],
-          totals: {
-            subtotalDzd: selectedProduct.basePriceDzd,
-            shippingFeeDzd: shippingFeeDzd,
-            totalDzd: totalDzd,
-          },
-          formDurationMs: 4500,
-        }),
-      });
+    const generatedOrderId = `TL-${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-      const data = await res.json();
-      if (data?.success && data?.orderId) {
-        setCompletedOrder({
-          orderId: data.orderId,
-          totalDzd: totalDzd,
-          productName: selectedProduct.name,
-        });
-      } else {
-        throw new Error(data?.message || 'حدث خطأ في معالجة الطلب');
-      }
-    } catch {
-      // Fallback local order confirmation
-      const fallbackId = `TL-${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}`;
-      setCompletedOrder({
-        orderId: fallbackId,
+    const savedOrder: SavedOrder = {
+      orderId: generatedOrderId,
+      createdAtIso: new Date().toISOString(),
+      statusLabel: 'قيد المعالجة والتأكيد عبر الهاتف',
+      customer: {
+        fullName: cleanName,
+        phone: cleanPhone,
+        wilaya: `${selectedRate.code} - ${selectedRate.nameAr}`,
+        commune: deliveryMethod === 'stop_desk' ? 'استلام من مكتب ZR Express' : 'توصيل لباب المنزل',
+        address: '',
+        deliveryMethod: deliveryMethod === 'stop_desk' ? 'stop_desk' : 'home',
+        notes: `طلب سريع ومباشر: ${selectedProduct.name} (#${selectedProduct.sku || selectedProduct.id})`,
+      },
+      items: [
+        {
+          productId: selectedProduct.id,
+          sku: selectedProduct.sku || selectedProduct.id,
+          name: selectedProduct.name,
+          colorName: '',
+          unitPriceDzd: selectedProduct.basePriceDzd,
+          quantity: 1,
+          lineTotalDzd: selectedProduct.basePriceDzd,
+        },
+      ],
+      totals: {
+        itemCount: 1,
+        subtotalDzd: selectedProduct.basePriceDzd,
+        shippingFeeDzd: shippingFeeDzd,
+        isFreeShippingUnlocked: false,
+        remainingForFreeLaghouatDzd: 0,
         totalDzd: totalDzd,
-        productName: selectedProduct.name,
-      });
-    } finally {
-      setIsSubmitting(false);
+      },
+    };
+
+    try {
+      // Send notifications to Telegram (@techno03bot) and ntfy app (techno-laghouat)
+      await sendOrderNotifications(savedOrder);
+    } catch (err) {
+      console.warn('Notification delivery processed with local fallback:', err);
     }
+
+    try {
+      onOrderCompleted?.(savedOrder);
+    } catch {
+      // Ignore callback errors
+    }
+
+    setCompletedOrder({
+      orderId: savedOrder.orderId,
+      totalDzd: totalDzd,
+      productName: selectedProduct.name,
+    });
+
+    setIsSubmitting(false);
   };
 
   return (
@@ -317,7 +314,9 @@ export function QuickOrderSection({ products }: QuickOrderSectionProps) {
                           {selectedProduct.name}
                         </h4>
                         <span className="text-xs font-mono font-black text-[#E30613]">
-                          {formatDzd(selectedProduct.basePriceDzd)}
+                          {selectedProduct.basePriceDzd > 0
+                            ? formatDzd(selectedProduct.basePriceDzd)
+                            : 'تأكيد السعر الرسمي مع الفرع عند الاتصال'}
                         </span>
                       </div>
                     </div>
@@ -401,21 +400,50 @@ export function QuickOrderSection({ products }: QuickOrderSectionProps) {
 
                     {/* Product Not Found State (if searched and no match, or product was deleted) */}
                     {isProductNotFound && (
-                      <div className="p-4 rounded-2xl bg-amber-50 border-2 border-amber-500 text-amber-950 text-xs font-bold flex items-start gap-3">
-                        <AlertTriangle className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
-                        <div>
-                          <p className="font-black text-sm text-amber-900 mb-0.5">
-                            المنتج غير موجود أو تم حذفه من المتجر
-                          </p>
-                          <p className="text-amber-800 leading-relaxed">
-                            لم نتمكن من العثور على أي منتج مطابق لـ &quot;{searchQuery}&quot;. يرجى التأكد من كتابة الرمز أو الاسم بدقة، أو اختر من القائمة السريعة أدناه.
-                          </p>
+                      <div className="space-y-3">
+                        <div className="p-4 rounded-2xl bg-amber-50 border-2 border-amber-500 text-amber-950 text-xs font-bold flex items-start gap-3">
+                          <AlertTriangle className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
+                          <div>
+                            <p className="font-black text-sm text-amber-900 mb-0.5">
+                              المنتج غير موجود أو تم حذفه من المتجر
+                            </p>
+                            <p className="text-amber-800 leading-relaxed">
+                              لم نتمكن من العثور على أي منتج مطابق لـ &quot;{searchQuery}&quot;. يرجى التأكد من كتابة الرمز أو الاسم بدقة، أو يمكنك اعتماد طلب هذا المنتج بالاسم مباشرة وسيقوم فريق الفرع بتجهيزه لك.
+                            </p>
+                          </div>
                         </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleSelectProduct({
+                              id: `custom-${Date.now()}`,
+                              sku: 'CUSTOM',
+                              name: searchQuery.trim(),
+                              basePriceDzd: 0,
+                            });
+                          }}
+                          className="w-full p-3.5 rounded-2xl bg-[#FFD100] hover:bg-[#E5BC00] border-2 border-[#18181B] shadow-[3px_3px_0px_#18181B] text-right flex items-center justify-between gap-3 text-xs font-black text-[#18181B] transition-colors cursor-pointer"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Check className="w-4 h-4 text-[#E30613]" />
+                            <span>طلب هذه الأداة مباشرة من الفرع: &quot;{searchQuery.trim()}&quot;</span>
+                          </div>
+                          <span className="text-[11px] bg-white px-2 py-0.5 rounded border border-[#18181B]">
+                            تأكيد الاختيار
+                          </span>
+                        </button>
+                      </div>
+                    )}
+
+                    {!selectedProduct && catalog.length === 0 && !isQuerySearched && (
+                      <div className="p-3.5 rounded-2xl bg-[#FFFDF0] border-2 border-[#FDE047] text-xs font-bold text-[#854D0E]">
+                        اكتب اسم الأداة أو التشكيلة التي ترغب بطلبها مباشرة من فرع تكنو الأغواط وسيقوم فريقنا بتجهيزها وإرسالها لك فوراً.
                       </div>
                     )}
 
                     {/* Quick Selection Buttons from Catalog */}
-                    {!isQuerySearched && (
+                    {!isQuerySearched && catalog.length > 0 && (
                       <div className="space-y-1.5 pt-1">
                         <span className="text-[11px] font-bold text-stone-500 block">
                           أو اختر مباشرة من المعروضات الأكثر طلباً:

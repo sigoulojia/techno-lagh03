@@ -26,6 +26,7 @@ import {
 } from '../utils/storeLogic';
 import { WILAYA_DELIVERY_RATES, findWilayaRate } from '../data/deliveryRates';
 import { ProductImage } from './ProductImage';
+import { TechnoLogo } from './TechnoLogo';
 
 interface HeroProps {
   products?: Product[];
@@ -325,7 +326,75 @@ export function Hero({
                   </div>
                 )}
               </div>
-            ) : null}
+            ) : (
+              /* Physical Branch Showcase Card when catalog is waiting for user items */
+              <div className="relative rounded-3xl bg-white p-6 sm:p-7 border-3 border-[#18181B] shadow-[8px_8px_0px_#18181B] space-y-5">
+                <div className="flex items-center justify-between gap-3 border-b-2 border-stone-200 pb-4">
+                  <div className="flex items-center gap-3">
+                    <TechnoLogo size="md" showBranch={false} />
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="stamp-red text-[10px] font-black">الفرع الرسمي</span>
+                        <span className="stamp-yellow text-[10px] font-black">25 سنة</span>
+                      </div>
+                      <h3 className="font-display text-base sm:text-lg font-black text-[#18181B] leading-tight mt-1">
+                        {STORE_INFO.fullTitle}
+                      </h3>
+                    </div>
+                  </div>
+                  <span className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse shrink-0" title="مفتوح لاستقبالكم" />
+                </div>
+
+                <div className="space-y-3 text-xs sm:text-sm font-medium text-[#27272A]">
+                  <div className="flex items-start gap-2.5 p-3 rounded-2xl bg-[#FAF8F5] border-2 border-stone-200">
+                    <MapPin className="w-4 h-4 text-[#E30613] shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-black text-[#18181B] block">موقع المحل والفرع:</span>
+                      <span className="text-stone-700 font-bold">{STORE_INFO.address}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-2.5 p-3 rounded-2xl bg-[#FAF8F5] border-2 border-stone-200">
+                    <Clock className="w-4 h-4 text-[#18181B] shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-black text-[#18181B] block">أوقات العمل والاستقبال:</span>
+                      <span className="text-stone-700 font-bold">{STORE_INFO.hours}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-2.5 p-3.5 rounded-2xl bg-[#FFFDF0] border-2 border-[#FDE047] shadow-[2px_2px_0px_#CA8A04]">
+                    <Truck className="w-4 h-4 text-[#854D0E] shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-black text-[#854D0E] block">توصيل سريع معتمد عبر ZR Express:</span>
+                      <span className="text-xs text-[#854D0E] font-bold block mt-0.5">
+                        بلديات ولاية الأغواط: 500 د.ج منزل · 380 د.ج مكتب
+                      </span>
+                      <span className="text-[11px] text-stone-600 block mt-0.5">
+                        توصيل لكافة الـ 69 ولاية جزائرية والدفع نقداً عند استلام الطرد.
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t-2 border-stone-200 flex flex-col sm:flex-row gap-2.5">
+                  <a
+                    href="#quick-order"
+                    className="flex-1 inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-[#E30613] hover:bg-[#C4000F] text-white text-xs sm:text-sm font-black border-2 border-[#18181B] shadow-[3px_3px_0px_#18181B] active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer"
+                  >
+                    <ShoppingBag className="w-4 h-4" />
+                    <span>استمارة الطلب المباشر</span>
+                  </a>
+                  <a
+                    href={STORE_INFO.phoneHref}
+                    dir="ltr"
+                    className="inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-white hover:bg-[#FAF8F5] text-[#18181B] text-xs sm:text-sm font-black border-2 border-[#18181B] shadow-[2px_2px_0px_#18181B] active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer"
+                  >
+                    <Phone className="w-4 h-4 text-[#E30613]" />
+                    <span>{STORE_INFO.phoneDisplay}</span>
+                  </a>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -14,9 +14,9 @@ import {
   Sparkles,
   Truck,
   CheckCircle2,
+  ChevronDown,
 } from 'lucide-react';
 import {
-  PRODUCTS,
   STORE_INFO,
   type Product,
   type StoreCategory,
@@ -43,7 +43,7 @@ import { TrustBadges } from './components/TrustBadges';
 import { CategoryShowcase } from './components/CategoryShowcase';
 import { QuickOrderSection } from './components/QuickOrderSection';
 import { PacksSection } from './components/PacksSection';
-import { type StorePack, INITIAL_PACKS } from './data/packs';
+import { type StorePack } from './data/packs';
 import { FloatingActions } from './components/FloatingActions';
 import { ProductCard } from './components/ProductCard';
 import { ProductModal } from './components/ProductModal';
@@ -99,16 +99,15 @@ export default function App() {
   const [drawerStep, setDrawerStep] = useState<DrawerStep>('cart');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [products, setProducts] = useState<Product[]>(() => {
-    const cached = readStorage<Product[]>(PRODUCTS_CACHE_KEY, []);
-    return cached.length > 0 ? cached : PRODUCTS;
+    return readStorage<Product[]>(PRODUCTS_CACHE_KEY, []);
   });
   const [backendCategories, setBackendCategories] = useState<StoreCategory[]>(() =>
     readStorage<StoreCategory[]>(CATEGORIES_CACHE_KEY, []),
   );
   const [packs, setPacks] = useState<StorePack[]>(() => {
-    const cached = readStorage<StorePack[]>(PACKS_CACHE_KEY, []);
-    return cached.length > 0 ? cached : INITIAL_PACKS;
+    return readStorage<StorePack[]>(PACKS_CACHE_KEY, []);
   });
+  const [visibleProductsCount, setVisibleProductsCount] = useState<number>(8);
   const [requestedId, setRequestedId] = useState<string | null>(() => {
     if (typeof window === 'undefined') return null;
     return extractProductIdFromLocation(window.location);
@@ -118,7 +117,7 @@ export default function App() {
     if (typeof window === 'undefined') return null;
     const initialId = extractProductIdFromLocation(window.location);
     if (!initialId) return null;
-    const initialCatalog = readStorage<Product[]>(PRODUCTS_CACHE_KEY, PRODUCTS);
+    const initialCatalog = readStorage<Product[]>(PRODUCTS_CACHE_KEY, []);
     return findProductByIdOrSku(initialCatalog, initialId);
   });
 
@@ -131,7 +130,7 @@ export default function App() {
         const res = await fetch(`${BACKEND_URL}/api/products`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-        if (data?.success && Array.isArray(data.products) && data.products.length > 0) {
+        if (data?.success && Array.isArray(data.products)) {
           if (isMounted) {
             setProducts(data.products);
             try {
@@ -163,7 +162,7 @@ export default function App() {
           const packsRes = await fetch(`${BACKEND_URL}/api/packs`);
           if (packsRes.ok) {
             const packsData = await packsRes.json();
-            if (packsData?.success && Array.isArray(packsData.packs) && packsData.packs.length > 0) {
+            if (packsData?.success && Array.isArray(packsData.packs)) {
               if (isMounted) {
                 setPacks(packsData.packs);
                 try {
@@ -275,6 +274,15 @@ export default function App() {
     () => filterAndSortProducts(products, filters),
     [products, filters],
   );
+
+  const displayedProducts = useMemo(
+    () => filteredProducts.slice(0, visibleProductsCount),
+    [filteredProducts, visibleProductsCount],
+  );
+
+  useEffect(() => {
+    setVisibleProductsCount(8);
+  }, [filters.series, filters.color, filters.query, filters.sort]);
 
   const cartSummary = useMemo(
     () => calculateOrderTotals(cart, products, 'pickup'),
@@ -487,8 +495,8 @@ export default function App() {
                     data-testid="catalog-results-count"
                     className="text-xs font-bold font-mono text-[#18181B] bg-white px-3 py-1.5 rounded-lg border-2 border-stone-300 tabular-nums"
                   >
-                    عرض {filteredProducts.length} من أصل {products.length}{' '}
-                    {products.length >= 3 && products.length <= 10 ? 'منتجات' : 'منتج'}
+                    عرض {displayedProducts.length} من أصل {filteredProducts.length}{' '}
+                    {filteredProducts.length >= 3 && filteredProducts.length <= 10 ? 'منتجات' : 'منتج'}
                   </p>
                 </div>
 
@@ -606,11 +614,12 @@ export default function App() {
 
                 {/* Product Grid or Empty State */}
                 {filteredProducts.length > 0 ? (
-                  <div
-                    data-testid="product-grid"
-                    className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-7"
-                  >
-                    {filteredProducts.map((product) => {
+                  <>
+                    <div
+                      data-testid="product-grid"
+                      className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-7"
+                    >
+                    {displayedProducts.map((product) => {
                       const quantityInCart = cart
                         .filter((item) => item.productId === product.id)
                         .reduce((sum, item) => sum + item.quantity, 0);
@@ -695,7 +704,21 @@ export default function App() {
                       </aside>
                     ) : null}
                   </div>
-                ) : (
+
+                  {filteredProducts.length > visibleProductsCount ? (
+                    <div className="mt-8 flex justify-center">
+                      <button
+                        type="button"
+                        onClick={() => setVisibleProductsCount((prev) => prev + 8)}
+                        className="inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-2xl bg-[#18181B] hover:bg-[#E30613] text-white font-black text-sm border-2 border-[#18181B] shadow-[4px_4px_0px_#18181B] active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer"
+                      >
+                        <span>عرض المزيد من المعروضات ({filteredProducts.length - visibleProductsCount} منتج إضافي)</span>
+                        <ChevronDown className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : null}
+                </>
+              ) : (
                   <div className="mt-8 space-y-6">
                     {products.length === 0 ? (
                       /* HYPER-INTERACTIVE VIRTUAL SHOWROOM OF OFFICIAL TECHNO DEPARTMENTS */
@@ -899,7 +922,10 @@ export default function App() {
               onAddToCart={handleAddPackToCart}
             />
 
-            <QuickOrderSection products={products} />
+            <QuickOrderSection
+              products={products}
+              onOrderCompleted={handleOrderCompleted}
+            />
 
             <BranchSection savedOrders={savedOrders} />
           </main>
