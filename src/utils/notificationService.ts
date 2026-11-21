@@ -87,31 +87,31 @@ export function buildTelegramMessage(
     order.customer.deliveryMethod;
 
   const lines: string[] = [
-    `🛍️ <b>طلب جديد من متجر تكنو الأغواط</b>`,
+    `<b>طلب جديد — متجر تكنو الأغواط</b>`,
     `━━━━━━━━━━━━━━━━━━━━`,
-    `🔖 <b>رقم الطلب:</b> <code>#${escapeHtml(order.orderId)}</code>`,
-    `👤 <b>الاسم:</b> ${escapeHtml(order.customer.fullName)}`,
-    `🚚 <b>طريقة الاستلام:</b> ${escapeHtml(delivery)}`,
-    `📍 <b>الولاية:</b> ${escapeHtml(order.customer.wilaya)}`,
+    `<b>رقم الطلب:</b> <code>#${escapeHtml(order.orderId)}</code>`,
+    `<b>الاسم:</b> ${escapeHtml(order.customer.fullName)}`,
+    `<b>طريقة الاستلام:</b> ${escapeHtml(delivery)}`,
+    `<b>الولاية:</b> ${escapeHtml(order.customer.wilaya)}`,
   ];
 
   if (order.customer.commune) {
-    lines.push(`🏢 <b>البلدية / المكتب:</b> ${escapeHtml(order.customer.commune)}`);
+    lines.push(`<b>البلدية / المكتب:</b> ${escapeHtml(order.customer.commune)}`);
   }
 
   if (!safeMode) {
     // Unmasked mode (warning: may risk Telegram phone harvester bans)
-    lines.push(`📞 <b>الهاتف:</b> <code>${escapeHtml(order.customer.phone)}</code>`);
+    lines.push(`<b>الهاتف:</b> <code>${escapeHtml(order.customer.phone)}</code>`);
     if (order.customer.address) {
-      lines.push(`🏠 <b>العنوان:</b> ${escapeHtml(order.customer.address)}`);
+      lines.push(`<b>العنوان:</b> ${escapeHtml(order.customer.address)}`);
     }
   } else {
     // Safe mode: protect account from bans
-    lines.push(`📞 <b>الهاتف:</b> <code>${maskPhoneNumber(order.customer.phone)}</code> (محمي بنظام الأمان)`);
+    lines.push(`<b>الهاتف:</b> <code>${maskPhoneNumber(order.customer.phone)}</code> (محمي بنظام الأمان)`);
   }
 
   lines.push(`━━━━━━━━━━━━━━━━━━━━`);
-  lines.push(`📦 <b>المنتجات المطلوبة (${order.totals.itemCount}):</b>`);
+  lines.push(`<b>المنتجات المطلوبة (${order.totals.itemCount}):</b>`);
 
   for (const item of order.items) {
     const optionText = item.variantLabel
@@ -126,23 +126,23 @@ export function buildTelegramMessage(
 
   lines.push(`━━━━━━━━━━━━━━━━━━━━`);
   lines.push(
-    `🚚 <b>رسوم التوصيل:</b> ${
+    `<b>رسوم التوصيل:</b> ${
       order.totals.shippingFeeDzd === 0 ? 'مجاني' : formatDzd(order.totals.shippingFeeDzd)
     }`,
   );
   lines.push(
-    `💰 <b>المجموع الإجمالي:</b> <b>${formatDzd(order.totals.totalDzd)}</b> (الدفع عند الاستلام)`,
+    `<b>المجموع الإجمالي:</b> <b>${formatDzd(order.totals.totalDzd)}</b> (الدفع عند الاستلام)`,
   );
 
   if (order.customer.notes) {
-    lines.push(`📝 <b>ملاحظة:</b> <i>${escapeHtml(order.customer.notes)}</i>`);
+    lines.push(`<b>ملاحظة:</b> <i>${escapeHtml(order.customer.notes)}</i>`);
   }
 
   if (safeMode) {
     lines.push(`━━━━━━━━━━━━━━━━━━━━`);
-    lines.push(`🛡️ <b>حماية الحساب ضد الحظر:</b>`);
+    lines.push(`<b>حماية الحساب ضد الحظر:</b>`);
     lines.push(`تم حجب رقم الهاتف الكامل والعنوان لتفادي حظر بوتات التيليجرام.`);
-    lines.push(`📲 <b>التفاصيل الكاملة ورقم الهاتف متوفرة فوراً في ntfy:</b>`);
+    lines.push(`<b>التفاصيل الكاملة ورقم الهاتف متوفرة فوراً في ntfy:</b>`);
     lines.push(`<a href="${ntfyUrl}">${ntfyUrl}</a>`);
   }
 
@@ -232,7 +232,7 @@ export async function sendTelegramNotification(
       inline_keyboard: [
         [
           {
-            text: '📲 فتح تفاصيل الطلب في تطبيق ntfy',
+            text: 'فتح تفاصيل الطلب في تطبيق ntfy',
             url: 'https://techno-laghouat-backend.hotel-saharien.workers.dev/ntfy/open',
           },
         ],
@@ -307,7 +307,7 @@ export async function sendNtfyNotification(
     topicsToNotify.map(async (topic) => {
       const payload: Record<string, any> = {
         topic,
-        title: `📦 طلب جديد #${order.orderId} (${formatDzd(order.totals.totalDzd)})`,
+        title: `طلب جديد #${order.orderId} (${formatDzd(order.totals.totalDzd)})`,
         message: messageBody,
         priority: 5, // Urgent/Max priority (generates immediate loud sound, vibration, banner)
         tags: ['package', 'moneybag', 'techno_laghouat'],
@@ -315,7 +315,7 @@ export async function sendNtfyNotification(
           ? [
               {
                 action: 'view',
-                label: `📞 اتصال بالعميل (${order.customer.phone})`,
+                label: `اتصال بالعميل (${order.customer.phone})`,
                 url: `tel:${cleanPhone}`,
               },
             ]

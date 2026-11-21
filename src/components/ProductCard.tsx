@@ -145,9 +145,10 @@ export function ProductCard({
             {product.highlights.slice(0, 2).map((h, i) => (
               <span
                 key={i}
-                className="text-[10px] font-bold text-stone-700 bg-white border border-stone-300 px-1.5 py-0.5 rounded"
+                className="inline-flex items-center text-[10px] font-bold text-stone-700 bg-white border border-stone-300 px-1.5 py-0.5 rounded"
               >
-                ✓ {h}
+                <Check className="w-3 h-3 text-emerald-600 ml-1 shrink-0" aria-hidden="true" />
+                <span>{h}</span>
               </span>
             ))}
           </div>

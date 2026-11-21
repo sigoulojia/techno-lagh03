@@ -177,7 +177,7 @@ export function generateReceiptHtml(order: SavedOrder, includePrintBar = true): 
       ? `<div class="print-bar">
     <span style="font-size: 13px; color: #71717A;">وصل استلام رسمي (PDF) — متجر تكنو الأغواط</span>
     <div style="display: flex; gap: 8px;">
-      <button onclick="window.print()" class="btn btn-primary">🖨️ طباعة أو حفظ كـ PDF</button>
+      <button onclick="window.print()" class="btn btn-primary">طباعة أو حفظ كـ PDF</button>
       <button onclick="window.close()" class="btn btn-secondary">إغلاق</button>
     </div>
   </div>`
@@ -268,7 +268,7 @@ export function generateReceiptHtml(order: SavedOrder, includePrintBar = true): 
         <p style="margin-top: 2px;">سيتصل بكم فريق المتجر هاتفياً قبل التسليم للتأكيد.</p>
       </div>
       <div class="stamp-badge">
-        ✓ تم تأكيد الطلب بنجاح
+        تم تأكيد الطلب بنجاح
       </div>
     </div>
   </div>

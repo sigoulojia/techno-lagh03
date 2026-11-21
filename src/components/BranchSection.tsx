@@ -93,34 +93,6 @@ export function BranchSection({ savedOrders }: BranchSectionProps) {
     }
   };
 
-  // Load a rich demonstration order so the user can experience the tracking system live
-  const handleLoadDemoOrder = () => {
-    const demoCode = 'TL-8429-1950-3741';
-    setLookupInput(demoCode);
-    setSearchedCode(demoCode);
-    setIsSearchingOnline(false);
-    setLiveOrder({
-      orderId: demoCode,
-      createdAtIso: new Date().toISOString(),
-      status: 'confirmed',
-      statusLabel: 'تم تأكيد الطلب — قيد التجهيز والشحن عبر ZR Express',
-      customerName: 'عبد القادر ب•••',
-      deliveryMethod: 'stop_desk',
-      wilaya: '03 - ولاية الأغواط',
-      commune: 'حي المحطة — مكتب ZR Express الأغواط',
-      items: [
-        {
-          productId: 'probag-04-brown',
-          name: 'حقيبة تكنو PROBAG-04 التنفيذية — بني كونياك',
-          variantLabel: 'Item No. 71635',
-          quantity: 1,
-          unitPriceDzd: 4800,
-        },
-      ],
-      totalDzd: 5180,
-    });
-  };
-
   const handleLookup = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const query = lookupInput.trim();
@@ -457,7 +429,7 @@ export function BranchSection({ savedOrders }: BranchSectionProps) {
                     <p className="mt-0.5 font-bold leading-relaxed">{STORE_INFO.address}</p>
                     <a
                       href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-                        'Techno Stationery Laghouat الأغواط',
+                        'Techno Stationery Laghouat حي المقام الأغواط',
                       )}`}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -515,15 +487,9 @@ export function BranchSection({ savedOrders }: BranchSectionProps) {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleLoadDemoOrder}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#18181B] text-[#FFD100] hover:bg-black font-bold text-xs shadow-md transition-all active:scale-95 cursor-pointer"
-                    title="شاهد تجربة تفاعلية مباشرة لكيفية عمل تتبع الطلب"
-                  >
-                    <Play className="w-3.5 h-3.5 fill-[#FFD100]" />
-                    <span>معاينة حية نموذجية</span>
-                  </button>
+                  <span className="stamp-red text-[11px] font-black">
+                    رادار التتبع المباشر
+                  </span>
                 </div>
               </div>
 

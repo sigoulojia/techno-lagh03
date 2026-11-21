@@ -11,7 +11,6 @@ const QUICK_PRODUCTS = [
   { id: 'techno-classic-caramel', name: 'حقيبة تكنو التراثية الكلاسيكية — بني كراميل', basePriceDzd: 5400 },
   { id: 'techno-classic-black', name: 'حقيبة تكنو التراثية الكلاسيكية — أسود فاحم', basePriceDzd: 5400 },
   { id: 'versal-executive-black', name: 'حقيبة Versal الرسمية — أسود مطفي', basePriceDzd: 4500 },
-  { id: 'custom-package', name: 'أدوات مكتبية أو لوازم أخرى (حسب طلبي)', basePriceDzd: 3500 },
 ];
 
 export function QuickOrderSection() {
@@ -260,7 +259,7 @@ export function QuickOrderSection() {
                     </label>
                     {cleanPhoneDigits.length > 0 && (
                       <span className={`text-[10px] font-bold ${isPhoneValid ? 'text-emerald-700' : 'text-stone-500'}`}>
-                        {isPhoneValid ? '✓ رقم جزائري صحيح' : `${cleanPhoneDigits.length}/10 خانات`}
+                        {isPhoneValid ? 'رقم جزائري صحيح' : `${cleanPhoneDigits.length}/10 خانات`}
                       </span>
                     )}
                   </div>

@@ -113,15 +113,15 @@ export function AdminNotificationModal({ isOpen, onClose }: AdminNotificationMod
               مرتبط بالـ Backend السحابي في <b>Cloudflare</b> مع قاعدة بيانات <b>KV</b>. يمكنك من خلاله إضافة منتجات جديدة بصورها وأسعارها وحذفها مباشرة:
             </p>
             <div className="bg-white p-3 rounded-lg border border-stone-200 text-xs space-y-1.5 text-stone-700">
-              <p>➕ <b>لإضافة منتج:</b> أرسل صورة الحقيبة في المجموعة واكتب في الشرح (Caption):</p>
+              <p><b>لإضافة منتج:</b> أرسل صورة الحقيبة في المجموعة واكتب في الشرح (Caption):</p>
               <pre className="bg-stone-100 p-2 rounded text-[11px] font-mono text-stone-800 overflow-x-auto">
 {`اسم: حقيبة لابتوب جلدية
 سعر: 9500
 لون: بني
 سلسلة: classic`}
               </pre>
-              <p>🗑️ <b>لحذف منتج:</b> اكتب أمر <code className="bg-stone-100 px-1 py-0.5 rounded">/list</code> أو <code className="bg-stone-100 px-1 py-0.5 rounded">/delete</code> واضغط زر الحذف.</p>
-              <p>🔄 <b>لاستعادة الأصلي:</b> اكتب <code className="bg-stone-100 px-1 py-0.5 rounded">/reset</code> لاسترجاع المنتجات الافتراضية.</p>
+              <p><b>لحذف منتج:</b> اكتب أمر <code className="bg-stone-100 px-1 py-0.5 rounded">/list</code> أو <code className="bg-stone-100 px-1 py-0.5 rounded">/delete</code> واضغط زر الحذف.</p>
+              <p><b>لاستعادة الأصلي:</b> اكتب <code className="bg-stone-100 px-1 py-0.5 rounded">/reset</code> لاسترجاع المنتجات الافتراضية.</p>
             </div>
             <div className="flex flex-wrap gap-2 pt-1">
               <a
@@ -159,7 +159,7 @@ export function AdminNotificationModal({ isOpen, onClose }: AdminNotificationMod
             <div className="text-xs text-[#52525B] space-y-1 font-mono">
               <p>Chat ID: {DEFAULT_NOTIFICATION_CONFIG.telegramChatId} (technoowner)</p>
               <p className="text-emerald-700 font-sans">
-                ✓ وضع الأمان مفعل: حجب الهاتف في تيليجرام لحماية الحساب.
+                وضع الأمان مفعل: حجب الهاتف في تيليجرام لحماية الحساب.
               </p>
             </div>
           </div>

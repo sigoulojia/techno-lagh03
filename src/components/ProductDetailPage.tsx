@@ -235,7 +235,7 @@ export function ProductDetailPage({
               className="inline-flex items-center gap-1.5 px-3 py-2 min-h-[40px] rounded-lg border border-stone-200 bg-white text-xs font-semibold text-[#18181B] hover:border-[#E30613] transition-colors cursor-pointer"
             >
               <Copy className="w-3.5 h-3.5 text-[#E30613]" aria-hidden="true" />
-              <span>{copiedLink ? 'تم نسخ الرابط ✓' : `نسخ رابط #${product.sku}`}</span>
+              <span>{copiedLink ? 'تم نسخ الرابط بنجاح' : `نسخ رابط #${product.sku}`}</span>
             </button>
 
             <button

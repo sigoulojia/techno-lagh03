@@ -15,7 +15,7 @@ const CATEGORIES = [
     filterQuery: 'مكتبي',
     accentColor: 'from-[#FFD100]/25 via-white to-white',
     iconBg: 'bg-[#FFD100] text-[#18181B]',
-    countBadge: 'أكثر من 80 أداة',
+    countBadge: 'طلب مباشر',
   },
   {
     id: 'pens',
@@ -26,7 +26,7 @@ const CATEGORIES = [
     filterQuery: 'قلم',
     accentColor: 'from-[#E30613]/15 via-white to-white',
     iconBg: 'bg-[#E30613] text-white',
-    countBadge: 'أقلام أصلية 100%',
+    countBadge: 'أصلي 100%',
   },
   {
     id: 'bags',
@@ -37,7 +37,7 @@ const CATEGORIES = [
     filterQuery: 'حقيبة',
     accentColor: 'from-stone-900/10 via-white to-white',
     iconBg: 'bg-[#18181B] text-[#FFD100]',
-    countBadge: 'مقاومة للصدمات',
+    countBadge: 'متوفر بالفرع',
   },
   {
     id: 'arts',
@@ -48,7 +48,7 @@ const CATEGORIES = [
     filterQuery: 'فنون',
     accentColor: 'from-amber-500/15 via-white to-white',
     iconBg: 'bg-amber-500 text-white',
-    countBadge: 'معايير معمارية',
+    countBadge: 'معتمد رسمياً',
   },
   {
     id: 'school',
@@ -59,7 +59,7 @@ const CATEGORIES = [
     filterQuery: 'مدرسة',
     accentColor: 'from-blue-500/15 via-white to-white',
     iconBg: 'bg-blue-600 text-white',
-    countBadge: 'أدوات تدوم طويلاً',
+    countBadge: 'توصيل 54 ولاية',
   },
   {
     id: 'clocks',
@@ -70,7 +70,7 @@ const CATEGORIES = [
     filterQuery: 'ساعة',
     accentColor: 'from-emerald-500/15 via-white to-white',
     iconBg: 'bg-emerald-600 text-white',
-    countBadge: 'دقة واحترافية',
+    countBadge: 'ضمان تكنو',
   },
 ];
 

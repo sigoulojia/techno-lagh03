@@ -33,9 +33,9 @@ export function Header({ cartCount, onOpenCart }: HeaderProps) {
   const closeMobileMenu = () => setIsMobileMenuOpen(false);
 
   const navLinks = [
-    { label: 'الأقسام والمعروضات', href: '#collection' },
+    { label: 'المعروضات والحقائب', href: '#collection' },
     { label: 'تعريفة ZR Express', href: '#delivery-rates' },
-    { label: 'دليل الأدوات الذكي', href: '#assistant' },
+    { label: 'الطلب المباشر', href: '#quick-order' },
     { label: 'حكاية 25 سنة', href: '#craftsmanship' },
     { label: 'موقع الفرع', href: '#branch' },
   ];

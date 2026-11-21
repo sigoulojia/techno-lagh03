@@ -40,7 +40,6 @@ import { Header } from './components/Header';
 import { Hero } from './components/Hero';
 import { AnnouncementBar } from './components/AnnouncementBar';
 import { TrustBadges } from './components/TrustBadges';
-import { StationeryAssistant } from './components/StationeryAssistant';
 import { CategoryShowcase } from './components/CategoryShowcase';
 import { QuickOrderSection } from './components/QuickOrderSection';
 import { FloatingActions } from './components/FloatingActions';
@@ -378,8 +377,6 @@ export default function App() {
             />
 
             <TrustBadges />
-
-            <StationeryAssistant />
 
             <CategoryShowcase
               onSelectCategory={(query) => {

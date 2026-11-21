@@ -202,7 +202,7 @@ export function CartDrawer({
             >
               {step === 'cart' && `سلة الطلب الرسمية (${totals.itemCount})`}
               {step === 'checkout' && 'استمارة معلومات الطلب والتوصيل'}
-              {step === 'confirmed' && 'تم تأكيد طلبك بنجاح ✓'}
+              {step === 'confirmed' && 'تم تأكيد طلبك بنجاح'}
             </h2>
           </div>
 
@@ -582,7 +582,7 @@ export function CartDrawer({
                     className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 min-h-[42px] rounded-lg border border-stone-300 bg-white text-[#18181B] text-xs font-semibold hover:border-[#18181B] hover:bg-stone-50 transition-colors cursor-pointer"
                   >
                     <Copy className="w-3.5 h-3.5 shrink-0 text-[#52525B]" aria-hidden="true" />
-                    <span>{copiedReceipt ? 'تم النسخ بنجاح ✓' : 'نسخ ملخص الطلب'}</span>
+                    <span>{copiedReceipt ? 'تم النسخ بنجاح' : 'نسخ ملخص الطلب'}</span>
                   </button>
                 </div>
 
