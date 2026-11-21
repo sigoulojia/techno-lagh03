@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Check, ChevronLeft, ChevronRight, Eye, ShoppingBag } from 'lucide-react';
+import { motion } from 'motion/react';
 import type { Product } from '../data/products';
 import {
   formatDzd,
@@ -51,9 +52,14 @@ export function ProductCard({
   };
 
   return (
-    <article
+    <motion.article
       data-testid={`product-card-${product.id}`}
-      className="group flex flex-col bg-white border border-stone-200/90 rounded-2xl overflow-hidden transition-all duration-200 hover:-translate-y-1 hover:shadow-lg hover:border-[#FFD100]"
+      initial={{ opacity: 0, y: 15 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: '-30px' }}
+      whileHover={{ y: -4 }}
+      transition={{ duration: 0.3 }}
+      className="group flex flex-col bg-white border border-stone-200/90 rounded-2xl overflow-hidden transition-all duration-200 hover:shadow-xl hover:border-[#FFD100]"
     >
       {/* Square Image Container with Interactive Multi-Photo Switcher */}
       <div className="relative aspect-square w-full bg-[#F5F4EF] overflow-hidden">
@@ -207,6 +213,6 @@ export function ProductCard({
           </button>
         </div>
       </div>
-    </article>
+    </motion.article>
   );
 }

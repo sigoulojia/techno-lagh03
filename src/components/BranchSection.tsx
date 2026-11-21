@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   Building2,
   Check,
@@ -64,6 +65,7 @@ const BACKEND_URL =
 export function BranchSection({ savedOrders }: BranchSectionProps) {
   const [selectedWilayaLabel, setSelectedWilayaLabel] = useState<string>(DEFAULT_WILAYA);
   const [showAllLaghouatBureaus, setShowAllLaghouatBureaus] = useState(false);
+  const [communeSearch, setCommuneSearch] = useState('');
   const [lookupInput, setLookupInput] = useState('');
   const [searchedCode, setSearchedCode] = useState<string | null>(null);
   const [isSearchingOnline, setIsSearchingOnline] = useState(false);
@@ -312,20 +314,37 @@ export function BranchSection({ savedOrders }: BranchSectionProps) {
                     </div>
 
                     {showAllLaghouatBureaus ? (
-                      <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs text-[#52525B]">
-                        {LAGHOUAT_BUREAUS.map((bureau) => (
-                          <div
-                            key={bureau.nameFr}
-                            className="px-3 py-2 rounded-xl bg-white border border-stone-200 flex items-center justify-between gap-1 shadow-2xs"
-                          >
-                            <span className="font-semibold text-[#18181B] truncate">
-                              {bureau.nameAr}
-                            </span>
-                            <span className="font-mono text-[11px] text-stone-500 shrink-0 font-bold">
-                              380 / 500
-                            </span>
-                          </div>
-                        ))}
+                      <div className="mt-3 space-y-3">
+                        <div className="relative">
+                          <Search className="w-3.5 h-3.5 text-stone-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                          <input
+                            type="search"
+                            placeholder="ابحث في بلديات الأغواط (مثال: آفلو، عين ماضي، قصر الحيران...)"
+                            value={communeSearch}
+                            onChange={(e) => setCommuneSearch(e.target.value)}
+                            className="w-full pr-8 pl-3 py-2 rounded-xl border border-stone-200 text-xs bg-white focus:outline-none focus:border-[#E30613]"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs text-[#52525B] max-h-60 overflow-y-auto p-1">
+                          {LAGHOUAT_BUREAUS.filter((b) =>
+                            communeSearch.trim() === ''
+                              ? true
+                              : b.nameAr.includes(communeSearch.trim()) ||
+                                b.nameFr.toLowerCase().includes(communeSearch.trim().toLowerCase()),
+                          ).map((bureau) => (
+                            <div
+                              key={bureau.nameFr}
+                              className="px-3 py-2 rounded-xl bg-white border border-stone-200 flex items-center justify-between gap-1 shadow-2xs hover:border-[#FFD100] transition-colors"
+                            >
+                              <span className="font-semibold text-[#18181B] truncate">
+                                {bureau.nameAr}
+                              </span>
+                              <span className="font-mono text-[11px] text-stone-500 shrink-0 font-bold">
+                                380 / 500
+                              </span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     ) : null}
                   </div>

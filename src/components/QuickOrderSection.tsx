@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
-import { ShoppingBag, Truck, Building2, CheckCircle2, Loader2, Phone, AlertCircle, Sparkles } from 'lucide-react';
+import { ShoppingBag, Truck, Building2, CheckCircle2, Loader2, Phone, AlertCircle, Sparkles, Check } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { WILAYA_DELIVERY_RATES, findWilayaRate } from '../data/deliveryRates';
 import { formatDzd } from '../utils/storeLogic';
 
@@ -35,6 +36,10 @@ export function QuickOrderSection() {
 
   const totalDzd = selectedProduct.basePriceDzd + shippingFeeDzd;
 
+  // Real-time phone check
+  const cleanPhoneDigits = phone.replace(/[^0-9]/g, '');
+  const isPhoneValid = /^0[567][0-9]{8}$/.test(cleanPhoneDigits);
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
@@ -60,7 +65,6 @@ export function QuickOrderSection() {
     setIsSubmitting(true);
 
     try {
-      // Send directly to backend
       const res = await fetch('https://techno-laghouat-backend.hotel-saharien.workers.dev/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -87,7 +91,7 @@ export function QuickOrderSection() {
             shippingFeeDzd: shippingFeeDzd,
             totalDzd: totalDzd,
           },
-          formDurationMs: 4500, // anti-bot token
+          formDurationMs: 4500,
         }),
       });
 
@@ -100,8 +104,8 @@ export function QuickOrderSection() {
       } else {
         throw new Error(data?.message || 'حدث خطأ في معالجة الطلب');
       }
-    } catch (err: any) {
-      // Fallback: create local confirmation
+    } catch {
+      // Fallback local order confirmation
       const fallbackId = `TL-${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}`;
       setCompletedOrder({
         orderId: fallbackId,
@@ -133,7 +137,11 @@ export function QuickOrderSection() {
         </div>
 
         {completedOrder ? (
-          <div className="max-w-xl mx-auto p-8 rounded-3xl bg-[#15161E] border-2 border-emerald-500 shadow-2xl text-center space-y-5 animate-pulse-subtle">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="max-w-xl mx-auto p-8 rounded-3xl bg-[#15161E] border-2 border-emerald-500 shadow-2xl text-center space-y-5"
+          >
             <div className="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto border border-emerald-500/40">
               <CheckCircle2 className="w-8 h-8" />
             </div>
@@ -167,7 +175,7 @@ export function QuickOrderSection() {
             >
               تسجيل طلب جديد
             </button>
-          </div>
+          </motion.div>
         ) : (
           <form
             onSubmit={handleSubmit}
@@ -208,7 +216,7 @@ export function QuickOrderSection() {
               </div>
             )}
 
-            {/* Step 2: Customer Name and Phone */}
+            {/* Step 2: Customer Name and Phone with Live Format Feedback */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label htmlFor="quick-name" className="block text-sm font-bold text-stone-200 mb-1.5">
@@ -225,9 +233,16 @@ export function QuickOrderSection() {
               </div>
 
               <div>
-                <label htmlFor="quick-phone" className="block text-sm font-bold text-stone-200 mb-1.5">
-                  رقم الهاتف (للتأكيد):
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label htmlFor="quick-phone" className="text-sm font-bold text-stone-200">
+                    رقم الهاتف (للتأكيد):
+                  </label>
+                  {cleanPhoneDigits.length > 0 && (
+                    <span className={`text-[10px] font-bold ${isPhoneValid ? 'text-emerald-400' : 'text-stone-400'}`}>
+                      {isPhoneValid ? '✓ رقم جزائري صحيح' : `${cleanPhoneDigits.length}/10 خانات`}
+                    </span>
+                  )}
+                </div>
                 <input
                   id="quick-phone"
                   type="tel"
@@ -235,7 +250,11 @@ export function QuickOrderSection() {
                   placeholder="0560 15 46 63"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  className="w-full px-4 py-3 min-h-[48px] rounded-xl border border-stone-700 bg-stone-900 text-white font-mono text-right text-sm focus:border-[#FFD100] focus:outline-none"
+                  className={`w-full px-4 py-3 min-h-[48px] rounded-xl border bg-stone-900 text-white font-mono text-right text-sm focus:outline-none transition-colors ${
+                    isPhoneValid
+                      ? 'border-emerald-500/80 focus:border-emerald-500'
+                      : 'border-stone-700 focus:border-[#FFD100]'
+                  }`}
                 />
               </div>
             </div>
@@ -265,7 +284,7 @@ export function QuickOrderSection() {
                   onClick={() => setDeliveryMethod('home')}
                   className={`p-3.5 rounded-xl border-2 flex items-center justify-center gap-2 text-xs font-bold transition-all cursor-pointer ${
                     deliveryMethod === 'home'
-                      ? 'border-[#E30613] bg-[#E30613]/15 text-white'
+                      ? 'border-[#E30613] bg-[#E30613]/15 text-white shadow-sm'
                       : 'border-stone-800 bg-stone-900/60 text-stone-400 hover:border-stone-700'
                   }`}
                 >
@@ -278,7 +297,7 @@ export function QuickOrderSection() {
                   onClick={() => setDeliveryMethod('stop_desk')}
                   className={`p-3.5 rounded-xl border-2 flex items-center justify-center gap-2 text-xs font-bold transition-all cursor-pointer ${
                     deliveryMethod === 'stop_desk'
-                      ? 'border-[#FFD100] bg-[#FFD100]/15 text-[#FFD100]'
+                      ? 'border-[#FFD100] bg-[#FFD100]/15 text-[#FFD100] shadow-sm'
                       : 'border-stone-800 bg-stone-900/60 text-stone-400 hover:border-stone-700'
                   }`}
                 >

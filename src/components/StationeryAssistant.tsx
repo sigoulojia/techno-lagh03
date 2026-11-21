@@ -1,6 +1,26 @@
 import { useState } from 'react';
-import { GraduationCap, Ruler, Briefcase, Palette, CheckCircle2, ArrowRight, MessageSquare, Sparkles } from 'lucide-react';
+import {
+  GraduationCap,
+  Ruler,
+  Briefcase,
+  Palette,
+  CheckCircle2,
+  ArrowRight,
+  MessageSquare,
+  Sparkles,
+  ShoppingBag,
+  ArrowDownLeft,
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { formatDzd } from '../utils/storeLogic';
+
+interface ToolItem {
+  id: string;
+  name: string;
+  desc: string;
+  icon: string;
+  priceDzd: number;
+}
 
 interface PersonaKit {
   id: string;
@@ -15,8 +35,7 @@ interface PersonaKit {
     bgGradient: string;
     badgeBg: string;
   };
-  tools: { name: string; desc: string; icon: string }[];
-  approxTotalDzd: number;
+  tools: ToolItem[];
 }
 
 const PERSONA_KITS: PersonaKit[] = [
@@ -30,15 +49,14 @@ const PERSONA_KITS: PersonaKit[] = [
     colorScheme: {
       tabActive: 'bg-[#FFD100] text-[#18181B] border-[#E5BC00]',
       border: 'border-[#FFD100]',
-      bgGradient: 'from-[#FFD100]/15 via-white to-white',
+      bgGradient: 'from-[#FFD100]/20 via-white to-white',
       badgeBg: 'bg-[#FFD100] text-[#18181B]',
     },
-    approxTotalDzd: 4800,
     tools: [
-      { name: 'دفاتر تكنو المقسمة (Multi-Subject)', desc: 'ورق ناصع فائق النعومة ومقاوم لتسرب الحبر مع فواصل ملونة.', icon: '📓' },
-      { name: 'طقم أقلام تحديد تكنو النيون (Highlighters)', desc: 'ألوان مشرقة ومريحة للعين لا تبهت مع الوقت.', icon: '🖍️' },
-      { name: 'أقلام حبر سائل ناعم (Gel Pens)', desc: 'سلاسة فائقة في الكتابة السريعة أثناء المحاضرات والامتحانات.', icon: '✍️' },
-      { name: 'حقيبة ظهر تكنو الخفيفة والمقاومة للمطر', desc: 'حماية ممتازة للدفاتر والكتب مع وسائد ظهر مريحة.', icon: '🎒' },
+      { id: 's1', name: 'دفاتر تكنو المقسمة (Multi-Subject)', desc: 'ورق ناصع فائق النعومة ومقاوم لتسرب الحبر مع فواصل ملونة.', icon: '📓', priceDzd: 1200 },
+      { id: 's2', name: 'طقم أقلام تحديد تكنو النيون (Highlighters)', desc: 'ألوان مشرقة ومريحة للعين لا تبهت مع الوقت.', icon: '🖍️', priceDzd: 650 },
+      { id: 's3', name: 'أقلام حبر سائل ناعم (Gel Pens)', desc: 'سلاسة فائقة في الكتابة السريعة أثناء المحاضرات والامتحانات.', icon: '✍️', priceDzd: 450 },
+      { id: 's4', name: 'حقيبة ظهر تكنو الخفيفة والمقاومة للمطر', desc: 'حماية ممتازة للدفاتر والكتب مع وسائد ظهر مريحة.', icon: '🎒', priceDzd: 2500 },
     ],
   },
   {
@@ -51,15 +69,14 @@ const PERSONA_KITS: PersonaKit[] = [
     colorScheme: {
       tabActive: 'bg-[#E30613] text-white border-[#C4000F]',
       border: 'border-[#E30613]',
-      bgGradient: 'from-[#E30613]/10 via-white to-white',
+      bgGradient: 'from-[#E30613]/15 via-white to-white',
       badgeBg: 'bg-[#E30613] text-white',
     },
-    approxTotalDzd: 9500,
     tools: [
-      { name: 'أقلام تحبير هندسية متدرجة (Technical Drawing Pens)', desc: 'أقلام دقيقة برؤوس معيارية (0.1, 0.3, 0.5, 0.8 ملم) بحبر ثابت.', icon: '📐' },
-      { name: 'ورق كانسون (Canson) والميليمتري الفاخر', desc: 'أوراق رسم هندسي ومخططات بمقاسات A3 و A4 بأعلى جودة.', icon: '📄' },
-      { name: 'مسطرة T ومثلثات ومنقلات احترافية من تكنو', desc: 'حواف حادة ومدرجة بالليزر خالية من الانحراف.', icon: '📏' },
-      { name: 'حقيبة حافظة للمخططات واللوحات الهندسية (Porte-Plan)', desc: 'أنبوب أسطواني متين ومقاوم للماء لنقل الرسومات دون تجاعيد.', icon: '📦' },
+      { id: 'a1', name: 'أقلام تحبير هندسية متدرجة (Technical Drawing Pens)', desc: 'أقلام دقيقة برؤوس معيارية (0.1, 0.3, 0.5, 0.8 ملم) بحبر ثابت.', icon: '📐', priceDzd: 2800 },
+      { id: 'a2', name: 'ورق كانسون (Canson) والميليمتري الفاخر', desc: 'أوراق رسم هندسي ومخططات بمقاسات A3 و A4 بأعلى جودة.', icon: '📄', priceDzd: 1900 },
+      { id: 'a3', name: 'مسطرة T ومثلثات ومنقلات احترافية من تكنو', desc: 'حواف حادة ومدرجة بالليزر خالية من الانحراف.', icon: '📏', priceDzd: 1600 },
+      { id: 'a4', name: 'حقيبة حافظة للمخططات واللوحات الهندسية (Porte-Plan)', desc: 'أنبوب أسطواني متين ومقاوم للماء لنقل الرسومات دون تجاعيد.', icon: '📦', priceDzd: 3200 },
     ],
   },
   {
@@ -75,12 +92,11 @@ const PERSONA_KITS: PersonaKit[] = [
       bgGradient: 'from-stone-900/10 via-white to-white',
       badgeBg: 'bg-[#18181B] text-[#FFD100]',
     },
-    approxTotalDzd: 14500,
     tools: [
-      { name: 'سجلات المحاسبة واليومية المعتمدة (Registres)', desc: 'تجليد فاخر بورق سميك وترقيم رسمي واضح.', icon: '📑' },
-      { name: 'ملفات الحفظ والأرشفة المعدنية المتينة (Classeurs)', desc: 'آليات إغلاق فولاذية تتحمل الاستعمال اليومي المكثف.', icon: '📁' },
-      { name: 'قلم التوقيع التنفيذي الفاخر من تكنو (Executive Roller)', desc: 'هيكل معدني مصقول بتدفق حبر ملكي أسود وأزرق.', icon: '🖋️' },
-      { name: 'حقيبة حاسوب ووثائق تكنو PROBAG الجلدية', desc: 'جيوب أمان مبطنة مع مقبض وحزام مريح للرحلات والاجتماعات.', icon: '💼' },
+      { id: 'm1', name: 'سجلات المحاسبة واليومية المعتمدة (Registres)', desc: 'تجليد فاخر بورق سميك وترقيم رسمي واضح.', icon: '📑', priceDzd: 2600 },
+      { id: 'm2', name: 'ملفات الحفظ والأرشفة المعدنية المتينة (Classeurs)', desc: 'آليات إغلاق فولاذية تتحمل الاستعمال اليومي المكثف.', icon: '📁', priceDzd: 1800 },
+      { id: 'm3', name: 'قلم التوقيع التنفيذي الفاخر من تكنو (Executive Roller)', desc: 'هيكل معدني مصقول بتدفق حبر ملكي أسود وأزرق.', icon: '🖋️', priceDzd: 3600 },
+      { id: 'm4', name: 'حقيبة حاسوب ووثائق تكنو PROBAG الجلدية', desc: 'جيوب أمان مبطنة مع مقبض وحزام مريح للرحلات والاجتماعات.', icon: '💼', priceDzd: 6500 },
     ],
   },
   {
@@ -93,29 +109,49 @@ const PERSONA_KITS: PersonaKit[] = [
     colorScheme: {
       tabActive: 'bg-amber-500 text-white border-amber-600',
       border: 'border-amber-400',
-      bgGradient: 'from-amber-500/15 via-white to-white',
+      bgGradient: 'from-amber-500/20 via-white to-white',
       badgeBg: 'bg-amber-500 text-white',
     },
-    approxTotalDzd: 7800,
     tools: [
-      { name: 'مجموعات الألوان الزيتية والمائية والأكريليك', desc: 'أصباغ مركزة وتدرجات غنية سهلة المزج وسريعة الجفاف.', icon: '🎨' },
-      { name: 'فراشي رسم احترافية بأحجام وأشكال متعددة', desc: 'شعيرات مرنة تحتفظ بشكلها ولا تتساقط أثناء العمل.', icon: '🖌️' },
-      { name: 'أقلام ومحابر الخط العربي المتخصصة', desc: 'أقلام بقصب ومعدن بأطراف مشطوبة بدقة متناهية للكتابة الكلاسيكية.', icon: '✒️' },
-      { name: 'كراسات رسم فني سميكة (Sketchbooks)', desc: 'ورق عاجي مخصص لمختلف تقنيات الرسم بالألوان والظلال.', icon: '📖' },
+      { id: 'ar1', name: 'مجموعات الألوان الزيتية والمائية والأكريليك', desc: 'أصباغ مركزة وتدرجات غنية سهلة المزج وسريعة الجفاف.', icon: '🎨', priceDzd: 3200 },
+      { id: 'ar2', name: 'فراشي رسم احترافية بأحجام وأشكال متعددة', desc: 'شعيرات مرنة تحتفظ بشكلها ولا تتساقط أثناء العمل.', icon: '🖌️', priceDzd: 1400 },
+      { id: 'ar3', name: 'أقلام ومحابر الخط العربي المتخصصة', desc: 'أقلام بقصب ومعدن بأطراف مشطوبة بدقة متناهية للكتابة الكلاسيكية.', icon: '✒️', priceDzd: 1800 },
+      { id: 'ar4', name: 'كراسات رسم فني سميكة (Sketchbooks)', desc: 'ورق عاجي مخصص لمختلف تقنيات الرسم بالألوان والظلال.', icon: '📖', priceDzd: 1400 },
     ],
   },
 ];
 
 export function StationeryAssistant() {
   const [activePersonaId, setActivePersonaId] = useState('student');
+  const [selectedTools, setSelectedTools] = useState<Record<string, boolean>>({
+    s1: true, s2: true, s3: true, s4: true,
+    a1: true, a2: true, a3: true, a4: true,
+    m1: true, m2: true, m3: true, m4: true,
+    ar1: true, ar2: true, ar3: true, ar4: true,
+  });
+
   const activeKit = PERSONA_KITS.find((k) => k.id === activePersonaId) || PERSONA_KITS[0];
   const Icon = activeKit.icon;
 
+  const toggleTool = (toolId: string) => {
+    setSelectedTools((prev) => ({
+      ...prev,
+      [toolId]: !prev[toolId],
+    }));
+  };
+
+  // Calculate live dynamic total based on checked items
+  const activeTotalDzd = activeKit.tools.reduce((sum, tool) => {
+    return sum + (selectedTools[tool.id] ? tool.priceDzd : 0);
+  }, 0);
+
+  const activeSelectedCount = activeKit.tools.filter((t) => selectedTools[t.id]).length;
+
   return (
-    <section className="py-16 lg:py-24 bg-white border-b border-stone-200/90 relative overflow-hidden">
+    <section id="assistant" className="py-16 lg:py-24 bg-white border-b border-stone-200/90 relative overflow-hidden">
       {/* Background ambient lighting */}
-      <div className="absolute top-0 right-1/4 w-80 h-80 bg-[#FFD100]/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-[#E30613]/5 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-0 right-1/4 w-96 h-96 bg-[#FFD100]/15 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-[#E30613]/10 rounded-full blur-3xl pointer-events-none" />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
         {/* Header Title */}
@@ -125,7 +161,7 @@ export function StationeryAssistant() {
             <span>دليل تكنو الذكي لاختيار الأدوات</span>
           </div>
           <h2 className="font-display text-2xl sm:text-4xl font-black text-[#18181B] text-balance">
-            ما هو مجالك؟ اختر باقتك المتكاملة بنقرة واحدة
+            ما هو مجالك؟ اختر باقتك التفاعلية بنقرة واحدة
           </h2>
           <p className="mt-3 text-sm sm:text-base text-[#52525B] leading-relaxed">
             صممنا تشكيلات متخصصة ومدروسة بعناية لتلبي احتياجات كل مهنة وتخصص بأعلى معايير الجودة المعتمدة من تكنو الأغواط.
@@ -149,96 +185,121 @@ export function StationeryAssistant() {
                 }`}
               >
                 <TabIcon className="w-4 h-4 shrink-0" />
-                <span>{kit.title}</span>
+                <span>{kit.title.split(' ')[0]} {kit.title.split(' ')[1]}</span>
               </button>
             );
           })}
         </div>
 
-        {/* Active Kit Interactive Showcase Card */}
-        <div className={`p-6 sm:p-10 rounded-3xl bg-gradient-to-br ${activeKit.colorScheme.bgGradient} border-2 ${activeKit.colorScheme.border} shadow-xl transition-all duration-300`}>
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
-            {/* Left Column: Kit Story & Direct Order */}
-            <div className="lg:col-span-5 space-y-5">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold shadow-xs border border-white/60 bg-white text-[#18181B]">
-                <Icon className="w-4 h-4 text-[#E30613]" />
-                <span>{activeKit.badge}</span>
-              </div>
-
-              <div>
-                <h3 className="font-display text-2xl sm:text-3xl font-extrabold text-[#18181B]">
-                  {activeKit.subtitle}
-                </h3>
-                <p className="mt-3 text-sm sm:text-base text-[#52525B] leading-relaxed">
-                  {activeKit.highlightText}
-                </p>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-white/90 border border-stone-200/80 shadow-xs space-y-3">
-                <div className="flex items-center justify-between text-xs font-semibold text-[#71717A]">
-                  <span>التكلفة التقديرية للباقة الكاملة:</span>
-                  <span className="font-mono text-xl font-black text-[#E30613]">
-                    ~ {formatDzd(activeKit.approxTotalDzd)}
-                  </span>
+        {/* Interactive Active Kit Panel */}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeKit.id}
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -15 }}
+            transition={{ duration: 0.3 }}
+            className={`p-6 sm:p-10 rounded-3xl bg-gradient-to-b ${activeKit.colorScheme.bgGradient} border-2 ${activeKit.colorScheme.border} shadow-xl relative overflow-hidden`}
+          >
+            {/* Top Kit Badge & Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-stone-200">
+              <div className="flex items-start sm:items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-white shadow-md border border-stone-200/80 flex items-center justify-center shrink-0">
+                  <Icon className="w-7 h-7 text-[#E30613]" />
                 </div>
-                <p className="text-[11px] text-stone-500">
-                  شاملة كافة الأدوات الموصى بها مع إمكانية التعديل وحساب التوصيل حسب ولايتك.
-                </p>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={`text-xs font-black px-3 py-0.5 rounded-full ${activeKit.colorScheme.badgeBg}`}>
+                      {activeKit.badge}
+                    </span>
+                    <span className="text-xs text-stone-500 font-semibold">
+                      محدد: {activeSelectedCount} من أصل {activeKit.tools.length} أدوات
+                    </span>
+                  </div>
+                  <h3 className="mt-1 font-display text-xl sm:text-2xl font-black text-[#18181B]">
+                    {activeKit.title}
+                  </h3>
+                  <p className="mt-1 text-xs sm:text-sm text-[#52525B]">
+                    {activeKit.highlightText}
+                  </p>
+                </div>
               </div>
 
-              {/* Direct Actions */}
-              <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                <a
-                  href={`https://wa.me/213560154663?text=${encodeURIComponent(
-                    `مرحباً تكنو الأغواط، أود طلب باقة «${activeKit.subtitle}» الموصى بها في الموقع، أرجو تزويدي بالخيارات المتوفرة.`,
-                  )}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white font-bold text-sm shadow-md transition-all active:scale-95"
-                >
-                  <MessageSquare className="w-4 h-4 fill-white" />
-                  <span>اطلب هذه الباقة عبر واتساب</span>
-                </a>
-                <a
-                  href="#collection"
-                  className="inline-flex items-center justify-center gap-1.5 px-4 py-3.5 rounded-xl border-2 border-stone-300 bg-white hover:border-[#18181B] text-[#18181B] font-bold text-sm transition-colors"
-                >
-                  <span>تصفح الأقسام</span>
-                  <ArrowRight className="w-4 h-4" />
-                </a>
+              {/* Dynamic Price Display */}
+              <div className="p-4 rounded-2xl bg-white border-2 border-stone-200 text-left shrink-0 shadow-xs">
+                <span className="text-[11px] font-bold text-stone-500 block">إجمالي الباقة المحددة:</span>
+                <span className="font-display text-2xl font-black text-[#E30613] tabular-nums">
+                  {formatDzd(activeTotalDzd)}
+                </span>
               </div>
             </div>
 
-            {/* Right Column: 4 Tools Showcase Grid */}
-            <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {activeKit.tools.map((tool, idx) => (
-                <div
-                  key={idx}
-                  className="p-5 rounded-2xl bg-white/95 border border-stone-200 shadow-sm hover:shadow-md hover:border-[#E30613]/50 transition-all duration-200 flex flex-col justify-between"
-                >
-                  <div>
-                    <div className="flex items-center justify-between gap-2 mb-2.5">
-                      <span className="text-2xl" role="img" aria-hidden="true">
-                        {tool.icon}
-                      </span>
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            {/* Interactive Tools Grid with Checkboxes */}
+            <div className="mt-8">
+              <p className="text-xs font-bold text-[#71717A] mb-4">
+                حدد الأدوات التي ترغب بها (يتغير السعر الإجمالي فوراً عند الإلغاء أو التحديد):
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {activeKit.tools.map((tool) => {
+                  const isChecked = Boolean(selectedTools[tool.id]);
+                  return (
+                    <div
+                      key={tool.id}
+                      onClick={() => toggleTool(tool.id)}
+                      className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex items-start gap-3.5 select-none ${
+                        isChecked
+                          ? 'bg-white border-[#18181B] shadow-sm'
+                          : 'bg-stone-50/70 border-stone-200 opacity-60'
+                      }`}
+                    >
+                      <div className="text-2xl pt-0.5 shrink-0">{tool.icon}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <h4 className="font-display text-sm font-bold text-[#18181B] truncate">
+                            {tool.name}
+                          </h4>
+                          <span className="font-mono text-xs font-black text-[#E30613] shrink-0">
+                            {formatDzd(tool.priceDzd)}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-xs text-[#52525B] leading-relaxed">
+                          {tool.desc}
+                        </p>
+                      </div>
+                      <div
+                        className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center shrink-0 transition-colors ${
+                          isChecked
+                            ? 'bg-[#E30613] border-[#E30613] text-white'
+                            : 'border-stone-300 bg-white'
+                        }`}
+                      >
+                        {isChecked && <CheckCircle2 className="w-4 h-4" />}
+                      </div>
                     </div>
-                    <h4 className="font-display text-sm font-bold text-[#18181B] leading-snug">
-                      {tool.name}
-                    </h4>
-                    <p className="mt-1.5 text-xs text-[#52525B] leading-relaxed">
-                      {tool.desc}
-                    </p>
-                  </div>
-                  <div className="mt-3 pt-2.5 border-t border-stone-100 flex items-center justify-between text-[11px] font-semibold text-[#71717A]">
-                    <span>تكنو الأصلي 100%</span>
-                    <span className="text-emerald-700">متوفر بالفرع</span>
-                  </div>
-                </div>
-              ))}
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        </div>
+
+            {/* Direct Order Actions */}
+            <div className="mt-8 pt-6 border-t border-stone-200 flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-2 text-xs font-bold text-[#18181B]">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span>متوفرة للتسليم الفوري بمتجر الأغواط أو الشحن السريع لـ 54 ولاية</span>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <a
+                  href="#quick-order"
+                  className="animate-sheen inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-[#E30613] hover:bg-[#C4000F] text-white font-display text-sm font-black shadow-md transition-all active:scale-95"
+                >
+                  <ShoppingBag className="w-4 h-4" />
+                  <span>اطلب هذه الباقة بمبلغ {formatDzd(activeTotalDzd)}</span>
+                </a>
+              </div>
+            </div>
+          </motion.div>
+        </AnimatePresence>
       </div>
     </section>
   );
