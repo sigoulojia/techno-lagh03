@@ -328,7 +328,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#FAF9F6] text-[#18181B]">
+    <div className="min-h-screen flex flex-col bg-lined-paper text-[#18181B]">
       {activeProduct ? (
         <ProductDetailPage
           product={activeProduct}
@@ -388,21 +388,22 @@ export default function App() {
             />
 
             {/* Dynamic Categories & Catalog Section */}
-            <section id="collection" className="py-14 lg:py-20">
+            <section id="collection" className="py-14 lg:py-20 bg-lined-paper border-b-2 border-stone-300">
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                   <div>
-                    <p className="text-sm font-medium text-[#E30613]">
-                      متوفرة حالياً في متجر الأغواط · توصيل لـ 54 ولاية
-                    </p>
-                    <h2 className="mt-1.5 font-display text-2xl sm:text-3xl font-bold text-[#18181B]">
-                      تشكيلة معروضات وأدوات تكنو الأغواط
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="stamp-red text-[11px]">فرع الأغواط</span>
+                      <span className="stamp-yellow text-[11px]">متوفرة في المتجر</span>
+                    </div>
+                    <h2 className="font-display text-2xl sm:text-3xl font-black text-[#18181B]">
+                      <span className="highlight-yellow">تشكيلة معروضات وأدوات تكنو الأغواط</span>
                     </h2>
                   </div>
 
                   <p
                     data-testid="catalog-results-count"
-                    className="text-sm text-[#52525B] tabular-nums"
+                    className="text-xs font-bold font-mono text-[#18181B] bg-white px-3 py-1.5 rounded-lg border-2 border-stone-300 tabular-nums"
                   >
                     عرض {filteredProducts.length} من أصل {products.length}{' '}
                     {products.length >= 3 && products.length <= 10 ? 'منتجات' : 'منتج'}

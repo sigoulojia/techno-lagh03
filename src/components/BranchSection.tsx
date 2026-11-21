@@ -184,19 +184,19 @@ export function BranchSection({ savedOrders }: BranchSectionProps) {
       {/* Nationwide ZR Express Delivery Tariff Calculator */}
       <section
         id="delivery-rates"
-        className="py-16 lg:py-24 border-t border-stone-200/80 bg-white relative"
+        className="py-16 lg:py-24 border-t-2 border-stone-300 bg-lined-paper relative"
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
             <div className="lg:col-span-5 space-y-4">
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#FFD100]/25 text-[#18181B] text-xs font-bold border border-[#FFD100]">
-                <Truck className="w-3.5 h-3.5 text-[#E30613]" />
-                <span>الشريك اللوجستي الرسمي: {STORE_INFO.deliveryPartner}</span>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="stamp-red text-xs">الشريك اللوجستي ZR Express</span>
+                <span className="stamp-yellow text-xs">الدفع عند الاستلام</span>
               </div>
               <h2 className="font-display text-2xl sm:text-4xl font-black text-[#18181B] text-balance">
-                تسعيرة التوصيل الرسمي لكافة ولايات الجزائر
+                <span className="highlight-yellow">تسعيرة التوصيل الرسمي لكافة ولايات الجزائر</span>
               </h2>
-              <p className="text-sm sm:text-base leading-relaxed text-[#52525B]">
+              <p className="text-sm sm:text-base font-bold leading-relaxed text-[#52525B]">
                 نوصل طلباتكم من فرع تكنو الأغواط إلى كافة بلديات ولاية الأغواط (24 مكتباً
                 وبلدية) وإلى 54 ولاية جزائرية مع الدفع نقداً عند الاستلام. اختر ولايتك لمعاينة
                 تعريفة التوصيل للمنزل أو الاستلام من المكتب.
@@ -205,7 +205,7 @@ export function BranchSection({ savedOrders }: BranchSectionProps) {
               <div className="pt-2">
                 <label
                   htmlFor="calculator-wilaya-select"
-                  className="block text-sm font-bold text-[#18181B] mb-2"
+                  className="block text-sm font-black text-[#18181B] mb-2"
                 >
                   اختر ولايتك للمعاينة:
                 </label>
@@ -214,7 +214,7 @@ export function BranchSection({ savedOrders }: BranchSectionProps) {
                   data-testid="calculator-wilaya-select"
                   value={selectedWilayaLabel}
                   onChange={(e) => setSelectedWilayaLabel(e.target.value)}
-                  className="w-full px-4 py-3.5 min-h-[50px] rounded-2xl border-2 border-stone-300 text-sm font-bold bg-[#FAF9F6] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#E30613]/20 focus:border-[#E30613]"
+                  className="w-full px-4 py-3.5 min-h-[50px] rounded-2xl border-2 border-[#18181B] text-sm font-black bg-white shadow-[2px_2px_0px_#18181B] focus:bg-[#FFD100]/10 focus:outline-none"
                 >
                   {WILAYA_DELIVERY_RATES.map((rate) => {
                     const label = formatWilayaLabel(rate);
@@ -229,10 +229,10 @@ export function BranchSection({ savedOrders }: BranchSectionProps) {
             </div>
 
             <div className="lg:col-span-7 space-y-4">
-              <div className="p-6 sm:p-8 rounded-3xl bg-[#FAF9F6] border-2 border-stone-200 shadow-sm space-y-6">
-                <div className="flex flex-wrap items-baseline justify-between gap-3 pb-4 border-b border-stone-200">
+              <div className="p-6 sm:p-8 rounded-3xl bg-white border-2 border-[#18181B] shadow-[6px_6px_0px_#18181B] space-y-6">
+                <div className="flex flex-wrap items-baseline justify-between gap-3 pb-4 border-b-2 border-stone-200">
                   <div>
-                    <p className="text-xs text-[#71717A] font-semibold">التسعيرة المعتمدة لولاية:</p>
+                    <p className="text-xs text-[#71717A] font-bold">التسعيرة المعتمدة لولاية:</p>
                     <h3
                       data-testid="calculator-selected-wilaya"
                       className="font-display text-xl sm:text-2xl font-black text-[#18181B] mt-0.5"
@@ -240,53 +240,53 @@ export function BranchSection({ savedOrders }: BranchSectionProps) {
                       {selectedRate.code} — {selectedRate.nameAr} ({selectedRate.nameFr})
                     </h3>
                   </div>
-                  <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-[#FFD100] text-[#18181B] text-xs font-black shadow-2xs">
+                  <span className="stamp-yellow text-xs font-black">
                     الدفع عند الاستلام
                   </span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* Home Delivery Rate */}
-                  <div className="group p-5 rounded-2xl bg-white border-2 border-stone-200 hover:border-[#E30613] transition-all duration-200 flex flex-col justify-between gap-3 shadow-xs">
+                  <div className="group p-5 rounded-2xl bg-[#FAF8F5] border-2 border-[#18181B] shadow-[3px_3px_0px_#18181B] hover:shadow-[5px_5px_0px_#E30613] transition-all duration-200 flex flex-col justify-between gap-3">
                     <div className="flex items-center gap-2.5 text-[#18181B]">
-                      <div className="w-9 h-9 rounded-xl bg-[#E30613]/10 flex items-center justify-center text-[#E30613]">
+                      <div className="w-9 h-9 rounded-xl bg-[#E30613] text-white flex items-center justify-center border-2 border-[#18181B]">
                         <Truck className="w-5 h-5 shrink-0" aria-hidden="true" />
                       </div>
-                      <span className="font-display text-base font-bold">
+                      <span className="font-display text-base font-black">
                         التوصيل لباب المنزل
                       </span>
                     </div>
-                    <p className="text-xs text-[#52525B] leading-relaxed">
+                    <p className="text-xs text-[#52525B] font-bold leading-relaxed">
                       خدمة À Domicile: يصلك المندوب مباشرة إلى عنوانك مع الدفع نقداً عند الاستلام.
                     </p>
                     <p
                       data-testid="calculator-home-fee"
-                      className="font-display text-2xl font-black text-[#E30613] tabular-nums pt-3 border-t border-stone-100"
+                      className="font-display text-2xl font-black text-[#E30613] tabular-nums pt-3 border-t-2 border-stone-200 highlight-yellow"
                     >
                       {formatDzd(selectedRate.homeFeeDzd)}
                     </p>
                   </div>
 
                   {/* Stop Desk Rate */}
-                  <div className="group p-5 rounded-2xl bg-white border-2 border-stone-200 hover:border-[#18181B] transition-all duration-200 flex flex-col justify-between gap-3 shadow-xs">
+                  <div className="group p-5 rounded-2xl bg-[#FAF8F5] border-2 border-[#18181B] shadow-[3px_3px_0px_#18181B] hover:shadow-[5px_5px_0px_#FFD100] transition-all duration-200 flex flex-col justify-between gap-3">
                     <div className="flex items-center gap-2.5 text-[#18181B]">
-                      <div className="w-9 h-9 rounded-xl bg-[#FFD100]/30 flex items-center justify-center text-[#18181B]">
+                      <div className="w-9 h-9 rounded-xl bg-[#FFD100] text-[#18181B] flex items-center justify-center border-2 border-[#18181B]">
                         <Building2 className="w-5 h-5 shrink-0" aria-hidden="true" />
                       </div>
-                      <span className="font-display text-base font-bold">
+                      <span className="font-display text-base font-black">
                         استلام من المكتب (Stop Desk)
                       </span>
                     </div>
-                    <p className="text-xs text-[#52525B] leading-relaxed">
+                    <p className="text-xs text-[#52525B] font-bold leading-relaxed">
                       {selectedRate.stopDeskFeeDzd !== null
                         ? 'استلام اقتصادي وسريع من أقرب مكتب ZR Express في ولايتك.'
                         : `خدمة المكتب غير متوفرة حالياً في ولاية ${selectedRate.nameAr} — التوصيل للمنزل متوفر.`}
                     </p>
                     <p
                       data-testid="calculator-stopdesk-fee"
-                      className={`font-display text-2xl font-black tabular-nums pt-3 border-t border-stone-100 ${
+                      className={`font-display text-2xl font-black tabular-nums pt-3 border-t-2 border-stone-200 ${
                         selectedRate.stopDeskFeeDzd !== null
-                          ? 'text-[#18181B]'
+                          ? 'text-[#18181B] highlight-yellow'
                           : 'text-sm text-[#71717A]'
                       }`}
                     >
@@ -421,12 +421,12 @@ export function BranchSection({ savedOrders }: BranchSectionProps) {
       {/* Branch Storefront & THE CYBER-STATIONERY ORDER TRACKING TERMINAL */}
       <section
         id="branch"
-        className="py-16 lg:py-24 border-t border-stone-200/80 bg-stone-100/70 relative"
+        className="py-16 lg:py-24 border-t-2 border-stone-300 bg-lined-paper relative"
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-start">
             {/* Storefront Physical Branch Card */}
-            <div className="lg:col-span-5 p-6 sm:p-8 rounded-3xl bg-white border-2 border-stone-200 shadow-md space-y-5">
+            <div className="lg:col-span-5 p-6 sm:p-8 rounded-3xl bg-white border-2 border-[#18181B] shadow-[6px_6px_0px_#18181B] space-y-5">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <span
@@ -434,12 +434,12 @@ export function BranchSection({ savedOrders }: BranchSectionProps) {
                       isStoreOpen ? 'bg-emerald-500 animate-ping' : 'bg-stone-400'
                     }`}
                   />
-                  <p className="text-xs font-bold text-[#E30613] uppercase tracking-wider">
+                  <p className="text-xs font-black text-[#E30613] uppercase tracking-wider">
                     {isStoreOpen ? 'الفرع مفتوح الآن لاستقبالكم' : 'الفرع مغلق حالياً'}
                   </p>
                 </div>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-stone-100 text-stone-600 font-mono">
-                  UTC+1
+                <span className="text-[11px] font-black px-2.5 py-0.5 rounded-lg bg-[#FFD100] text-[#18181B] font-mono border border-[#18181B]">
+                  الأغواط · UTC+1
                 </span>
               </div>
 
@@ -449,19 +449,19 @@ export function BranchSection({ savedOrders }: BranchSectionProps) {
 
               <ul className="space-y-4 text-sm text-[#52525B]">
                 <li className="flex items-start gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-[#FFD100]/25 flex items-center justify-center text-[#18181B] shrink-0 mt-0.5">
-                    <MapPin className="w-4 h-4 text-[#E30613]" aria-hidden="true" />
+                  <div className="w-10 h-10 rounded-xl bg-[#FFD100] border-2 border-[#18181B] shadow-[2px_2px_0px_#18181B] flex items-center justify-center text-[#18181B] shrink-0 mt-0.5">
+                    <MapPin className="w-5 h-5 text-[#E30613]" aria-hidden="true" />
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-[#18181B]">الموقع والعنوان</p>
-                    <p className="mt-0.5 leading-relaxed">{STORE_INFO.address}</p>
+                    <p className="text-xs font-black text-[#18181B]">الموقع والعنوان</p>
+                    <p className="mt-0.5 font-bold leading-relaxed">{STORE_INFO.address}</p>
                     <a
                       href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
                         'Techno Stationery Laghouat الأغواط',
                       )}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs font-bold text-[#E30613] hover:underline mt-1"
+                      className="inline-flex items-center gap-1 text-xs font-black text-[#E30613] hover:underline mt-1"
                     >
                       <span>افتح الموقع في خرائط Google</span>
                       <ExternalLink className="w-3 h-3" />
@@ -469,24 +469,24 @@ export function BranchSection({ savedOrders }: BranchSectionProps) {
                   </div>
                 </li>
                 <li className="flex items-start gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-[#FFD100]/25 flex items-center justify-center text-[#18181B] shrink-0 mt-0.5">
-                    <Clock className="w-4 h-4 text-[#E30613]" aria-hidden="true" />
+                  <div className="w-10 h-10 rounded-xl bg-[#FFD100] border-2 border-[#18181B] shadow-[2px_2px_0px_#18181B] flex items-center justify-center text-[#18181B] shrink-0 mt-0.5">
+                    <Clock className="w-5 h-5 text-[#E30613]" aria-hidden="true" />
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-[#18181B]">أوقات العمل والاستقبال</p>
-                    <p className="mt-0.5">{STORE_INFO.hours}</p>
+                    <p className="text-xs font-black text-[#18181B]">أوقات العمل والاستقبال</p>
+                    <p className="mt-0.5 font-bold">{STORE_INFO.hours}</p>
                   </div>
                 </li>
                 <li className="flex items-start gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-[#FFD100]/25 flex items-center justify-center text-[#18181B] shrink-0 mt-0.5">
-                    <Phone className="w-4 h-4 text-[#E30613]" aria-hidden="true" />
+                  <div className="w-10 h-10 rounded-xl bg-[#FFD100] border-2 border-[#18181B] shadow-[2px_2px_0px_#18181B] flex items-center justify-center text-[#18181B] shrink-0 mt-0.5">
+                    <Phone className="w-5 h-5 text-[#E30613]" aria-hidden="true" />
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-[#18181B]">رقم الهاتف المباشر</p>
+                    <p className="text-xs font-black text-[#18181B]">رقم الهاتف المباشر</p>
                     <a
                       href={STORE_INFO.phoneHref}
                       dir="ltr"
-                      className="font-mono font-bold text-[#18181B] hover:text-[#E30613] transition-colors block mt-0.5 text-base"
+                      className="font-mono font-black text-[#18181B] hover:text-[#E30613] transition-colors block mt-0.5 text-base"
                     >
                       {STORE_INFO.phoneDisplay}
                     </a>
@@ -495,10 +495,10 @@ export function BranchSection({ savedOrders }: BranchSectionProps) {
               </ul>
             </div>
 
-            {/* THE LEGENDARY TECHNO CYBER-STATIONERY TRACKING TERMINAL */}
+            {/* THE LEGENDARY TECHNO ORDER TRACKING TERMINAL */}
             <div
               id="track"
-              className="lg:col-span-7 rounded-3xl bg-white border-4 border-[#FFD100] shadow-2xl overflow-hidden glow-yellow"
+              className="lg:col-span-7 rounded-3xl bg-white border-4 border-[#18181B] shadow-[8px_8px_0px_#18181B] overflow-hidden"
             >
               {/* Authentic TECHNO Yellow Hardware Terminal Header */}
               <div className="bg-[#FFD100] px-6 sm:px-8 py-5 border-b-2 border-[#E5BC00] flex flex-wrap items-center justify-between gap-4">

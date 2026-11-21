@@ -181,28 +181,28 @@ export function CartDrawer({
         aria-labelledby="cart-drawer-title"
         data-testid="cart-drawer"
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-lg h-full bg-white flex flex-col shadow-2xl border-r border-stone-200"
+        className="w-full max-w-lg h-full bg-[#FAF8F5] flex flex-col shadow-2xl border-r-4 border-[#18181B]"
       >
         {/* Drawer Header */}
-        <div className="px-6 py-4 border-b border-stone-200 flex items-center justify-between gap-4 shrink-0">
+        <div className="px-6 py-4 bg-[#FFD100] border-b-2 border-[#18181B] flex items-center justify-between gap-4 shrink-0">
           <div className="flex items-center gap-3">
             {step === 'checkout' ? (
               <button
                 type="button"
                 onClick={() => onChangeStep('cart')}
                 aria-label="العودة إلى سلة الطلب"
-                className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-[#52525B] hover:text-[#18181B] hover:bg-stone-100 cursor-pointer"
+                className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-white border border-[#18181B] text-[#18181B] hover:bg-[#E30613] hover:text-white cursor-pointer"
               >
                 <ArrowRight className="w-4 h-4" aria-hidden="true" />
               </button>
             ) : null}
             <h2
               id="cart-drawer-title"
-              className="font-display text-lg font-bold text-[#18181B]"
+              className="font-display text-base sm:text-lg font-black text-[#18181B]"
             >
-              {step === 'cart' && `سلة الطلب (${totals.itemCount})`}
-              {step === 'checkout' && 'تأكيد معلومات الطلب والتوصيل'}
-              {step === 'confirmed' && 'تم تأكيد طلبك بنجاح'}
+              {step === 'cart' && `سلة الطلب الرسمية (${totals.itemCount})`}
+              {step === 'checkout' && 'استمارة معلومات الطلب والتوصيل'}
+              {step === 'confirmed' && 'تم تأكيد طلبك بنجاح ✓'}
             </h2>
           </div>
 
@@ -210,9 +210,9 @@ export function CartDrawer({
             type="button"
             onClick={onClose}
             aria-label="إغلاق سلة الطلب"
-            className="inline-flex items-center justify-center w-10 h-10 rounded-lg text-[#52525B] hover:text-[#18181B] hover:bg-stone-100 cursor-pointer"
+            className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-white border border-[#18181B] text-[#18181B] hover:bg-[#E30613] hover:text-white cursor-pointer shadow-2xs"
           >
-            <X className="w-5 h-5" aria-hidden="true" />
+            <X className="w-4 h-4" aria-hidden="true" />
           </button>
         </div>
 

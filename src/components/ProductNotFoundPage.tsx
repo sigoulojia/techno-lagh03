@@ -24,8 +24,8 @@ export function ProductNotFoundPage({
   const suggestions = allProducts.slice(0, 4);
 
   return (
-    <div className="min-h-screen bg-[#FAF9F6] text-[#18181B] pb-24">
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-stone-200">
+    <div className="min-h-screen bg-lined-paper text-[#18181B] pb-24">
+      <header className="sticky top-0 z-40 bg-[#FAF8F5]/95 backdrop-blur-md border-b-4 border-[#FFD100] shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
           <button
             type="button"

@@ -72,14 +72,12 @@ export function ProductModal({
         aria-labelledby="product-modal-title"
         data-testid="product-detail-modal"
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl border border-stone-200 shadow-2xl"
+        className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-[#FAF8F5] rounded-3xl border-2 border-[#18181B] shadow-[10px_10px_0px_#18181B]"
       >
         {/* Modal Header */}
-        <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm px-6 py-4 border-b border-stone-200 flex items-center justify-between gap-4">
-          <p className="text-xs text-[#71717A] truncate">
-            <span className="font-semibold text-[#18181B]">
-              {getProductCategoryLabel(product)}
-            </span>
+        <div className="sticky top-0 z-10 bg-[#FFD100] px-6 py-4 border-b-2 border-[#18181B] flex items-center justify-between gap-4">
+          <p className="text-xs font-black text-[#18181B] truncate">
+            <span>{getProductCategoryLabel(product)}</span>
             <span aria-hidden="true" className="mx-2">
               ·
             </span>
@@ -89,10 +87,11 @@ export function ProductModal({
           <button
             type="button"
             onClick={onClose}
-            aria-label="إغلاق تفاصيل المنتج"
-            className="inline-flex items-center justify-center w-10 h-10 rounded-lg text-[#52525B] hover:text-[#18181B] hover:bg-stone-100 transition-colors cursor-pointer"
+            aria-label="إغلاق النافذة"
+            data-testid="product-modal-close"
+            className="w-8 h-8 rounded-xl bg-white border-2 border-[#18181B] shadow-[2px_2px_0px_#18181B] inline-flex items-center justify-center text-[#18181B] hover:bg-[#E30613] hover:text-white transition-colors cursor-pointer active:translate-x-0.5 active:translate-y-0.5"
           >
-            <X className="w-5 h-5" aria-hidden="true" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 

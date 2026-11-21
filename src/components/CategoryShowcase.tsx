@@ -84,17 +84,17 @@ export function CategoryShowcase({ onSelectCategory }: CategoryShowcaseProps) {
   };
 
   return (
-    <section className="py-16 lg:py-24 bg-[#FAF9F6] bg-stationery-grid border-b border-stone-200/80 relative">
+    <section className="py-16 lg:py-24 bg-lined-paper border-b-2 border-stone-300 relative">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-2xl mx-auto mb-12">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#FFD100]/25 border border-[#FFD100] text-xs font-bold text-[#18181B] mb-2.5 shadow-2xs">
-            <Sparkles className="w-3.5 h-3.5 text-[#E30613]" />
-            <span>تشكيلة تكنو الرسمية المعتمدة</span>
+          <div className="flex items-center justify-center gap-2 mb-3">
+            <span className="stamp-yellow text-xs">TECHNO DEPARTMENTS</span>
+            <span className="stamp-red text-xs">الأغواط 03</span>
           </div>
-          <h2 className="font-display text-2xl sm:text-4xl font-extrabold text-[#18181B]">
-            استكشف أقسام متجر تكنو الأغواط
+          <h2 className="font-display text-2xl sm:text-4xl font-black text-[#18181B]">
+            <span className="highlight-yellow">أقسام وتشكيلات تكنو الأغواط</span>
           </h2>
-          <p className="mt-2.5 text-sm sm:text-base text-[#52525B]">
+          <p className="mt-3 text-sm sm:text-base text-stone-600 font-medium">
             تصفح التشكيلات الشاملة المتوفرة في فرعنا مع إمكانية الطلب المباشر والتوصيل لكافة الولايات.
           </p>
         </div>
@@ -103,47 +103,42 @@ export function CategoryShowcase({ onSelectCategory }: CategoryShowcaseProps) {
           {CATEGORIES.map((cat, idx) => {
             const Icon = cat.icon;
             return (
-              <motion.button
+              <button
                 key={cat.id}
                 type="button"
                 onClick={() => handleClick(cat.filterQuery)}
-                initial={{ opacity: 0, y: 15 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: '-40px' }}
-                transition={{ duration: 0.35, delay: idx * 0.08 }}
-                whileHover={{ y: -5 }}
-                className={`group relative text-right p-6 sm:p-7 rounded-3xl bg-gradient-to-b ${cat.accentColor} border-2 border-stone-200/90 hover:border-[#E30613] hover:shadow-xl transition-all duration-300 cursor-pointer flex flex-col justify-between overflow-hidden shadow-xs`}
+                className="group relative text-right p-6 sm:p-7 rounded-2xl bg-white border-2 border-[#18181B] shadow-[4px_4px_0px_#18181B] hover:shadow-[6px_6px_0px_#E30613] hover:-translate-y-1 transition-all duration-200 cursor-pointer flex flex-col justify-between overflow-hidden"
               >
                 <div>
                   <div className="flex items-center justify-between gap-3 mb-5">
-                    <div className={`w-13 h-13 rounded-2xl ${cat.iconBg} flex items-center justify-center shadow-md transition-transform group-hover:scale-110`}>
+                    <div className={`w-12 h-12 rounded-xl ${cat.iconBg} border-2 border-[#18181B] shadow-[2px_2px_0px_#18181B] flex items-center justify-center transition-transform group-hover:scale-105`}>
                       <Icon className="w-6 h-6" />
                     </div>
                     <div className="flex flex-col items-end gap-1">
-                      <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-white border border-stone-200 text-[#18181B] shadow-2xs">
+                      <span className="text-[11px] font-black px-2.5 py-0.5 rounded-md bg-[#FFD100] border-2 border-[#18181B] text-[#18181B]">
                         {cat.tag}
                       </span>
-                      <span className="text-[10px] font-mono text-stone-500 font-semibold">
+                      <span className="text-[10px] font-mono text-stone-600 font-bold">
                         {cat.countBadge}
                       </span>
                     </div>
                   </div>
 
-                  <h3 className="font-display text-lg font-bold text-[#18181B] group-hover:text-[#E30613] transition-colors leading-snug">
+                  <h3 className="font-display text-lg font-black text-[#18181B] group-hover:text-[#E30613] transition-colors leading-snug">
                     {cat.title}
                   </h3>
-                  <p className="mt-2 text-xs sm:text-sm text-[#52525B] leading-relaxed">
+                  <p className="mt-2 text-xs sm:text-sm text-stone-600 leading-relaxed font-medium">
                     {cat.subtitle}
                   </p>
                 </div>
 
-                <div className="mt-6 pt-4 border-t border-stone-200/60 flex items-center justify-between text-xs font-bold text-[#18181B] group-hover:text-[#E30613] transition-colors">
+                <div className="mt-6 pt-4 border-t-2 border-stone-100 flex items-center justify-between text-xs font-black text-[#18181B] group-hover:text-[#E30613] transition-colors">
                   <span>تصفح هذا القسم واطلب مباشرة</span>
-                  <div className="w-8 h-8 rounded-full bg-white border border-stone-200 flex items-center justify-center transition-transform group-hover:-translate-x-1.5 shadow-2xs group-hover:border-[#E30613] group-hover:bg-[#E30613] group-hover:text-white">
+                  <div className="w-8 h-8 rounded-lg bg-stone-100 border-2 border-[#18181B] flex items-center justify-center transition-transform group-hover:-translate-x-1 shadow-2xs group-hover:border-[#E30613] group-hover:bg-[#E30613] group-hover:text-white">
                     <ArrowLeft className="w-4 h-4" />
                   </div>
                 </div>
-              </motion.button>
+              </button>
             );
           })}
         </div>

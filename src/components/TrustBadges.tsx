@@ -62,52 +62,47 @@ const TRUST_PILLARS = [
 
 export function TrustBadges() {
   return (
-    <section className="py-12 bg-white border-b border-stone-200/80 relative">
+    <section className="py-12 bg-lined-paper border-b-2 border-stone-300 relative">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           {TRUST_PILLARS.map((item, idx) => {
             const Icon = item.icon;
             return (
-              <motion.div
+              <div
                 key={idx}
-                initial={{ opacity: 0, y: 15 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: '-50px' }}
-                transition={{ duration: 0.4, delay: idx * 0.1 }}
-                whileHover={{ y: -4 }}
-                className={`relative group p-6 rounded-3xl bg-gradient-to-b ${item.color} border-2 ${item.borderColor} hover:border-[#E30613] hover:shadow-xl transition-all duration-300 flex flex-col justify-between shadow-xs`}
+                className="relative group p-6 rounded-2xl bg-white border-2 border-[#18181B] shadow-[3px_3px_0px_#18181B] hover:shadow-[5px_5px_0px_#E30613] hover:-translate-y-1 transition-all duration-200 flex flex-col justify-between"
               >
                 <div>
                   <div className="flex items-center justify-between gap-2 mb-4">
-                    <div className={`w-12 h-12 rounded-2xl ${item.iconBg} shadow-md flex items-center justify-center transition-transform group-hover:scale-110`}>
+                    <div className={`w-12 h-12 rounded-xl ${item.iconBg} border-2 border-[#18181B] shadow-[2px_2px_0px_#18181B] flex items-center justify-center transition-transform group-hover:scale-105`}>
                       <Icon className={`w-6 h-6 ${item.iconColor}`} />
                     </div>
-                    <span className="text-[11px] font-bold px-3 py-1 rounded-full bg-white border border-stone-200 text-[#18181B] shadow-2xs">
+                    <span className="text-[11px] font-black px-2.5 py-0.5 rounded-md bg-[#FFD100] border-2 border-[#18181B] text-[#18181B]">
                       {item.tag}
                     </span>
                   </div>
 
-                  <h3 className="font-display text-base font-bold text-[#18181B] group-hover:text-[#E30613] transition-colors">
+                  <h3 className="font-display text-base font-black text-[#18181B] group-hover:text-[#E30613] transition-colors">
                     {item.title}
                   </h3>
-                  <p className="mt-1 text-xs font-bold text-[#52525B]">
+                  <p className="mt-1 text-xs font-bold text-stone-600">
                     {item.subtitle}
                   </p>
-                  <p className="mt-2.5 text-xs text-[#71717A] leading-relaxed">
+                  <p className="mt-2.5 text-xs text-stone-500 leading-relaxed font-medium">
                     {item.description}
                   </p>
                 </div>
 
-                <div className="mt-5 pt-3.5 border-t border-stone-200/60">
+                <div className="mt-5 pt-3.5 border-t-2 border-stone-100">
                   <a
                     href={item.linkHref}
-                    className="inline-flex items-center gap-1.5 text-xs font-bold text-[#18181B] group-hover:text-[#E30613] transition-colors"
+                    className="inline-flex items-center gap-1.5 text-xs font-black text-[#18181B] group-hover:text-[#E30613] transition-colors"
                   >
                     <span>{item.linkText}</span>
                     <ArrowLeft className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-1" />
                   </a>
                 </div>
-              </motion.div>
+              </div>
             );
           })}
         </div>

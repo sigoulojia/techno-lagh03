@@ -148,22 +148,18 @@ export function StationeryAssistant() {
   const activeSelectedCount = activeKit.tools.filter((t) => selectedTools[t.id]).length;
 
   return (
-    <section id="assistant" className="py-16 lg:py-24 bg-white border-b border-stone-200/90 relative overflow-hidden">
-      {/* Background ambient lighting */}
-      <div className="absolute top-0 right-1/4 w-96 h-96 bg-[#FFD100]/15 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-[#E30613]/10 rounded-full blur-3xl pointer-events-none" />
-
+    <section id="assistant" className="py-16 lg:py-24 bg-lined-paper border-b-2 border-stone-300 relative">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
         {/* Header Title */}
         <div className="text-center max-w-3xl mx-auto mb-10">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#FFD100]/25 border border-[#FFD100] text-xs font-bold text-[#18181B] mb-3.5 shadow-2xs">
-            <Sparkles className="w-3.5 h-3.5 text-[#E30613]" />
-            <span>دليل تكنو الذكي لاختيار الأدوات</span>
+          <div className="flex items-center justify-center gap-2 mb-3">
+            <span className="stamp-yellow text-xs">TECHNO KIT BUILDER</span>
+            <span className="stamp-red text-xs">تخصيص فوري</span>
           </div>
           <h2 className="font-display text-2xl sm:text-4xl font-black text-[#18181B] text-balance">
-            ما هو مجالك؟ اختر باقتك التفاعلية بنقرة واحدة
+            ما هو مجالك؟ <span className="highlight-yellow">اختر باقتك التفاعلية بنقرة واحدة</span>
           </h2>
-          <p className="mt-3 text-sm sm:text-base text-[#52525B] leading-relaxed">
+          <p className="mt-3 text-sm sm:text-base text-stone-600 font-medium leading-relaxed">
             صممنا تشكيلات متخصصة ومدروسة بعناية لتلبي احتياجات كل مهنة وتخصص بأعلى معايير الجودة المعتمدة من تكنو الأغواط.
           </p>
         </div>
@@ -178,10 +174,10 @@ export function StationeryAssistant() {
                 key={kit.id}
                 type="button"
                 onClick={() => setActivePersonaId(kit.id)}
-                className={`flex items-center gap-2.5 px-4 sm:px-5 py-3 rounded-2xl font-bold text-xs sm:text-sm transition-all duration-200 cursor-pointer border-2 shadow-xs ${
+                className={`flex items-center gap-2.5 px-4 sm:px-5 py-3 rounded-xl font-black text-xs sm:text-sm transition-all duration-200 cursor-pointer border-2 shadow-[2px_2px_0px_#18181B] ${
                   isSelected
-                    ? `${kit.colorScheme.tabActive} shadow-md scale-105`
-                    : 'bg-[#FAF9F6] text-[#52525B] border-stone-200 hover:border-stone-400 hover:bg-white'
+                    ? 'bg-[#FFD100] text-[#18181B] border-[#18181B] -translate-y-0.5 shadow-[4px_4px_0px_#18181B]'
+                    : 'bg-white text-stone-700 border-stone-300 hover:border-[#18181B]'
                 }`}
               >
                 <TabIcon className="w-4 h-4 shrink-0" />
@@ -199,7 +195,7 @@ export function StationeryAssistant() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -15 }}
             transition={{ duration: 0.3 }}
-            className={`p-6 sm:p-10 rounded-3xl bg-gradient-to-b ${activeKit.colorScheme.bgGradient} border-2 ${activeKit.colorScheme.border} shadow-xl relative overflow-hidden`}
+            className="p-6 sm:p-10 rounded-3xl bg-white border-2 border-[#18181B] shadow-[6px_6px_0px_#18181B] relative overflow-hidden"
           >
             {/* Top Kit Badge & Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-stone-200">
