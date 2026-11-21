@@ -44,6 +44,7 @@ import { sendOrderNotifications } from '../utils/notificationService';
 import { downloadOrderReceipt, printOrderReceipt } from '../utils/receiptGenerator';
 import { ProductImage } from './ProductImage';
 import { DeliverySelector } from './DeliverySelector';
+import { TechnoLogo } from './TechnoLogo';
 
 interface ProductDetailPageProps {
   product: Product;

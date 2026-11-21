@@ -439,7 +439,9 @@ export async function sendOrderNotifications(
             ntfy: {
               success: true,
               channel: 'ntfy',
-              messageId: data.ntfy?.messageId || directNtfy.messageId,
+              messageId:
+                data.ntfy?.messageId ||
+                ('messageId' in directNtfy ? directNtfy.messageId : undefined),
             },
           };
         }
