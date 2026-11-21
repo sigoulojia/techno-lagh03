@@ -4,12 +4,6 @@ import {
   RotateCcw,
   Search,
   ShoppingBag,
-  FolderOpen,
-  Feather,
-  Briefcase,
-  Compass,
-  BookOpen,
-  Clock,
   ArrowLeft,
   Sparkles,
   Truck,
@@ -721,176 +715,38 @@ export default function App() {
               ) : (
                   <div className="mt-8 space-y-6">
                     {products.length === 0 ? (
-                      /* HYPER-INTERACTIVE VIRTUAL SHOWROOM OF OFFICIAL TECHNO DEPARTMENTS */
-                      <div className="space-y-8">
-                        {/* Status banner */}
-                        <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-r from-[#FFD100]/25 via-white to-[#E30613]/10 border-2 border-[#FFD100] shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-                          <div className="space-y-2">
-                            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#18181B] text-[#FFD100] text-xs font-bold">
-                              <Sparkles className="w-3.5 h-3.5 text-[#E30613]" />
-                              <span>معرض أقسام تكنو الأغواط الرسمي</span>
-                            </div>
-                            <h3 className="font-display text-xl sm:text-2xl font-black text-[#18181B]">
-                              تشكيلات متوفرة بالفرع وجاهزة للشحن الفوري
-                            </h3>
-                            <p className="text-xs sm:text-sm text-[#52525B] max-w-2xl leading-relaxed">
-                              يسعدنا استقبالكم في فرعنا بوسط مدينة الأغواط، كما يمكنكم طلب أي من التشكيلات أدناه مباشرة عبر نموذج الطلب السريع أو الاتصال بفريقنا لتجهيز طلبيتك وإرسالها عبر ZR Express.
-                            </p>
+                      <div className="py-16 sm:py-20 px-6 rounded-3xl bg-white border-2 border-stone-300 shadow-sm text-center max-w-xl mx-auto space-y-4">
+                        <div className="w-16 h-16 rounded-2xl bg-[#FAF8F5] border-2 border-stone-300 flex items-center justify-center mx-auto text-stone-400">
+                          <ShoppingBag className="w-8 h-8 text-[#E30613]" />
+                        </div>
+                        <div>
+                          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-stone-100 border border-stone-300 text-[11px] font-bold text-stone-600 mb-2">
+                            <span>فرع تكنو الأغواط</span>
                           </div>
-
-                          <div className="flex flex-wrap items-center gap-3 shrink-0">
-                            <a
-                              href="#quick-order"
-                              className="animate-sheen inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-[#E30613] hover:bg-[#C4000F] text-white text-xs font-black shadow-md transition-all active:scale-95"
-                            >
-                              <ShoppingBag className="w-4 h-4" />
-                              <span>طلب سريع ومباشر</span>
-                            </a>
-                            <a
-                              href={STORE_INFO.phoneHref}
-                              dir="ltr"
-                              className="inline-flex items-center gap-2 px-4 py-3 rounded-xl border-2 border-stone-300 bg-white hover:border-[#18181B] text-[#18181B] text-xs font-mono font-bold transition-all"
-                            >
-                              <Phone className="w-4 h-4 text-[#E30613]" />
-                              <span>{STORE_INFO.phoneDisplay}</span>
-                            </a>
-                          </div>
+                          <h3 className="font-display text-xl sm:text-2xl font-black text-[#18181B]">
+                            لا يوجد منتج معروض حالياً
+                          </h3>
+                          <p className="mt-2 text-sm text-[#52525B] leading-relaxed">
+                            يقوم فريق الفرع حالياً بتجهيز وإضافة المعروضات الجديدة. يمكنك طلب أي أداة أو مستلزمات مكتبية ودراسية مباشرة عبر استمارة الطلب المباشر الفوري أو بالاتصال بنا.
+                          </p>
                         </div>
 
-                        {/* Interactive 6-Department Grid */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                          {[
-                            {
-                              id: 'office',
-                              icon: FolderOpen,
-                              title: 'الأدوات المكتبية وسجلات المحاسبة',
-                              subtitle: 'سجلات محاسبية رسمية، ملفات أرشفة فولاذية، ومنظمات مكاتب فاخرة',
-                              startingPrice: 'من 1,800 د.ج',
-                              badge: 'تجهيز شركات وإدارات',
-                              iconBg: 'bg-[#FFD100] text-[#18181B]',
-                              borderColor: 'border-[#FFD100]/60',
-                              bgGradient: 'from-[#FFD100]/15 via-white to-white',
-                              features: ['سجلات مرقمة رسمياً', 'ملفات حفظ متينة', 'تنظيم بيئة العمل'],
-                            },
-                            {
-                              id: 'pens',
-                              icon: Feather,
-                              title: 'أقلام التوقيع الفاخرة والخط العربي',
-                              subtitle: 'أقلام حبر سائل، رولر تنفيذي، وأطقم خط عربي تمنحك هيبة وسلاسة في كل توقيع',
-                              startingPrice: 'من 1,200 د.ج',
-                              badge: 'كتابة فاخرة وهدايا',
-                              iconBg: 'bg-[#E30613] text-white',
-                              borderColor: 'border-[#E30613]/30',
-                              bgGradient: 'from-[#E30613]/10 via-white to-white',
-                              features: ['حبر ملكي أزرق وأسود', 'هيكل معدني مصقول', 'علبة تقديم فاخرة'],
-                            },
-                            {
-                              id: 'bags',
-                              icon: Briefcase,
-                              title: 'حقائب تكنو PROBAG للحواسيب والوثائق',
-                              subtitle: 'حقائب أعمال متينة مقاومة للصدمات والماء بمقاسات متعددة مبطنة للحواسيب',
-                              startingPrice: 'من 4,500 د.ج',
-                              badge: 'حماية وأناقة متكاملة',
-                              iconBg: 'bg-[#18181B] text-[#FFD100]',
-                              borderColor: 'border-stone-400',
-                              bgGradient: 'from-stone-900/10 via-white to-white',
-                              features: ['مقاومة للماء والصدمات', 'حماية الحواسيب حتى 17"', 'أحزمة مريحة'],
-                            },
-                            {
-                              id: 'arts',
-                              icon: Compass,
-                              title: 'مستلزمات الهندسة المعمارية والفنون',
-                              subtitle: 'أقلام تحبير فنية دقيقة، ورق كانسون فاخر، ومساطر ليزر للمخططات',
-                              startingPrice: 'من 850 د.ج',
-                              badge: 'معايير معمارية دقيقة',
-                              iconBg: 'bg-amber-500 text-white',
-                              borderColor: 'border-amber-300',
-                              bgGradient: 'from-amber-500/15 via-white to-white',
-                              features: ['رؤوس معيارية 0.1 - 0.8 مم', 'ورق Canson أصلي', 'أدوات قياس ليزرية'],
-                            },
-                            {
-                              id: 'school',
-                              icon: BookOpen,
-                              title: 'اللوازم المدرسية والجامعية',
-                              subtitle: 'دفاتر تكنو المقسمة ناصعة البياض، أطقم هندسية، وأقلام تظليل نيون مريحة',
-                              startingPrice: 'من 650 د.ج',
-                              badge: 'دراسة وتفوق يومي',
-                              iconBg: 'bg-blue-600 text-white',
-                              borderColor: 'border-blue-300',
-                              bgGradient: 'from-blue-500/15 via-white to-white',
-                              features: ['ورق فائق النعومة', 'أقلام نيون ساطعة', 'أدوات تدوم طويلاً'],
-                            },
-                            {
-                              id: 'clocks',
-                              icon: Clock,
-                              title: 'الساعات المكتبية والآلات الحاسبة',
-                              subtitle: 'ساعات حائطية ومكتبية صامتة كوارتز وحاسبات كاسيو العلمية المعتمدة',
-                              startingPrice: 'من 2,200 د.ج',
-                              badge: 'تنظيم واحترافية',
-                              iconBg: 'bg-emerald-600 text-white',
-                              borderColor: 'border-emerald-300',
-                              bgGradient: 'from-emerald-500/15 via-white to-white',
-                              features: ['محركات كوارتز صامتة', 'حاسبات علمية معتمدة', 'تصاميم مكتبية أنيقة'],
-                            },
-                          ].map((dept) => {
-                            const DeptIcon = dept.icon;
-                            return (
-                              <div
-                                key={dept.id}
-                                className={`p-6 rounded-3xl bg-gradient-to-b ${dept.bgGradient} border-2 ${dept.borderColor} shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between`}
-                              >
-                                <div>
-                                  <div className="flex items-center justify-between gap-2 mb-4">
-                                    <div className={`w-12 h-12 rounded-2xl ${dept.iconBg} flex items-center justify-center shadow-md`}>
-                                      <DeptIcon className="w-6 h-6" />
-                                    </div>
-                                    <div className="flex flex-col items-end gap-1">
-                                      <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-white border border-stone-200 text-[#18181B] shadow-2xs">
-                                        {dept.badge}
-                                      </span>
-                                      <span className="text-xs font-mono font-black text-[#E30613]">
-                                        {dept.startingPrice}
-                                      </span>
-                                    </div>
-                                  </div>
-
-                                  <h4 className="font-display text-base font-bold text-[#18181B] leading-snug">
-                                    {dept.title}
-                                  </h4>
-                                  <p className="mt-2 text-xs text-[#52525B] leading-relaxed">
-                                    {dept.subtitle}
-                                  </p>
-
-                                  <div className="mt-4 pt-3 border-t border-stone-200/60 space-y-1.5">
-                                    {dept.features.map((feat, fIdx) => (
-                                      <div key={fIdx} className="flex items-center gap-1.5 text-[11px] text-[#18181B] font-semibold">
-                                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                                        <span>{feat}</span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-
-                                <div className="mt-6 pt-4 border-t border-stone-200/80 flex items-center gap-2">
-                                  <a
-                                    href="#quick-order"
-                                    className="flex-1 inline-flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-[#18181B] hover:bg-[#E30613] text-white text-xs font-bold transition-colors cursor-pointer shadow-xs active:scale-95"
-                                  >
-                                    <ShoppingBag className="w-3.5 h-3.5" />
-                                    <span>طلب مباشر</span>
-                                  </a>
-                                  <a
-                                    href={STORE_INFO.phoneHref}
-                                    dir="ltr"
-                                    className="p-2.5 rounded-xl border border-stone-300 bg-white hover:border-[#E30613] text-[#18181B] hover:text-[#E30613] transition-colors"
-                                    title="اتصل للاستفسار فوراً"
-                                  >
-                                    <Phone className="w-4 h-4" />
-                                  </a>
-                                </div>
-                              </div>
-                            );
-                          })}
+                        <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
+                          <a
+                            href="#quick-order"
+                            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#E30613] hover:bg-[#C4000F] text-white text-xs font-black shadow-sm transition-all"
+                          >
+                            <ShoppingBag className="w-4 h-4" />
+                            <span>طلب سريع ومباشر</span>
+                          </a>
+                          <a
+                            href={STORE_INFO.phoneHref}
+                            dir="ltr"
+                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-stone-300 bg-white hover:border-[#18181B] text-[#18181B] text-xs font-mono font-bold transition-all"
+                          >
+                            <Phone className="w-4 h-4 text-[#E30613]" />
+                            <span>{STORE_INFO.phoneDisplay}</span>
+                          </a>
                         </div>
                       </div>
                     ) : (
