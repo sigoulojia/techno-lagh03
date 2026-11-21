@@ -1,0 +1,14 @@
+name = "techno-laghouat-backend"
+main = "src/index.ts"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+BOT_TOKEN = "9152103628:AAGioopVyeNlPd2Nf-NQr2_1MYWVxv2Yf30"
+ORDERS_BOT_TOKEN = "8712010200:AAHc0FJjY2MpFbFPt20i2UZ7J2YgLnN3bA8"
+ADMIN_CHAT_ID = "-1004434185578"
+SITE_URL = "https://techno-laghouat.pages.dev"
+
+[[kv_namespaces]]
+binding = "techno_products_kv"
+id = "a17a6f9c9eb5472a994b720fd8bcd98c"

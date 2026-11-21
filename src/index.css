@@ -1,0 +1,128 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Readex Pro", "IBM Plex Sans Arabic", system-ui, sans-serif;
+  --font-sans: "IBM Plex Sans Arabic", system-ui, -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+  --color-brand: #E30613;
+  --color-brand-dark: #C4000F;
+  --color-brand-yellow: #FFD100;
+  --color-brand-yellow-dark: #E5BC00;
+  --color-brand-gold: #FFD100;
+  --color-surface: #FAF9F6;
+  --color-surface-muted: #F2F0EB;
+  --color-ink: #18181B;
+  --color-ink-muted: #52525B;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    scroll-behavior: smooth;
+  }
+
+  h1, h2, h3, h4, h5, h6, .font-display {
+    font-family: var(--font-display);
+  }
+
+  /* Custom subtle stationery scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #FAF9F6;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #D4D4D8;
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #A1A1AA;
+  }
+}
+
+.text-balance {
+  text-wrap: balance;
+}
+
+/* Subtle stationery grid pattern (reminiscent of millimeter/dot architectural paper) */
+.bg-stationery-pattern {
+  background-image: radial-gradient(#18181b 0.65px, transparent 0.65px);
+  background-size: 20px 20px;
+  background-position: -10px -10px;
+}
+
+.bg-stationery-grid {
+  background-image: 
+    linear-gradient(to right, rgba(24, 24, 27, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(24, 24, 27, 0.03) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Ambient lighting for flagship hero */
+.bg-ambient-techno {
+  background: 
+    radial-gradient(circle at 15% 20%, rgba(255, 209, 0, 0.12) 0%, transparent 40%),
+    radial-gradient(circle at 85% 30%, rgba(227, 6, 19, 0.07) 0%, transparent 45%),
+    #FAF9F6;
+}
+
+/* Shimmer effect for luxury CTA buttons */
+@keyframes sheen {
+  0% {
+    transform: translateX(150%) skewX(-20deg);
+  }
+  100% {
+    transform: translateX(-150%) skewX(-20deg);
+  }
+}
+
+.animate-sheen {
+  position: relative;
+  overflow: hidden;
+}
+
+.animate-sheen::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.25) 50%,
+    transparent 100%
+  );
+  transform: translateX(150%) skewX(-20deg);
+  animation: sheen 4s infinite ease-in-out;
+}
+
+@keyframes pulse-subtle {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.88;
+    transform: scale(1.02);
+  }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 2.5s infinite ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

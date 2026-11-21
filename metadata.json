@@ -1,0 +1,6 @@
+{
+  "name": "تكنو الأغواط — متجر الحقائب المهنية",
+  "description": "الصفحة الرسمية لفرع تكنو الأغواط لاستعراض وطلب تشكيلة الحقائب المهنية والكلاسيكية مع التوصيل والدفع عند الاستلام.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
