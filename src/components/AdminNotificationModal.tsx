@@ -146,21 +146,35 @@ export function AdminNotificationModal({ isOpen, onClose }: AdminNotificationMod
           </div>
 
           {/* Telegram Status Card */}
-          <div className="p-4 rounded-xl border border-stone-200 bg-stone-50 space-y-2">
+          <div className="p-4 rounded-xl border border-stone-200 bg-stone-50 space-y-3">
             <div className="flex items-center justify-between">
               <span className="font-display text-sm font-semibold text-[#18181B] flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-                بوت التيليجرام (@techno03bot)
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                بوت استلام الطلبات (@techno03bot)
               </span>
-              <span className="text-xs font-mono bg-stone-200 px-2 py-0.5 rounded text-stone-700">
-                نشط
+              <span className="text-xs font-mono bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-medium">
+                متصل 24/7
               </span>
             </div>
-            <div className="text-xs text-[#52525B] space-y-1 font-mono">
+            <p className="text-xs text-[#52525B] leading-relaxed">
+              يرسل تفاصيل كل طلب فورياً إلى مجموعة الإدارة والخاص مع رقم هاتف الزبون والعنوان ورابط الاتصال المباشر:
+            </p>
+            <div className="text-xs text-[#52525B] space-y-1 font-mono bg-white p-2.5 rounded-lg border border-stone-200">
               <p>Chat ID: {DEFAULT_NOTIFICATION_CONFIG.telegramChatId} (technoowner)</p>
               <p className="text-emerald-700 font-sans">
-                وضع الأمان مفعل: حجب الهاتف في تيليجرام لحماية الحساب.
+                إرسال مباشر للرقم الحقيقي مع زر اتصال هاتفي فوري.
               </p>
+            </div>
+            <div className="flex flex-wrap gap-2 pt-1">
+              <a
+                href="https://t.me/techno03bot"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg bg-[#E30613] text-white hover:bg-[#C4000F] transition-colors"
+              >
+                <span>فتح بوت الطلبات في تيليجرام</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
             </div>
           </div>
 
@@ -180,11 +194,14 @@ export function AdminNotificationModal({ isOpen, onClose }: AdminNotificationMod
             </p>
             <div className="flex flex-col sm:flex-row gap-2 pt-1 items-center">
               <a
-                href={`ntfy://ntfy.sh/${DEFAULT_NOTIFICATION_CONFIG.ntfyTopic}`}
-                className="inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg bg-[#E30613] text-white hover:bg-[#C4000F] transition-colors"
+                href={`https://ntfy.sh/${DEFAULT_NOTIFICATION_CONFIG.ntfyTopic}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg bg-stone-900 text-white hover:bg-stone-800 transition-colors"
               >
                 <Smartphone className="w-3.5 h-3.5" />
-                <span>فتح القناة في تطبيق ntfy مباشرة</span>
+                <span>الاشتراك في قناة ntfy بنقرة واحدة</span>
+                <ExternalLink className="w-3.5 h-3.5" />
               </a>
               <span className="text-xs text-[#71717A] font-mono">
                 Topic: {DEFAULT_NOTIFICATION_CONFIG.ntfyTopic}
@@ -199,8 +216,8 @@ export function AdminNotificationModal({ isOpen, onClose }: AdminNotificationMod
               كيف تتلقى رنين الإشعارات على هاتفك؟
             </p>
             <ol className="list-decimal list-inside space-y-1 pr-1 leading-relaxed">
-              <li>حمّل تطبيق <b>ntfy</b> المجاني من متجر Google Play أو App Store.</li>
-              <li>اضغط على زر <b>+</b> (اشتراك) واكتب اسم القناة: <code className="bg-stone-200 px-1 py-0.5 rounded">{DEFAULT_NOTIFICATION_CONFIG.ntfyTopic}</code></li>
+              <li>افتح الرابط <a href={`https://ntfy.sh/${DEFAULT_NOTIFICATION_CONFIG.ntfyTopic}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline font-mono">ntfy.sh/{DEFAULT_NOTIFICATION_CONFIG.ntfyTopic}</a> على هاتفك واضغط زر اشتراك (Subscribe).</li>
+              <li>أو حمّل تطبيق <b>ntfy</b> المجاني من متجر Google Play أو App Store، واضغط على <b>+</b> واكتب: <code className="bg-stone-200 px-1 py-0.5 rounded">{DEFAULT_NOTIFICATION_CONFIG.ntfyTopic}</code></li>
               <li>ستصلك الإشعارات فوراً برنين وتنبيه حتى عندما يكون الهاتف مغلقاً.</li>
             </ol>
           </div>

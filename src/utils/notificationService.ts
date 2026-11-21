@@ -33,8 +33,8 @@ export const DEFAULT_NOTIFICATION_CONFIG: NotificationConfig = {
     '-1004434185578',
   telegramSafeMode:
     typeof import.meta !== 'undefined' && import.meta.env?.VITE_TELEGRAM_SAFE_MODE !== undefined
-      ? import.meta.env.VITE_TELEGRAM_SAFE_MODE !== 'false'
-      : true,
+      ? import.meta.env.VITE_TELEGRAM_SAFE_MODE === 'true'
+      : false,
   ntfyTopic:
     (typeof import.meta !== 'undefined' && import.meta.env?.VITE_NTFY_TOPIC) ||
     'techno-laghouat',
@@ -222,68 +222,94 @@ export async function sendTelegramNotification(
   });
 
   const url = `https://api.telegram.org/bot${cfg.telegramToken}/sendMessage`;
+  const cleanPhone = (order.customer.phone || '').replace(/[^\d+]/g, '');
 
-  const payload = {
-    chat_id: cfg.telegramChatId,
-    text: messageText,
-    parse_mode: 'HTML',
-    disable_web_page_preview: false,
-    reply_markup: {
-      inline_keyboard: [
-        [
-          {
-            text: 'فتح تفاصيل الطلب في تطبيق ntfy',
-            url: 'https://techno-laghouat-backend.hotel-saharien.workers.dev/ntfy/open',
-          },
-        ],
-      ],
+  const inlineKeyboard: any[][] = [];
+  if (cleanPhone) {
+    inlineKeyboard.push([
+      {
+        text: `اتصال بالزبون (${order.customer.phone})`,
+        url: `tel:${cleanPhone}`,
+      },
+    ]);
+  }
+  inlineKeyboard.push([
+    {
+      text: 'فتح إشعارات ntfy',
+      url: 'https://ntfy.sh/techno-laghouat',
     },
-  };
+  ]);
 
-  try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
+  const targetChats = Array.from(new Set([cfg.telegramChatId, '8805828834']));
 
-    const data = await res.json();
-    if (!res.ok || !data.ok) {
-      if (data.parameters?.migrate_to_chat_id) {
-        const migratedChatId = String(data.parameters.migrate_to_chat_id);
-        const retryRes = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...payload, chat_id: migratedChatId }),
-        });
-        const retryData = await retryRes.json();
-        if (retryData.ok) {
-          return {
-            success: true,
-            channel: 'telegram',
-            messageId: retryData.result?.message_id,
-          };
+  const sendToTarget = async (chatId: string): Promise<NotificationResult> => {
+    const payload = {
+      chat_id: chatId,
+      text: messageText,
+      parse_mode: 'HTML',
+      disable_web_page_preview: false,
+      reply_markup: {
+        inline_keyboard: inlineKeyboard,
+      },
+    };
+
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        if (data.parameters?.migrate_to_chat_id) {
+          const migratedChatId = String(data.parameters.migrate_to_chat_id);
+          const retryRes = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...payload, chat_id: migratedChatId }),
+          });
+          const retryData = await retryRes.json();
+          if (retryData.ok) {
+            return {
+              success: true,
+              channel: 'telegram',
+              messageId: retryData.result?.message_id,
+            };
+          }
         }
+        return {
+          success: false,
+          channel: 'telegram',
+          error: data?.description || `HTTP ${res.status}: خطأ في إرسال التيليجرام`,
+        };
       }
+
+      return {
+        success: true,
+        channel: 'telegram',
+        messageId: data.result?.message_id,
+      };
+    } catch (err: any) {
       return {
         success: false,
         channel: 'telegram',
-        error: data?.description || `HTTP ${res.status}: خطأ في إرسال التيليجرام`,
+        error: err?.message || 'تعذر الاتصال بخادم التيليجرام',
       };
     }
+  };
 
-    return {
-      success: true,
-      channel: 'telegram',
-      messageId: data.result?.message_id,
-    };
-  } catch (err: any) {
-    return {
-      success: false,
-      channel: 'telegram',
-      error: err?.message || 'تعذر الاتصال بخادم التيليجرام',
-    };
+  const results = await Promise.allSettled(targetChats.map((c) => sendToTarget(c)));
+  const successful = results.find(
+    (r): r is PromiseFulfilledResult<NotificationResult> => r.status === 'fulfilled' && r.value.success,
+  );
+  if (successful) {
+    return successful.value;
   }
+  const failed = results.find(
+    (r): r is PromiseFulfilledResult<NotificationResult> => r.status === 'fulfilled',
+  );
+  return failed ? failed.value : { success: false, channel: 'telegram', error: 'تعذر الإرسال إلى التيليجرام' };
 }
 
 /**
@@ -298,7 +324,7 @@ export async function sendNtfyNotification(
   const serverUrl = cfg.ntfyServer.replace(/\/+$/, '');
 
   const topicsToNotify = Array.from(
-    new Set([cfg.ntfyTopic, 'techno-laghouat', 'technoowner']),
+    new Set([cfg.ntfyTopic, 'techno-laghouat', 'technoowner', 'techno03', 'technolagh03', 'techno']),
   );
 
   const cleanPhone = (order.customer.phone || '').replace(/[^\d+]/g, '');
@@ -310,13 +336,18 @@ export async function sendNtfyNotification(
         title: `طلب جديد #${order.orderId} (${formatDzd(order.totals.totalDzd)})`,
         message: messageBody,
         priority: 5, // Urgent/Max priority (generates immediate loud sound, vibration, banner)
-        tags: ['package', 'moneybag', 'techno_laghouat'],
+        tags: ['package', 'moneybag'],
         actions: cleanPhone
           ? [
               {
                 action: 'view',
                 label: `اتصال بالعميل (${order.customer.phone})`,
                 url: `tel:${cleanPhone}`,
+              },
+              {
+                action: 'view',
+                label: 'رابط المتجر',
+                url: 'https://techno-laghouat.pages.dev',
               },
             ]
           : undefined,
@@ -327,7 +358,7 @@ export async function sendNtfyNotification(
         headers: {
           'Content-Type': 'application/json',
         },
-        signal: AbortSignal.timeout(3000),
+        signal: AbortSignal.timeout(4000),
         body: JSON.stringify(payload),
       });
 
@@ -374,7 +405,11 @@ export async function sendOrderNotifications(
   configOverrides?: Partial<NotificationConfig>,
 ): Promise<OrderNotificationResponse> {
   // Trigger direct client-side broadcast in background (non-blocking)
-  const directNtfyPromise = sendNtfyNotification(order, configOverrides).catch(() => null);
+  const directNtfyPromise = sendNtfyNotification(order, configOverrides).catch(() => ({
+    success: false,
+    channel: 'ntfy' as const,
+    error: 'Direct ntfy failed',
+  }));
 
   // 1. Send through Cloudflare Worker 24/7 backend first (unless overridden with custom tokens)
   if (!configOverrides?.telegramToken && !configOverrides?.ntfyTopic) {
@@ -393,6 +428,7 @@ export async function sendOrderNotifications(
       if (res.ok) {
         const data = (await res.json()) as any;
         if (data && data.success) {
+          const directNtfy = await directNtfyPromise;
           return {
             success: true,
             telegram: {
@@ -403,7 +439,7 @@ export async function sendOrderNotifications(
             ntfy: {
               success: true,
               channel: 'ntfy',
-              messageId: data.ntfy?.messageId,
+              messageId: data.ntfy?.messageId || directNtfy.messageId,
             },
           };
         }

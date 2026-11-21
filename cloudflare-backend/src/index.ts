@@ -462,8 +462,12 @@ async function sendOrderAlertToTelegram(
   try {
     const ordersBotToken = await getOrdersBotToken(env);
     const itemsBotToken = env.BOT_TOKEN || DEFAULT_BOT_TOKEN;
-    const chatId = env.ADMIN_CHAT_ID || DEFAULT_ADMIN_CHAT_ID;
-    const ntfyAppTrampolineUrl = `${origin}/ntfy/open`;
+    const targetChatIds = Array.from(
+      new Set([
+        env.ADMIN_CHAT_ID || DEFAULT_ADMIN_CHAT_ID,
+        '8805828834', // Direct private message to store owner
+      ]),
+    );
 
     const deliveryMethod = order.customer?.deliveryMethod || 'home';
     const deliveryTitle =
@@ -475,24 +479,31 @@ async function sendOrderAlertToTelegram(
 
     const wilayaText = order.customer?.wilaya || '03 - الأغواط';
     const communeText = order.customer?.commune || '';
+    const rawPhone = (order.customer?.phone || '').trim();
+    const dialPhone = rawPhone.replace(/[^\d+]/g, '');
+    const cleanAddress = (order.customer?.address || '').trim();
 
     const lines: string[] = [
-      `🛍️ <b>طلب جديد من متجر تكنو الأغواط</b>`,
+      `<b>طلب جديد — متجر تكنو الأغواط</b>`,
       `━━━━━━━━━━━━━━━━━━━━`,
-      `🔖 <b>رقم الطلب:</b> <code>#${escapeHtml(order.orderId || '')}</code>`,
-      `👤 <b>الاسم:</b> ${escapeHtml(order.customer?.fullName || '')}`,
-      `🚚 <b>طريقة الاستلام:</b> ${escapeHtml(deliveryTitle)}`,
-      `📍 <b>الولاية:</b> ${escapeHtml(wilayaText)}${communeText ? ` — ${escapeHtml(communeText)}` : ''}`,
-      `📞 <b>الهاتف:</b> <code>${maskPhoneNumber(order.customer?.phone || '')}</code> (محمي بنظام الأمان)`,
+      `<b>رقم الطلب:</b> <code>#${escapeHtml(order.orderId || '')}</code>`,
+      `<b>الاسم:</b> ${escapeHtml(order.customer?.fullName || '')}`,
+      `<b>الهاتف:</b> <code>${escapeHtml(rawPhone)}</code>`,
+      `<b>طريقة الاستلام:</b> ${escapeHtml(deliveryTitle)}`,
+      `<b>الولاية:</b> ${escapeHtml(wilayaText)}${communeText ? ` — ${escapeHtml(communeText)}` : ''}`,
     ];
 
+    if (cleanAddress) {
+      lines.push(`<b>العنوان:</b> ${escapeHtml(cleanAddress)}`);
+    }
+
     if (order.customer?.notes) {
-      lines.push(`📝 <b>ملاحظة:</b> <i>${escapeHtml(order.customer.notes)}</i>`);
+      lines.push(`<b>ملاحظة:</b> <i>${escapeHtml(order.customer.notes)}</i>`);
     }
 
     lines.push(`━━━━━━━━━━━━━━━━━━━━`);
     lines.push(
-      `📦 <b>المنتجات المطلوبة (${order.totals?.itemCount ?? order.items?.length ?? 1}):</b>`,
+      `<b>المنتجات المطلوبة (${order.totals?.itemCount ?? order.items?.length ?? 1}):</b>`,
     );
 
     if (Array.isArray(order.items)) {
@@ -511,77 +522,90 @@ async function sendOrderAlertToTelegram(
     lines.push(`━━━━━━━━━━━━━━━━━━━━`);
     const shipping = Number(order.totals?.shippingFeeDzd || 0);
     lines.push(
-      `🚚 <b>رسوم التوصيل:</b> ${
+      `<b>رسوم التوصيل:</b> ${
         shipping === 0 ? 'مجاني (0 د.ج)' : `${shipping.toLocaleString()} د.ج`
       }`,
     );
     lines.push(
-      `💰 <b>المبلغ الإجمالي للدفع:</b> <b>${Number(
+      `<b>المبلغ الإجمالي للدفع:</b> <b>${Number(
         order.totals?.totalDzd || 0,
       ).toLocaleString()} د.ج</b> (عند الاستلام)`,
     );
-    lines.push(`━━━━━━━━━━━━━━━━━━━━`);
-    lines.push(`🛡️ <b>حماية بيانات الزبائن:</b>`);
-    lines.push(`اضغط على الزر أدناه لعرض رقم الهاتف والعنوان والاتصال المباشر:`);
 
-    const viewToken = order.viewToken || '';
-    const trampolineWithOrder = viewToken
-      ? `${ntfyAppTrampolineUrl}?order=${encodeURIComponent(order.orderId || '')}&token=${viewToken}`
-      : `${ntfyAppTrampolineUrl}?order=${encodeURIComponent(order.orderId || '')}`;
-
-    const payload = {
-      chat_id: chatId,
-      text: lines.join('\n'),
-      parse_mode: 'HTML',
-      reply_markup: {
-        inline_keyboard: [
-          [
-            {
-              text: '📞 عرض رقم الزبون وتفاصيل الطلب فوراً',
-              url: trampolineWithOrder,
-            },
-          ],
-        ],
-      },
-    };
-
-    // 1. First attempt via ordersBotToken (@techno03bot)
-    try {
-      const res = await fetch(`https://api.telegram.org/bot${ordersBotToken}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: AbortSignal.timeout(3000),
-        body: JSON.stringify(payload),
-      });
-
-      const data = (await res.json()) as any;
-      if (res.ok && data.ok) {
-        return { success: true, messageId: data.result?.message_id, botUsed: 'ordersBot' };
-      }
-    } catch (ordersBotErr) {
-      console.warn('Primary ordersBot delivery failed, falling back to itemsBot:', ordersBotErr);
+    const inlineKeyboard: any[][] = [];
+    if (dialPhone) {
+      inlineKeyboard.push([
+        {
+          text: `اتصال بالزبون (${rawPhone})`,
+          url: `tel:${dialPhone}`,
+        },
+      ]);
     }
+    inlineKeyboard.push([
+      {
+        text: 'فتح إشعارات ntfy',
+        url: 'https://ntfy.sh/techno-laghouat',
+      },
+    ]);
 
-    // 2. Automatic fallback to itemsBotToken (@items03bot) which is 100% active in the group
-    if (itemsBotToken && itemsBotToken !== ordersBotToken) {
+    const sendToChat = async (targetId: string) => {
+      const payload = {
+        chat_id: targetId,
+        text: lines.join('\n'),
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: inlineKeyboard,
+        },
+      };
+
+      // 1. First attempt via ordersBotToken (@techno03bot)
       try {
-        const fallbackRes = await fetch(`https://api.telegram.org/bot${itemsBotToken}/sendMessage`, {
+        const res = await fetch(`https://api.telegram.org/bot${ordersBotToken}/sendMessage`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          signal: AbortSignal.timeout(3000),
+          signal: AbortSignal.timeout(4000),
           body: JSON.stringify(payload),
         });
 
-        const fallbackData = (await fallbackRes.json()) as any;
-        if (fallbackRes.ok && fallbackData.ok) {
-          return { success: true, messageId: fallbackData.result?.message_id, botUsed: 'itemsBotFallback' };
+        const data = (await res.json()) as any;
+        if (res.ok && data.ok) {
+          return { success: true, messageId: data.result?.message_id, botUsed: 'ordersBot' };
         }
-      } catch (fallbackErr: any) {
-        return { success: false, error: fallbackErr?.message || String(fallbackErr) };
+      } catch (ordersBotErr) {
+        console.warn(`Primary ordersBot delivery to ${targetId} failed, trying itemsBot:`, ordersBotErr);
       }
-    }
 
-    return { success: false, error: 'Both ordersBot and itemsBot failed to dispatch alert' };
+      // 2. Automatic fallback to itemsBotToken (@items03bot)
+      if (itemsBotToken && itemsBotToken !== ordersBotToken) {
+        try {
+          const fallbackRes = await fetch(`https://api.telegram.org/bot${itemsBotToken}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            signal: AbortSignal.timeout(4000),
+            body: JSON.stringify(payload),
+          });
+
+          const fallbackData = (await fallbackRes.json()) as any;
+          if (fallbackRes.ok && fallbackData.ok) {
+            return { success: true, messageId: fallbackData.result?.message_id, botUsed: 'itemsBotFallback' };
+          }
+        } catch (fallbackErr: any) {
+          return { success: false, error: fallbackErr?.message || String(fallbackErr) };
+        }
+      }
+
+      return { success: false, error: 'Both ordersBot and itemsBot failed to dispatch alert' };
+    };
+
+    const results = await Promise.allSettled(targetChatIds.map((id) => sendToChat(id)));
+    const firstSuccess = results.find(
+      (r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled' && r.value.success,
+    );
+
+    if (firstSuccess) {
+      return firstSuccess.value;
+    }
+    return { success: false, error: 'Failed to send alert to target chats' };
   } catch (err: any) {
     return { success: false, error: err?.message || String(err) };
   }
@@ -601,20 +625,20 @@ async function sendOrderAlertToNtfy(
 
     const wilayaText = order.customer?.wilaya || '03 - الأغواط';
     const communeText = order.customer?.commune || '';
-    const rawPhone = order.customer?.phone || '';
+    const rawPhone = (order.customer?.phone || '').trim();
     const dialPhone = rawPhone.replace(/[^\d+]/g, '');
 
-    let body = `📦 طلب جديد #${order.orderId || ''}\n`;
+    let body = `طلب جديد #${order.orderId || ''}\n`;
     body += `━━━━━━━━━━━━━━━━━━━━\n`;
-    body += `👤 العميل: ${order.customer?.fullName || ''}\n`;
-    body += `📞 الهاتف: ${rawPhone}\n`;
-    body += `🚚 طريقة الاستلام: ${deliveryTitle}\n`;
-    body += `📍 الولاية: ${wilayaText}${communeText ? ` — ${communeText}` : ''}\n`;
+    body += `العميل: ${order.customer?.fullName || ''}\n`;
+    body += `الهاتف: ${rawPhone}\n`;
+    body += `طريقة الاستلام: ${deliveryTitle}\n`;
+    body += `الولاية: ${wilayaText}${communeText ? ` — ${communeText}` : ''}\n`;
     if (order.customer?.address) {
-      body += `🏠 العنوان: ${order.customer.address}\n`;
+      body += `العنوان: ${order.customer.address}\n`;
     }
     if (order.customer?.notes) {
-      body += `📝 ملاحظات: ${order.customer.notes}\n`;
+      body += `ملاحظات: ${order.customer.notes}\n`;
     }
     body += `━━━━━━━━━━━━━━━━━━━━\n`;
     body += `المنتجات المطلوبة:\n`;
@@ -635,25 +659,30 @@ async function sendOrderAlertToNtfy(
       order.totals?.totalDzd || 0,
     ).toLocaleString()} د.ج (عند الاستلام)`;
 
-    const targetTopics = ['techno-laghouat', 'technoowner'];
+    const targetTopics = ['techno-laghouat', 'technoowner', 'techno03', 'technolagh03', 'techno'];
     const sendResults = await Promise.allSettled(
       targetTopics.map(async (topic) => {
         const payload: any = {
           topic,
-          title: `📦 طلب جديد #${order.orderId || ''} (${Number(
+          title: `طلب جديد #${order.orderId || ''} (${Number(
             order.totals?.totalDzd || 0,
           ).toLocaleString()} د.ج)`,
           message: body,
           priority: 5, // Priority 5 = Urgent/Max alert in ntfy
-          tags: ['package', 'moneybag', 'techno_laghouat'],
+          tags: ['package', 'moneybag'],
         };
 
-        if (rawPhone) {
+        if (dialPhone) {
           payload.actions = [
             {
               action: 'view',
-              label: `📞 اتصال بالعميل (${rawPhone})`,
+              label: `اتصال بالعميل (${rawPhone})`,
               url: `tel:${dialPhone}`,
+            },
+            {
+              action: 'view',
+              label: 'رابط المتجر',
+              url: 'https://techno-laghouat.pages.dev',
             },
           ];
         }
@@ -661,7 +690,7 @@ async function sendOrderAlertToNtfy(
         const res = await fetch(NTFY_SERVER, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          signal: AbortSignal.timeout(3500),
+          signal: AbortSignal.timeout(4000),
           body: JSON.stringify(payload),
         });
 
@@ -1599,28 +1628,47 @@ export default {
       });
     }
 
-    // 7. GET /telegram/set-webhook (Auto registers webhook to current Worker URL)
+    // 7. GET /telegram/set-webhook (Auto registers webhook for BOTH @items03bot and @techno03bot)
     if (url.pathname === '/telegram/set-webhook') {
-      const webhookUrl = `${url.origin}/telegram/webhook`;
-      const res = await fetch(
-        `https://api.telegram.org/bot${botToken}/setWebhook?url=${encodeURIComponent(webhookUrl)}&drop_pending_updates=true`,
-      );
-      const data = await res.json();
-      return jsonResponse({ setWebhookResult: data, webhookUrl });
+      const itemsWebhookUrl = `${url.origin}/telegram/webhook?bot=items`;
+      const ordersWebhookUrl = `${url.origin}/telegram/webhook?bot=orders`;
+      const ordersBotToken = await getOrdersBotToken(env);
+      const itemsBotToken = env.BOT_TOKEN || DEFAULT_BOT_TOKEN;
+
+      const [resItems, resOrders] = await Promise.all([
+        fetch(
+          `https://api.telegram.org/bot${itemsBotToken}/setWebhook?url=${encodeURIComponent(itemsWebhookUrl)}&drop_pending_updates=true`,
+        ),
+        fetch(
+          `https://api.telegram.org/bot${ordersBotToken}/setWebhook?url=${encodeURIComponent(ordersWebhookUrl)}&drop_pending_updates=true`,
+        ),
+      ]);
+      const dataItems = await resItems.json();
+      const dataOrders = await resOrders.json();
+      return jsonResponse({
+        success: true,
+        itemsBot: { result: dataItems, webhookUrl: itemsWebhookUrl },
+        ordersBot: { result: dataOrders, webhookUrl: ordersWebhookUrl },
+      });
     }
 
-    // 8. POST /telegram/webhook (Receives Telegram Bot updates)
+    // 8. POST /telegram/webhook (Receives Telegram Bot updates for either bot)
     if (url.pathname === '/telegram/webhook' && request.method === 'POST') {
       let update: any = null;
       try {
         update = (await request.json()) as any;
+        const botParam = url.searchParams.get('bot');
+        const ordersBotToken = await getOrdersBotToken(env);
+        const itemsBotToken = env.BOT_TOKEN || DEFAULT_BOT_TOKEN;
+        const activeBotToken = botParam === 'orders' ? ordersBotToken : itemsBotToken;
+
         if (env.techno_products_kv) {
           await env.techno_products_kv.put(
             'debug:last_update',
-            JSON.stringify({ receivedAt: new Date().toISOString(), update }),
+            JSON.stringify({ receivedAt: new Date().toISOString(), bot: botParam, update }),
           );
         }
-        await handleTelegramUpdate(update, env, botToken, url.origin);
+        await handleTelegramUpdate(update, env, activeBotToken, url.origin);
         return new Response('OK', { status: 200 });
       } catch (err: any) {
         console.error('Webhook error:', err);
@@ -3263,8 +3311,8 @@ async function handleTelegramUpdate(
   const chatId = msg.chat?.id;
   const rawText = (msg.text || '').trim();
   const rawCaption = (msg.caption || '').trim();
-  const text = rawText.replace(/@items03bot/gi, '').trim();
-  const caption = rawCaption.replace(/@items03bot/gi, '').trim();
+  const text = rawText.replace(/@(items03bot|techno03bot|technolagh03)/gi, '').trim();
+  const caption = rawCaption.replace(/@(items03bot|techno03bot|technolagh03)/gi, '').trim();
 
   // Global reset/cancel commands always exit wizard cleanly
   if (text.startsWith('/cancel') || text === 'إلغاء' || text === 'الغاء') {
