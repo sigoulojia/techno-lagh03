@@ -227,39 +227,13 @@ export function DeliverySelector({
               </p>
             </div>
           ) : (
-            <div>
-              <label
-                htmlFor={`${idPrefix}-address`}
-                className="block text-sm font-black text-[#18181B] mb-1.5"
-              >
-                البلدية والعنوان الدقيق للتوصيل للمنزل <span className="text-[#E30613]">*</span>
-              </label>
-              <input
-                id={`${idPrefix}-address`}
-                data-testid={`${idPrefix}-address-input`}
-                type="text"
-                placeholder={
-                  isLaghouat
-                    ? 'الحي أو الشارع أو المعلم القريب (الأغواط)...'
-                    : `البلدية والحي الدقيق في ولاية ${selectedWilayaRate.nameAr}...`
-                }
-                value={form.address}
-                onChange={(e) => {
-                  onChangeForm((prev) => ({ ...prev, address: e.target.value }));
-                  onClearErrors(['address']);
-                }}
-                aria-invalid={Boolean(errors.address)}
-                className={`w-full px-4 py-3 min-h-[46px] rounded-xl border-2 text-sm font-bold bg-white focus:outline-none transition-all ${
-                  errors.address
-                    ? 'border-[#E30613] shadow-[2px_2px_0px_#E30613]'
-                    : 'border-[#18181B] shadow-[2px_2px_0px_#18181B] focus:shadow-[4px_4px_0px_#E30613]'
-                }`}
-              />
-              {errors.address ? (
-                <p role="alert" className="mt-1.5 text-xs font-black text-[#E30613]">
-                  {errors.address}
-                </p>
-              ) : null}
+            <div className="rounded-2xl bg-[#FAF9F6] border-2 border-stone-300 p-4 text-xs font-bold leading-relaxed text-[#52525B]">
+              <p className="font-black text-[#18181B]">
+                توصيل لباب المنزل — {selectedWilayaRate.nameAr}
+              </p>
+              <p className="mt-1">
+                سيتصل بك موزع ZR Express هاتفياً فور وصول الطرد لولايتك لتسليمك الطلبية يداً بيد، والدفع نقداً عند الاستلام.
+              </p>
             </div>
           )}
         </div>

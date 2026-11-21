@@ -374,12 +374,6 @@ export function validateOrderForm(input: OrderFormInput): OrderValidationErrors 
     if (!input.wilaya || !input.wilaya.trim()) {
       errors.wilaya = 'يرجى اختيار الولاية.';
     }
-
-    const requiresHomeAddress =
-      input.deliveryMethod === 'home' || input.deliveryMethod === 'laghouat';
-    if (requiresHomeAddress && input.address.trim().length < 4) {
-      errors.address = 'يرجى إدخال البلدية أو العنوان الدقيق للتوصيل للمنزل.';
-    }
   }
 
   return errors;

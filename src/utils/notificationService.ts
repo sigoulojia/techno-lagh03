@@ -87,31 +87,31 @@ export function buildTelegramMessage(
     order.customer.deliveryMethod;
 
   const lines: string[] = [
-    `<b>طلب جديد — متجر تكنو الأغواط</b>`,
+    `🛍️ <b>طلب جديد — متجر تكنو الأغواط</b> 🏢`,
     `━━━━━━━━━━━━━━━━━━━━`,
-    `<b>رقم الطلب:</b> <code>#${escapeHtml(order.orderId)}</code>`,
-    `<b>الاسم:</b> ${escapeHtml(order.customer.fullName)}`,
-    `<b>طريقة الاستلام:</b> ${escapeHtml(delivery)}`,
-    `<b>الولاية:</b> ${escapeHtml(order.customer.wilaya)}`,
+    `📋 <b>رقم الطلب:</b> <code>#${escapeHtml(order.orderId)}</code>`,
+    `👤 <b>الاسم:</b> ${escapeHtml(order.customer.fullName)}`,
+    `🚚 <b>طريقة الاستلام:</b> ${escapeHtml(delivery)}`,
+    `📍 <b>الولاية:</b> ${escapeHtml(order.customer.wilaya)}`,
   ];
 
   if (order.customer.commune) {
-    lines.push(`<b>البلدية / المكتب:</b> ${escapeHtml(order.customer.commune)}`);
+    lines.push(`🏢 <b>البلدية / المكتب:</b> ${escapeHtml(order.customer.commune)}`);
   }
 
   if (!safeMode) {
     // Unmasked mode (warning: may risk Telegram phone harvester bans)
-    lines.push(`<b>الهاتف:</b> <code>${escapeHtml(order.customer.phone)}</code>`);
+    lines.push(`📞 <b>الهاتف:</b> <code>${escapeHtml(order.customer.phone)}</code>`);
     if (order.customer.address) {
-      lines.push(`<b>العنوان:</b> ${escapeHtml(order.customer.address)}`);
+      lines.push(`🏠 <b>العنوان:</b> ${escapeHtml(order.customer.address)}`);
     }
   } else {
     // Safe mode: protect account from bans
-    lines.push(`<b>الهاتف:</b> <code>${maskPhoneNumber(order.customer.phone)}</code> (محمي بنظام الأمان)`);
+    lines.push(`📞 <b>الهاتف:</b> <code>${maskPhoneNumber(order.customer.phone)}</code> (محمي بنظام الأمان)`);
   }
 
   lines.push(`━━━━━━━━━━━━━━━━━━━━`);
-  lines.push(`<b>المنتجات المطلوبة (${order.totals.itemCount}):</b>`);
+  lines.push(`📦 <b>المنتجات المطلوبة (${order.totals.itemCount}):</b>`);
 
   for (const item of order.items) {
     const optionText = item.variantLabel
@@ -126,16 +126,16 @@ export function buildTelegramMessage(
 
   lines.push(`━━━━━━━━━━━━━━━━━━━━`);
   lines.push(
-    `<b>رسوم التوصيل:</b> ${
+    `🛵 <b>رسوم التوصيل:</b> ${
       order.totals.shippingFeeDzd === 0 ? 'مجاني' : formatDzd(order.totals.shippingFeeDzd)
     }`,
   );
   lines.push(
-    `<b>المجموع الإجمالي:</b> <b>${formatDzd(order.totals.totalDzd)}</b> (الدفع عند الاستلام)`,
+    `💰 <b>المجموع الإجمالي:</b> <b>${formatDzd(order.totals.totalDzd)}</b> (الدفع عند الاستلام)`,
   );
 
   if (order.customer.notes) {
-    lines.push(`<b>ملاحظة:</b> <i>${escapeHtml(order.customer.notes)}</i>`);
+    lines.push(`📝 <b>ملاحظة:</b> <i>${escapeHtml(order.customer.notes)}</i>`);
   }
 
   if (safeMode) {

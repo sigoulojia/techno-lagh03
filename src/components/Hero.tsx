@@ -109,7 +109,7 @@ export function Hero({
                   className="inline-flex items-center justify-center gap-2 px-6 py-3.5 min-h-[50px] rounded-xl border-2 border-[#18181B] bg-white text-[#18181B] text-base font-bold hover:bg-[#18181B] hover:text-white active:scale-95 transition-all shadow-xs whitespace-nowrap shrink-0 cursor-pointer"
                 >
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>تتبع طلبيتك (ZR Express)</span>
+                  <span>فحص حالة الطلب</span>
                 </a>
 
                 <a

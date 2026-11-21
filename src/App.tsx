@@ -42,6 +42,8 @@ import { AnnouncementBar } from './components/AnnouncementBar';
 import { TrustBadges } from './components/TrustBadges';
 import { CategoryShowcase } from './components/CategoryShowcase';
 import { QuickOrderSection } from './components/QuickOrderSection';
+import { PacksSection } from './components/PacksSection';
+import { type StorePack, INITIAL_PACKS } from './data/packs';
 import { FloatingActions } from './components/FloatingActions';
 import { ProductCard } from './components/ProductCard';
 import { ProductModal } from './components/ProductModal';
@@ -55,6 +57,7 @@ const CART_STORAGE_KEY = 'techno_laghouat_cart_v1';
 const ORDERS_STORAGE_KEY = 'techno_laghouat_orders_v1';
 const PRODUCTS_CACHE_KEY = 'techno_laghouat_products_cache_v1';
 const CATEGORIES_CACHE_KEY = 'techno_laghouat_categories_cache_v1';
+const PACKS_CACHE_KEY = 'techno_laghouat_packs_cache_v1';
 const BACKEND_URL =
   (typeof import.meta !== 'undefined' && import.meta.env?.VITE_BACKEND_URL) ||
   'https://techno-laghouat-backend.hotel-saharien.workers.dev';
@@ -102,6 +105,10 @@ export default function App() {
   const [backendCategories, setBackendCategories] = useState<StoreCategory[]>(() =>
     readStorage<StoreCategory[]>(CATEGORIES_CACHE_KEY, []),
   );
+  const [packs, setPacks] = useState<StorePack[]>(() => {
+    const cached = readStorage<StorePack[]>(PACKS_CACHE_KEY, []);
+    return cached.length > 0 ? cached : INITIAL_PACKS;
+  });
   const [requestedId, setRequestedId] = useState<string | null>(() => {
     if (typeof window === 'undefined') return null;
     return extractProductIdFromLocation(window.location);
@@ -149,6 +156,26 @@ export default function App() {
               // Ignore storage quota issues
             }
           }
+        }
+
+        // Sync Custom Packs from Backend
+        try {
+          const packsRes = await fetch(`${BACKEND_URL}/api/packs`);
+          if (packsRes.ok) {
+            const packsData = await packsRes.json();
+            if (packsData?.success && Array.isArray(packsData.packs) && packsData.packs.length > 0) {
+              if (isMounted) {
+                setPacks(packsData.packs);
+                try {
+                  window.localStorage.setItem(PACKS_CACHE_KEY, JSON.stringify(packsData.packs));
+                } catch {
+                  // Ignore quota
+                }
+              }
+            }
+          }
+        } catch {
+          // Keep cached or default packs
         }
       } catch {
         // Offline / unreachable backend: keep current storage
@@ -302,6 +329,64 @@ export default function App() {
     setSelectedProduct(null);
     setDrawerStep('checkout');
     setIsDrawerOpen(true);
+  };
+
+  const handleOrderPack = (pack: StorePack) => {
+    const packProduct: Product = {
+      id: pack.id,
+      sku: pack.sku,
+      name: pack.name,
+      shortName: pack.name,
+      brand: 'Techno Special Pack',
+      series: 'classic',
+      seriesLabel: 'باقات خاصة',
+      priceDzd: pack.packPriceDzd,
+      image: pack.imageUrl || '',
+      images: pack.imageUrl ? [pack.imageUrl] : [],
+      alt: pack.name,
+      summary: pack.tagline,
+      description: `${pack.description}\nالمحتويات المرفقة:\n${pack.items.join(' - ')}`,
+      availabilityText: 'متوفر للطلب الفوري',
+      featuredRank: 1,
+      siblingIds: [],
+      specs: [
+        { label: 'نوع العرض', value: 'باقة متكاملة' },
+        { label: 'الفئة', value: pack.targetAudience },
+      ],
+      highlights: pack.items,
+    };
+    handleAddToCart(packProduct, 1);
+    setSelectedProduct(null);
+    setDrawerStep('checkout');
+    setIsDrawerOpen(true);
+  };
+
+  const handleAddPackToCart = (pack: StorePack) => {
+    const packProduct: Product = {
+      id: pack.id,
+      sku: pack.sku,
+      name: pack.name,
+      shortName: pack.name,
+      brand: 'Techno Special Pack',
+      series: 'classic',
+      seriesLabel: 'باقات خاصة',
+      priceDzd: pack.packPriceDzd,
+      image: pack.imageUrl || '',
+      images: pack.imageUrl ? [pack.imageUrl] : [],
+      alt: pack.name,
+      summary: pack.tagline,
+      description: `${pack.description}\nالمحتويات المرفقة:\n${pack.items.join(' - ')}`,
+      availabilityText: 'متوفر للطلب الفوري',
+      featuredRank: 1,
+      siblingIds: [],
+      specs: [
+        { label: 'نوع العرض', value: 'باقة متكاملة' },
+        { label: 'الفئة', value: pack.targetAudience },
+      ],
+      highlights: pack.items,
+    };
+    handleAddToCart(packProduct, 1);
+    setToastMessage(`تمت إضافة «${pack.name}» إلى سلة الطلب`);
   };
 
   const handleUpdateQuantity = (
@@ -794,7 +879,14 @@ export default function App() {
               </div>
             </section>
 
-            <QuickOrderSection />
+            {/* Dedicated Exclusive Packs Section */}
+            <PacksSection
+              packs={packs}
+              onOrderPack={handleOrderPack}
+              onAddToCart={handleAddPackToCart}
+            />
+
+            <QuickOrderSection products={products} />
 
             <BranchSection savedOrders={savedOrders} />
           </main>

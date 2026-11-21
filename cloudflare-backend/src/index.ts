@@ -484,26 +484,26 @@ async function sendOrderAlertToTelegram(
     const cleanAddress = (order.customer?.address || '').trim();
 
     const lines: string[] = [
-      `<b>طلب جديد — متجر تكنو الأغواط</b>`,
+      `🛍️ <b>طلب جديد معتمد — متجر تكنو الأغواط</b> 🏢`,
       `━━━━━━━━━━━━━━━━━━━━`,
-      `<b>رقم الطلب:</b> <code>#${escapeHtml(order.orderId || '')}</code>`,
-      `<b>الاسم:</b> ${escapeHtml(order.customer?.fullName || '')}`,
-      `<b>الهاتف:</b> <code>${escapeHtml(rawPhone)}</code>`,
-      `<b>طريقة الاستلام:</b> ${escapeHtml(deliveryTitle)}`,
-      `<b>الولاية:</b> ${escapeHtml(wilayaText)}${communeText ? ` — ${escapeHtml(communeText)}` : ''}`,
+      `📋 <b>رقم الطلب:</b> <code>#${escapeHtml(order.orderId || '')}</code>`,
+      `👤 <b>الاسم:</b> ${escapeHtml(order.customer?.fullName || '')}`,
+      `📞 <b>الهاتف:</b> <code>${escapeHtml(rawPhone)}</code>`,
+      `🚚 <b>طريقة الاستلام:</b> ${escapeHtml(deliveryTitle)}`,
+      `📍 <b>الولاية:</b> ${escapeHtml(wilayaText)}${communeText ? ` — ${escapeHtml(communeText)}` : ''}`,
     ];
 
     if (cleanAddress) {
-      lines.push(`<b>العنوان:</b> ${escapeHtml(cleanAddress)}`);
+      lines.push(`🏠 <b>العنوان:</b> ${escapeHtml(cleanAddress)}`);
     }
 
     if (order.customer?.notes) {
-      lines.push(`<b>ملاحظة:</b> <i>${escapeHtml(order.customer.notes)}</i>`);
+      lines.push(`📝 <b>ملاحظة:</b> <i>${escapeHtml(order.customer.notes)}</i>`);
     }
 
     lines.push(`━━━━━━━━━━━━━━━━━━━━`);
     lines.push(
-      `<b>المنتجات المطلوبة (${order.totals?.itemCount ?? order.items?.length ?? 1}):</b>`,
+      `📦 <b>المنتجات المطلوبة (${order.totals?.itemCount ?? order.items?.length ?? 1}):</b>`,
     );
 
     if (Array.isArray(order.items)) {
@@ -522,12 +522,12 @@ async function sendOrderAlertToTelegram(
     lines.push(`━━━━━━━━━━━━━━━━━━━━`);
     const shipping = Number(order.totals?.shippingFeeDzd || 0);
     lines.push(
-      `<b>رسوم التوصيل:</b> ${
+      `🛵 <b>رسوم التوصيل:</b> ${
         shipping === 0 ? 'مجاني (0 د.ج)' : `${shipping.toLocaleString()} د.ج`
       }`,
     );
     lines.push(
-      `<b>المبلغ الإجمالي للدفع:</b> <b>${Number(
+      `💰 <b>المبلغ الإجمالي للدفع:</b> <b>${Number(
         order.totals?.totalDzd || 0,
       ).toLocaleString()} د.ج</b> (عند الاستلام)`,
     );
@@ -536,14 +536,14 @@ async function sendOrderAlertToTelegram(
     if (dialPhone) {
       inlineKeyboard.push([
         {
-          text: `اتصال بالزبون (${rawPhone})`,
+          text: `📞 اتصال بالزبون (${rawPhone})`,
           url: `tel:${dialPhone}`,
         },
       ]);
     }
     inlineKeyboard.push([
       {
-        text: 'فتح إشعارات ntfy',
+        text: '📲 فتح إشعارات ntfy',
         url: 'https://ntfy.sh/techno-laghouat',
       },
     ]);
@@ -854,6 +854,42 @@ async function saveCategories(env: Env, categories: StoreCategory[]): Promise<vo
   }
 }
 
+export interface StorePack {
+  id: string;
+  sku: string;
+  name: string;
+  badge: string;
+  targetAudience: string;
+  tagline: string;
+  description: string;
+  items: string[];
+  originalPriceDzd: number;
+  packPriceDzd: number;
+  savingsDzd: number;
+  imageUrl?: string;
+  featured?: boolean;
+}
+
+// Helper: Get store packs from KV
+async function getPacks(env: Env): Promise<StorePack[]> {
+  if (!env.techno_products_kv) return [];
+  const raw = await env.techno_products_kv.get('packs');
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+// Helper: Save packs to KV
+async function savePacks(env: Env, packs: StorePack[]): Promise<void> {
+  if (env.techno_products_kv) {
+    await env.techno_products_kv.put('packs', JSON.stringify(packs));
+  }
+}
+
 // Helper: Create or retrieve a category by exact Arabic/custom name
 async function ensureCategory(env: Env, rawName: string): Promise<StoreCategory> {
   const cleanName = rawName.trim();
@@ -932,6 +968,19 @@ interface WizardDraft {
   targetProductId?: string; // Used when appending photos to an existing product
 }
 
+interface PackDraft {
+  name?: string;
+  badge?: string;
+  targetAudience?: string;
+  tagline?: string;
+  description?: string;
+  items?: string[];
+  originalPriceDzd?: number;
+  packPriceDzd?: number;
+  savingsDzd?: number;
+  imageUrl?: string;
+}
+
 interface BotSessionState {
   step:
     | 'cat_create_name'
@@ -945,8 +994,14 @@ interface BotSessionState {
     | 'prod_description'
     | 'prod_photo_count'
     | 'prod_photos'
-    | 'existing_add_photos';
+    | 'existing_add_photos'
+    | 'pack_name'
+    | 'pack_desc'
+    | 'pack_items'
+    | 'pack_pricing'
+    | 'pack_photo';
   draft: WizardDraft;
+  packDraft?: PackDraft;
   updatedAt: number;
 }
 
@@ -1198,41 +1253,42 @@ async function sendDashboardMenu(
 ): Promise<void> {
   const products = await getProducts(env);
   const categories = await getCategories(env);
+  const packs = await getPacks(env);
   const siteUrl = await getSiteUrl(env);
   const adminPin = await getAdminPin(env);
 
   const text =
-    `<b>لوحة التحكم المركزية — متجر تكنو الأغواط</b>\n` +
+    `🏢 <b>لوحة التحكم المركزية — متجر تكنو الأغواط</b> ✨\n` +
     `━━━━━━━━━━━━━━━━━━━━\n` +
-    `• <b>المنتجات المعروضة بالموقع:</b> <code>${products.length}</code> منتج\n` +
-    `• <b>الأقسام المنشأة:</b> <code>${categories.length}</code> أقسام\n` +
-    `• <b>رابط المتجر الحالي:</b> <code>${siteUrl}</code>\n` +
-    `• <b>حماية لوحة الإدارة (PIN):</b> مشفر بنظام PBKDF2 و Salt\n` +
-    `• <b>تشفير بيانات الزبائن:</b> مشفرة بالكامل بـ AES-256-GCM\n` +
-    `• <b>المزامنة السحابية:</b> متصلة وفورية (Cloudflare KV)\n` +
+    `• 📦 <b>المنتجات المعروضة:</b> <code>${products.length}</code> منتج\n` +
+    `• 🗂️ <b>الأقسام المنشأة:</b> <code>${categories.length}</code> أقسام\n` +
+    `• 🎁 <b>الباقات الخاصة (Packs):</b> <code>${packs.length}</code> باقات\n` +
+    `• 🌐 <b>رابط المتجر:</b> <code>${siteUrl}</code>\n` +
+    `• 🔒 <b>حماية لوحة الإدارة (PIN):</b> مشفر بنظام PBKDF2 و Salt\n` +
+    `• 🛡️ <b>تشفير بيانات الزبائن:</b> مشفرة بالكامل بـ AES-256-GCM\n` +
+    `• ⚡ <b>المزامنة السحابية:</b> متصلة وفورية (Cloudflare KV)\n` +
     `━━━━━━━━━━━━━━━━━━━━\n` +
-    `<i>اختر من الأزرار التفاعلية أدناه لإدارة الأقسام والمنتجات والصور والقياسات:</i>`;
+    `<i>اختر من الأزرار التفاعلية أدناه لإدارة المعروضات والأقسام والباقات الحصرية:</i>`;
 
   const keyboard: any[][] = [
     [
-      { text: '+ إضافة منتج جديد (تفاعلي)', callback_data: 'menu:add_wizard' },
-      { text: `إدارة الأقسام (${categories.length})`, callback_data: 'menu:categories' },
+      { text: '➕ إضافة منتج جديد (تفاعلي)', callback_data: 'menu:add_wizard' },
+      { text: '🎁 إضافة باقة (Pack)', callback_data: 'menu:add_pack_wizard' },
     ],
     [
-      { text: `قائمة المنتجات (${products.length})`, callback_data: 'menu:list' },
-      { text: 'حذف منتج معين', callback_data: 'menu:delete' },
+      { text: `🗂️ إدارة الأقسام (${categories.length})`, callback_data: 'menu:categories' },
+      { text: `📦 قائمة المعروضات (${products.length})`, callback_data: 'menu:list' },
     ],
     [
-      { text: 'دليل الإضافة السريعة', callback_data: 'menu:add' },
-      { text: 'إحصائيات المتجر', callback_data: 'menu:stats' },
+      { text: `🎁 قائمة الباقات (${packs.length})`, callback_data: 'menu:packs_list' },
+      { text: '🗑️ حذف منتج', callback_data: 'menu:delete' },
     ],
     [
-      { text: 'عرض رابط المتجر', callback_data: 'menu:show_url' },
-      { text: 'تعديل رابط المتجر', callback_data: 'menu:url_guide' },
+      { text: '📊 إحصائيات المتجر', callback_data: 'menu:stats' },
+      { text: '🔔 قنوات التنبيهات والطلبات', callback_data: 'menu:alerts_info' },
     ],
     [
-      { text: 'قنوات التنبيهات والطلبات', callback_data: 'menu:alerts_info' },
-      { text: 'مسح كل المنتجات', callback_data: 'menu:clear_ask' },
+      { text: '⚠️ مسح كل المنتجات', callback_data: 'menu:clear_ask' },
     ],
   ];
 
@@ -1436,6 +1492,52 @@ export default {
       } catch (err: any) {
         return jsonResponse({ error: err.message }, 500);
       }
+    }
+
+    // 2d. GET /api/packs
+    if (url.pathname === '/api/packs' && request.method === 'GET') {
+      const packs = await getPacks(env);
+      return jsonResponse({ success: true, count: packs.length, packs });
+    }
+
+    // 2e. POST /api/packs
+    if (url.pathname === '/api/packs' && request.method === 'POST') {
+      try {
+        const body = (await request.json()) as Partial<StorePack>;
+        if (!body.name || !body.packPriceDzd) {
+          return jsonResponse({ error: 'Name and packPriceDzd are required' }, 400);
+        }
+        const packs = await getPacks(env);
+        const newPack: StorePack = {
+          id: body.id || `pack-${Date.now()}`,
+          sku: body.sku || `PACK-${Math.floor(100 + Math.random() * 900)}`,
+          name: body.name.trim(),
+          badge: body.badge || 'باقة خاصة',
+          targetAudience: body.targetAudience || 'المحترفين والطلبة',
+          tagline: body.tagline || body.name.trim(),
+          description: body.description || '',
+          items: Array.isArray(body.items) ? body.items : [],
+          originalPriceDzd: Number(body.originalPriceDzd || body.packPriceDzd),
+          packPriceDzd: Number(body.packPriceDzd),
+          savingsDzd: Number(body.savingsDzd || (Number(body.originalPriceDzd || 0) - Number(body.packPriceDzd))),
+          imageUrl: body.imageUrl,
+          featured: true,
+        };
+        packs.unshift(newPack);
+        await savePacks(env, packs);
+        return jsonResponse({ success: true, pack: newPack, count: packs.length }, 201);
+      } catch (err: any) {
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
+    // 2f. DELETE /api/packs/:id
+    if (url.pathname.startsWith('/api/packs/') && request.method === 'DELETE') {
+      const packId = decodeURIComponent(url.pathname.replace('/api/packs/', ''));
+      const packs = await getPacks(env);
+      const filtered = packs.filter((p) => p.id !== packId);
+      await savePacks(env, filtered);
+      return jsonResponse({ success: true, count: filtered.length });
     }
 
     // 2d. DELETE /api/categories/:id
@@ -3184,35 +3286,61 @@ async function handleTelegramUpdate(
         [{ text: '« 🔙 العودة للوحة التحكم', callback_data: 'menu:home' }],
       ];
       await sendOrEditMessage(botToken, chatId, messageId, text, keyboard);
-    } else if (data === 'menu:show_url') {
-      const siteUrl = await getSiteUrl(env);
+    } else if (data === 'menu:add_pack_wizard') {
+      await setSession(env, chatId, {
+        step: 'pack_name' as any,
+        draft: {},
+        packDraft: {},
+        updatedAt: Date.now(),
+      });
       const text =
-        `🌐 <b>رابط متجر تكنو الأغواط المعتمد:</b>\n` +
+        `🎁 <b>معالج إضافة باقة أو عرض خاص (Pack) جديد:</b>\n` +
         `━━━━━━━━━━━━━━━━━━━━\n` +
-        `<code>${siteUrl}</code>\n\n` +
-        `💡 <i>انقر على الرابط لنسخه فوراً أو استخدم الأزرار أدناه:</i>`;
-
-      const keyboard: any[][] = [];
-      if (
-        siteUrl.startsWith('https://') ||
-        (!siteUrl.includes('localhost') && !siteUrl.includes('127.0.0.1'))
-      ) {
-        keyboard.push([{ text: '🌐 فتح المتجر في المتصفح', url: siteUrl }]);
-      }
-      keyboard.push([{ text: '📋 نسخ رابط المتجر بنقرة زر', copy_text: { text: siteUrl } }]);
-      keyboard.push([{ text: '🔗 كيف أغير رابط المتجر؟', callback_data: 'menu:url_guide' }]);
-      keyboard.push([{ text: '« 🔙 العودة للوحة التحكم', callback_data: 'menu:home' }]);
+        `الباقة هي مجموعة متكاملة من المنتجات موجهة لفئة معينة (مثال: <i>باك المهندس المعماري</i>، <i>باك البكالوريا</i>، <i>باك المكاتب</i>).\n\n` +
+        `👉 <b>الخطوة 1 من 4 — اسم الباقة:</b>\n` +
+        `أرسل الآن <b>اسم الباقة</b> (مثال: <code>باك المهندس المعماري الشامل</code>):`;
+      const keyboard = [
+        [{ text: '« ❌ إلغاء والعودة', callback_data: 'menu:home' }],
+      ];
       await sendOrEditMessage(botToken, chatId, messageId, text, keyboard);
-    } else if (data === 'menu:url_guide') {
-      const siteUrl = await getSiteUrl(env);
-      const text =
-        `🔗 <b>تعديل رابط المتجر الأساسي:</b>\n` +
-        `━━━━━━━━━━━━━━━━━━━━\n` +
-        `الرابط الحالي:\n<code>${siteUrl}</code>\n\n` +
-        `لتغييره أرسل:\n<code>/url https://your-domain.com</code>`;
-      await sendOrEditMessage(botToken, chatId, messageId, text, [
-        [{ text: '« 🔙 العودة للوحة التحكم', callback_data: 'menu:home' }],
+    } else if (data === 'menu:packs_list') {
+      const packs = await getPacks(env);
+      let text =
+        `🎁 <b>قائمة الباقات الحصرية في المتجر (${packs.length}):</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n`;
+      const keyboard: any[][] = [];
+      if (packs.length === 0) {
+        text += `لا توجد أي باقات خاصة مضافة حالياً.\nاضغط على <b>«🎁 إضافة باقة جديدة»</b> لبدء إنشاء باقتك الأولى!`;
+      } else {
+        packs.forEach((p, idx) => {
+          text +=
+            `${idx + 1}. <b>${escapeHtml(p.name)}</b> (#${p.sku})\n` +
+            `• السعر: <b>${p.packPriceDzd.toLocaleString()} د.ج</b> (توفير: ${(p.savingsDzd || 0).toLocaleString()} د.ج)\n` +
+            `• عدد المواد المرفقة: ${p.items.length} مواد\n\n`;
+          keyboard.push([
+            { text: `🗑️ حذف باقة: ${p.name.slice(0, 20)}`, callback_data: `pack:delete:${p.id}` },
+          ]);
+        });
+      }
+      keyboard.push([
+        { text: '➕ إضافة باقة جديدة (Pack)', callback_data: 'menu:add_pack_wizard' },
       ]);
+      keyboard.push([
+        { text: '« 🔙 العودة للوحة التحكم', callback_data: 'menu:home' },
+      ]);
+      await sendOrEditMessage(botToken, chatId, messageId, text, keyboard);
+    } else if (data.startsWith('pack:delete:')) {
+      const packId = data.replace('pack:delete:', '');
+      const packs = await getPacks(env);
+      const filtered = packs.filter((p) => p.id !== packId);
+      await savePacks(env, filtered);
+      await sendOrEditMessage(
+        botToken,
+        chatId,
+        messageId,
+        `✅ <b>تم حذف الباقة بنجاح من المتجر!</b>`,
+        [[{ text: '« 🔙 العودة لقائمة الباقات', callback_data: 'menu:packs_list' }]],
+      );
     } else if (data === 'menu:alerts_info') {
       const ntfyAppUrl = `${origin}/ntfy/open`;
       const text =
@@ -3456,6 +3584,143 @@ async function handleTelegramUpdate(
 
     // 2. Handling text inputs during wizard steps
     if (text && !text.startsWith('/')) {
+      // ── Pack Creation Wizard Steps ──────────────────────
+      if (session.step === 'pack_name') {
+        const draft: PackDraft = session.packDraft || {};
+        draft.name = text.trim();
+        await setSession(env, chatId, {
+          step: 'pack_desc' as any,
+          draft: session.draft,
+          packDraft: draft,
+          updatedAt: Date.now(),
+        });
+        await callTelegram(botToken, 'sendMessage', {
+          chat_id: chatId,
+          text:
+            `✅ اسم الباقة: <b>${escapeHtml(draft.name)}</b>\n\n` +
+            `📝 <b>الخطوة 2 من 4 — وصف ومميزات الباقة:</b>\n` +
+            `أرسل الآن نبذة تسويقية للباقة تشرح ما تقدمه ومن المستهدف بها (مثال: <i>باقة متكاملة للمهندسين المعماريين توفر كافة أدوات الرسم والقياس والتخطيط بأعلى دقة وأفضل سعر جملة مخفض</i>):`,
+          parse_mode: 'HTML',
+          reply_markup: { inline_keyboard: [[{ text: '« ❌ إلغاء', callback_data: 'menu:home' }]] },
+        });
+        return;
+      }
+
+      if (session.step === 'pack_desc') {
+        const draft: PackDraft = session.packDraft || {};
+        draft.description = text.trim();
+        await setSession(env, chatId, {
+          step: 'pack_items' as any,
+          draft: session.draft,
+          packDraft: draft,
+          updatedAt: Date.now(),
+        });
+        await callTelegram(botToken, 'sendMessage', {
+          chat_id: chatId,
+          text:
+            `✅ تم تسجيل الوصف!\n\n` +
+            `📦 <b>الخطوة 3 من 4 — محتويات ومكونات الباقة:</b>\n` +
+            `أرسل قائمة المنتجات المرفقة في الباقة (اكتب كل مادة في سطر أو افصل بينها بفواصل):\n\n` +
+            `<i>مثال:\nمسطرة حرف T ألمانية 80 سم\nطقم أقلام روترينج الأصلية للتحبير\nدفتر مخططات A3 ورق كانسون\nحامل مخططات أسطواني مقاوم للماء</i>`,
+          parse_mode: 'HTML',
+          reply_markup: { inline_keyboard: [[{ text: '« ❌ إلغاء', callback_data: 'menu:home' }]] },
+        });
+        return;
+      }
+
+      if (session.step === 'pack_items') {
+        const draft: PackDraft = session.packDraft || {};
+        const lines = text
+          .split(/[\n,،]/)
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0);
+        draft.items = lines;
+        await setSession(env, chatId, {
+          step: 'pack_pricing' as any,
+          draft: session.draft,
+          packDraft: draft,
+          updatedAt: Date.now(),
+        });
+        await callTelegram(botToken, 'sendMessage', {
+          chat_id: chatId,
+          text:
+            `✅ تم تسجيل ${lines.length} مواد داخل الباقة!\n\n` +
+            `💰 <b>الخطوة 4 والأخيرة — أسعار الباقة (د.ج):</b>\n` +
+            `أرسل السعر الأصلي عند الشراء المنفصل متبوعاً بسعر الباقة المخفض:\n` +
+            `<i>مثال: <code>16500 13800</code></i>\n` +
+            `(سعر الشراء المنفصل 16,500 د.ج وسعر الباقة الخاصة 13,800 د.ج):`,
+          parse_mode: 'HTML',
+          reply_markup: { inline_keyboard: [[{ text: '« ❌ إلغاء', callback_data: 'menu:home' }]] },
+        });
+        return;
+      }
+
+      if (session.step === 'pack_pricing') {
+        const draft: PackDraft = session.packDraft || {};
+        const nums = text.match(/\d+/g);
+        let origPrice = 0;
+        let packPrice = 0;
+        if (nums && nums.length >= 2) {
+          origPrice = parseInt(nums[0], 10);
+          packPrice = parseInt(nums[1], 10);
+        } else if (nums && nums.length === 1) {
+          packPrice = parseInt(nums[0], 10);
+          origPrice = packPrice;
+        } else {
+          await callTelegram(botToken, 'sendMessage', {
+            chat_id: chatId,
+            text: `⚠️ يرجى إدخال أرقام صحيحة للأسعار (مثال: <code>16500 13800</code>):`,
+            parse_mode: 'HTML',
+          });
+          return;
+        }
+
+        const savings = Math.max(0, origPrice - packPrice);
+        const packId = `pack-${Date.now()}`;
+        const newPack: StorePack = {
+          id: packId,
+          sku: `PACK-${Math.floor(100 + Math.random() * 900)}`,
+          name: draft.name || 'باقة خاصة',
+          badge: 'عرض خاص',
+          targetAudience: 'المحترفين والطلبة',
+          tagline: draft.name || 'باقة تكنو الحصرية',
+          description: draft.description || '',
+          items: draft.items && draft.items.length > 0 ? draft.items : ['مجموعة أدوات تكنو المتكاملة'],
+          originalPriceDzd: origPrice,
+          packPriceDzd: packPrice,
+          savingsDzd: savings,
+          imageUrl: draft.imageUrl || 'https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=800&q=80',
+          featured: true,
+        };
+
+        const currentPacks = await getPacks(env);
+        currentPacks.unshift(newPack);
+        await savePacks(env, currentPacks);
+        await clearSession(env, chatId);
+
+        await callTelegram(botToken, 'sendMessage', {
+          chat_id: chatId,
+          text:
+            `🎉 <b>تم نشر الباقة بنجاح في متجر تكنو الأغواط!</b> 🎁✨\n` +
+            `━━━━━━━━━━━━━━━━━━━━\n` +
+            `📦 <b>الاسم:</b> <b>${escapeHtml(newPack.name)}</b> (#${newPack.sku})\n` +
+            `💰 <b>سعر الباقة الخاص:</b> <b>${newPack.packPriceDzd.toLocaleString()} د.ج</b>\n` +
+            (savings > 0 ? `💎 <b>قيمة التوفير للعميل:</b> <b>${savings.toLocaleString()} د.ج</b>\n` : '') +
+            `📋 <b>المواد المرفقة:</b> ${newPack.items.length} مواد\n` +
+            `━━━━━━━━━━━━━━━━━━━━\n` +
+            `🌐 <b>ستظهر الباقة فوراً في قسم الباقات الحصرية في الموقع.</b>`,
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🎁 قائمة الباقات', callback_data: 'menu:packs_list' }],
+              [{ text: '➕ إضافة باقة أخرى', callback_data: 'menu:add_pack_wizard' }],
+              [{ text: '« 🔙 لوحة التحكم', callback_data: 'menu:home' }],
+            ],
+          },
+        });
+        return;
+      }
+
       if (session.step === 'cat_create_name') {
         const created = await ensureCategory(env, text);
         await clearSession(env, chatId);
@@ -3775,31 +4040,36 @@ async function handleTelegramUpdate(
     return;
   }
 
-  // Set / view site domain
+  // Add Pack Command (/addpack or /pack)
+  if (text.startsWith('/addpack') || text.startsWith('/pack')) {
+    await setSession(env, chatId, {
+      step: 'pack_name' as any,
+      draft: {},
+      packDraft: {},
+      updatedAt: Date.now(),
+    });
+    await callTelegram(botToken, 'sendMessage', {
+      chat_id: chatId,
+      text:
+        `🎁 <b>معالج إضافة باقة أو عرض خاص (Pack) جديد:</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `👉 <b>الخطوة 1 من 4:</b> أرسل الآن <b>اسم الباقة</b> (مثال: <code>باك المهندس المعماري المتكامل</code>):`,
+      parse_mode: 'HTML',
+      reply_markup: { inline_keyboard: [[{ text: '« ❌ إلغاء', callback_data: 'menu:home' }]] },
+    });
+    return;
+  }
+
+  // View site domain (read-only)
   if (text.startsWith('/url') || text.startsWith('/seturl') || text.startsWith('/domain')) {
-    const parts = text.split(/\s+/);
-    if (parts.length > 1 && parts[1].startsWith('http')) {
-      const newUrl = parts[1].replace(/\/+$/, '');
-      if (env.techno_products_kv) {
-        await env.techno_products_kv.put('site_url', newUrl);
-      }
-      await callTelegram(botToken, 'sendMessage', {
-        chat_id: chatId,
-        text: `✅ <b>تم تحديث رابط المتجر بنجاح:</b> <code>${newUrl}</code>`,
-        parse_mode: 'HTML',
-        reply_markup: { inline_keyboard: [[{ text: '« 🔙 لوحة التحكم', callback_data: 'menu:home' }]] },
-      });
-      return;
-    } else {
-      const current = await getSiteUrl(env);
-      await callTelegram(botToken, 'sendMessage', {
-        chat_id: chatId,
-        text: `🌐 <b>رابط المتجر الحالي:</b> <code>${current}</code>\nلتغييره أرسل: <code>/url https://domain.com</code>`,
-        parse_mode: 'HTML',
-        reply_markup: { inline_keyboard: [[{ text: '« 🔙 لوحة التحكم', callback_data: 'menu:home' }]] },
-      });
-      return;
-    }
+    const siteUrl = await getSiteUrl(env);
+    await callTelegram(botToken, 'sendMessage', {
+      chat_id: chatId,
+      text: `🌐 <b>رابط متجر تكنو الأغواط الرسمي:</b>\n<code>${siteUrl}</code>`,
+      parse_mode: 'HTML',
+      reply_markup: { inline_keyboard: [[{ text: '« 🔙 لوحة التحكم', callback_data: 'menu:home' }]] },
+    });
+    return;
   }
 
   // View / update Orders Bot Token

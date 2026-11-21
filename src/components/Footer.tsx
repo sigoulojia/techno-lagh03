@@ -110,7 +110,7 @@ export function Footer() {
               </li>
               <li>
                 <a href="#track" className="hover:text-white transition-colors font-bold text-stone-200">
-                  تتبع حالة ومسار طلبك
+                  فحص حالة الطلب
                 </a>
               </li>
               <li>
@@ -145,19 +145,11 @@ export function Footer() {
           </div>
         </div>
 
-        {/* Bottom Copyright & Security Line */}
+        {/* Bottom Copyright */}
         <div className="mt-12 pt-8 border-t border-stone-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-stone-500">
           <p>
             © {new Date().getFullYear()} {STORE_INFO.fullTitle} · جميع الحقوق محفوظة.
           </p>
-          <div className="flex items-center gap-4 text-[11px]">
-            <span className="inline-flex items-center gap-1.5 text-stone-400">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              <span>مشفر ومحمي عبر Cloudflare</span>
-            </span>
-            <span>·</span>
-            <span className="text-stone-400">ZR Express Official Partner</span>
-          </div>
         </div>
       </div>
     </footer>

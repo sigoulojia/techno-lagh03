@@ -262,13 +262,13 @@ test('calculateOrderTotals computes variant subtotals and wilaya-specific Home &
   assert.equal(algerStopDesk.totalDzd, 7030);
 });
 
-test('validateOrderForm enforces Algerian phone rules and address only for home delivery', () => {
+test('validateOrderForm enforces Algerian phone rules and wilaya selection', () => {
   assert.equal(cleanAlgerianPhone('+213 661-23 45 67'), '0661234567');
   assert.equal(isFakeAlgerianPhone('0555555555'), true);
   assert.equal(isFakeAlgerianPhone('0612345678'), true);
   assert.equal(isFakeAlgerianPhone('0770112233'), false);
 
-  const homeMissingAddress = validateOrderForm({
+  const homeValidWithoutAddress = validateOrderForm({
     fullName: 'عميل المتجر',
     phone: '0661 23 45 67',
     deliveryMethod: 'home',
@@ -276,7 +276,7 @@ test('validateOrderForm enforces Algerian phone rules and address only for home 
     address: '',
     notes: '',
   });
-  assert.ok(homeMissingAddress.address);
+  assert.equal(Boolean(homeValidWithoutAddress.address), false);
 
   // Stop desk does NOT require street address
   const stopDeskValid = validateOrderForm({

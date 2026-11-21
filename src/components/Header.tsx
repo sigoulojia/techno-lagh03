@@ -34,8 +34,9 @@ export function Header({ cartCount, onOpenCart }: HeaderProps) {
 
   const navLinks = [
     { label: 'المعروضات', href: '#collection' },
+    { label: 'عروض الباقات', href: '#packs' },
     { label: 'أسعار التوصيل', href: '#delivery-rates' },
-    { label: 'تتبع الشحنة', href: '#track' },
+    { label: 'فحص الطلب', href: '#track' },
     { label: 'موقع الفرع', href: '#branch' },
   ];
 
@@ -192,7 +193,7 @@ export function Header({ cartCount, onOpenCart }: HeaderProps) {
                 >
                   <div className="flex items-center gap-2.5">
                     <span className="w-2.5 h-2.5 rounded-full bg-[#E30613] animate-ping" />
-                    <span>تتبع مسار طلبك (ZR Express)</span>
+                    <span>فحص حالة طلبك</span>
                   </div>
                   <ArrowLeft className="w-4 h-4 text-[#E30613]" />
                 </a>

@@ -489,17 +489,17 @@ export function BranchSection({ savedOrders }: BranchSectionProps) {
                   <TechnoLogo size="md" showBranch={false} />
                   <div>
                     <h2 className="font-display text-lg sm:text-xl font-black text-[#18181B] leading-none">
-                      منظومة تتبع الشحنات الرسمية
+                      منظومة فحص وتأكيد الطلب — فرع الأغواط
                     </h2>
                     <p className="text-xs text-[#18181B]/85 font-bold mt-1">
-                      TECHNO LAGHOUAT PARCEL RADAR
+                      TECHNO LAGHOUAT ORDER STATUS CHECK
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2">
                   <span className="stamp-red text-[11px] font-black">
-                    رادار التتبع المباشر
+                    فحص حالة الطلب
                   </span>
                 </div>
               </div>
@@ -507,7 +507,7 @@ export function BranchSection({ savedOrders }: BranchSectionProps) {
               {/* Terminal Form Body */}
               <div className="p-6 sm:p-8 space-y-6">
                 <p className="text-xs sm:text-sm text-[#52525B] leading-relaxed">
-                  أدخل كود تتبع طلبك السري المكون من 12 خانة لمراجعة مسار التجهيز والشحن مباشرة من خوادم تكنو.
+                  أدخل كود طلبك السري المكون من 12 خانة لمراجعة حالة اعتماده وتجهيزه في الفرع مباشرة قبل تسليمه لشركة ZR Express.
                 </p>
 
                 <form onSubmit={handleLookup} className="flex flex-col sm:flex-row gap-3">
@@ -530,7 +530,7 @@ export function BranchSection({ savedOrders }: BranchSectionProps) {
                     className="animate-sheen inline-flex items-center justify-center gap-2.5 px-8 py-3.5 min-h-[52px] rounded-2xl bg-[#E30613] text-white text-sm font-black hover:bg-[#C4000F] active:scale-95 transition-all shadow-md whitespace-nowrap shrink-0 cursor-pointer"
                   >
                     <Search className="w-4 h-4 shrink-0" aria-hidden="true" />
-                    <span>فحص وتتبع الطلب</span>
+                    <span>فحص الطلب</span>
                   </button>
                 </form>
 
