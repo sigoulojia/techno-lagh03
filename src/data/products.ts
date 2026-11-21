@@ -128,10 +128,11 @@ export const ALGERIAN_WILAYAS: string[] = WILAYA_DELIVERY_RATES.map(formatWilaya
 export const DEFAULT_WILAYA = DEFAULT_WILAYA_LABEL;
 
 export const DEFAULT_CATEGORIES: StoreCategory[] = [
-  { id: 'bags', name: 'حقائب الأعمال والحواسيب' },
-  { id: 'pens', name: 'أقلام التوقيع والفاخرة' },
-  { id: 'office', name: 'الأدوات المكتبية والسجلات' },
-  { id: 'arts', name: 'مستلزمات الهندسة والفنون' },
+  { id: 'office', name: 'الأدوات المكتبية وتنظيم المكاتب' },
+  { id: 'pens', name: 'أقلام التوقيع الفاخرة والخط' },
+  { id: 'bags', name: 'حقائب الحواسيب والوثائق المهنية' },
+  { id: 'arts', name: 'مستلزمات الهندسة والرسم الفني' },
+  { id: 'school', name: 'اللوازم المدرسية والجامعية' },
 ];
 
 export const PRODUCTS: Product[] = [];

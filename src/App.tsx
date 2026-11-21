@@ -788,7 +788,14 @@ export default function App() {
         </>
       )}
 
-      <Footer />
+      <Footer
+        categories={storeCategories}
+        onSelectCategory={(catId) => {
+          setFilters((prev) => ({ ...prev, series: catId }));
+          const elem = document.getElementById('collection');
+          if (elem) elem.scrollIntoView({ behavior: 'smooth' });
+        }}
+      />
 
       {/* Product Detail Modal */}
       <ProductModal

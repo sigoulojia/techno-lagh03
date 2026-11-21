@@ -1,8 +1,16 @@
 import { MapPin, Phone, Clock, ShieldCheck, Truck, MessageSquare, Heart } from 'lucide-react';
-import { STORE_INFO } from '../data/products';
+import { STORE_INFO, DEFAULT_CATEGORIES } from '../data/products';
 import { TechnoLogo } from './TechnoLogo';
 
-export function Footer() {
+export interface FooterProps {
+  categories?: Array<{ id: string; name: string }>;
+  onSelectCategory?: (category: string) => void;
+}
+
+export function Footer({ categories = [], onSelectCategory }: FooterProps) {
+  // Use synced store categories (from Telegram / backend) if available, or default categories, max 6 items
+  const displayedCategories = (categories.length > 0 ? categories : DEFAULT_CATEGORIES).slice(0, 6);
+
   return (
     <footer className="border-t-2 border-stone-200 bg-[#18181B] text-white">
       {/* Top Banner with Brand Identity */}
@@ -64,31 +72,24 @@ export function Footer() {
               أقسام المتجر الرئيسية
             </h3>
             <ul className="space-y-2 text-xs text-stone-400">
-              <li>
-                <a href="#collection" className="hover:text-white transition-colors">
-                  الأدوات المكتبية وتنظيم المكاتب
-                </a>
-              </li>
-              <li>
-                <a href="#collection" className="hover:text-white transition-colors">
-                  أقلام التوقيع الفاخرة والخط
-                </a>
-              </li>
-              <li>
-                <a href="#collection" className="hover:text-white transition-colors">
-                  حقائب الحواسيب والوثائق المهنية
-                </a>
-              </li>
-              <li>
-                <a href="#collection" className="hover:text-white transition-colors">
-                  مستلزمات الهندسة والرسم الفني
-                </a>
-              </li>
-              <li>
-                <a href="#collection" className="hover:text-white transition-colors">
-                  اللوازم المدرسية والجامعية
-                </a>
-              </li>
+              {displayedCategories.map((cat) => (
+                <li key={cat.id || cat.name}>
+                  <a
+                    href="#collection"
+                    onClick={(e) => {
+                      if (onSelectCategory) {
+                        e.preventDefault();
+                        onSelectCategory(cat.id || cat.name);
+                        const elem = document.getElementById('collection');
+                        if (elem) elem.scrollIntoView({ behavior: 'smooth' });
+                      }
+                    }}
+                    className="hover:text-[#FFD100] hover:underline transition-colors block cursor-pointer"
+                  >
+                    {cat.name}
+                  </a>
+                </li>
+              ))}
             </ul>
           </div>
 
