@@ -560,7 +560,7 @@ export default function App() {
                             <div className="flex items-center justify-between gap-3">
                               <dt className="text-stone-400">نطاق التوصيل</dt>
                               <dd className="font-semibold text-white">
-                                54 ولاية (ZR Express)
+                                69 ولاية (ZR Express)
                               </dd>
                             </div>
                             <div className="flex items-center justify-between gap-3">

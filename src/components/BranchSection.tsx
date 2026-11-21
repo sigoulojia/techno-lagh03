@@ -54,7 +54,7 @@ const CRAFTSMANSHIP_PILLARS = [
   {
     index: '03',
     title: 'حقائب مهنية وقياسات متعددة حسب احتياجك',
-    body: 'حقائب حاسوب متينة ومنتجات بقياسات متعددة بأسعار واضحة لكل قياس، مع توصيل سريع إلى الأغواط و54 ولاية عبر ZR Express.',
+    body: 'حقائب حاسوب متينة ومنتجات بقياسات متعددة بأسعار واضحة لكل قياس، مع توصيل سريع إلى الأغواط و69 ولاية عبر ZR Express.',
   },
 ];
 
@@ -168,9 +168,20 @@ export function BranchSection({ savedOrders }: BranchSectionProps) {
               <h2 className="font-display text-2xl sm:text-4xl font-black text-[#18181B] text-balance">
                 <span className="highlight-yellow">تسعيرة التوصيل الرسمي لكافة ولايات الجزائر</span>
               </h2>
+              {/* Highlighted Banner for Laghouat Local Communes */}
+              <div className="p-4 rounded-2xl bg-[#FFD100]/25 border-2 border-[#18181B] shadow-[3px_3px_0px_#18181B] space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="stamp-red text-[11px] font-black">خاص بولاية الأغواط</span>
+                  <span className="font-display text-sm font-black text-[#18181B]">تسعيرة موحدة لكافة بلديات الولاية:</span>
+                </div>
+                <p className="text-xs sm:text-sm font-bold text-[#18181B] leading-relaxed">
+                  التوصيل لبلديات الولاية كلها بـ <span className="highlight-yellow font-black">500 دينار للمنزل</span> و <span className="highlight-yellow font-black">380 دينار للمكتب</span>.
+                </p>
+              </div>
+
               <p className="text-sm sm:text-base font-bold leading-relaxed text-[#52525B]">
                 نوصل طلباتكم من فرع تكنو الأغواط إلى كافة بلديات ولاية الأغواط (24 مكتباً
-                وبلدية) وإلى 54 ولاية جزائرية مع الدفع نقداً عند الاستلام. اختر ولايتك لمعاينة
+                وبلدية) وإلى 69 ولاية جزائرية مع الدفع نقداً عند الاستلام. اختر ولايتك لمعاينة
                 تعريفة التوصيل للمنزل أو الاستلام من المكتب.
               </p>
 

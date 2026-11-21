@@ -243,7 +243,7 @@ export function CartDrawer({
               <div className="space-y-4">
                 <p className="text-xs leading-relaxed text-[#52525B] bg-[#FAF9F6] border border-stone-200 rounded-xl px-4 py-3">
                   التوصيل متوفر عبر{' '}
-                  <span className="font-semibold text-[#18181B]">ZR Express</span> لـ 54 ولاية
+                  <span className="font-semibold text-[#18181B]">ZR Express</span> لـ 69 ولاية
                   (للمنزل أو المكتب) أو استلام مجاني من فرع الأغواط. اختر ولايتك في الخطوة
                   القادمة لحساب السعر الدقيق.
                 </p>

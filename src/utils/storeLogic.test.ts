@@ -124,7 +124,7 @@ import {
 
 test('ZR Express delivery dataset covers Laghouat 24 communes and outside wilayas accurately without retour', () => {
   assert.equal(LAGHOUAT_BUREAUS.length, 24);
-  assert.ok(WILAYA_DELIVERY_RATES.length >= 54);
+  assert.ok(WILAYA_DELIVERY_RATES.length >= 69);
 
   // Laghouat local (PDF 1): 500 home, 380 stop desk
   assert.equal(getShippingFeeForWilaya('home', '03 - الأغواط'), 500);

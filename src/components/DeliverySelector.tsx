@@ -144,13 +144,13 @@ export function DeliverySelector({
         </div>
       ) : (
         <div className="space-y-3.5 pt-1">
-          {/* Wilaya Selector (54 Wilayas with live fee preview) */}
+          {/* Wilaya Selector (69 Wilayas with live fee preview) */}
           <div>
             <label
               htmlFor={`${idPrefix}-wilaya`}
               className="block text-sm font-medium text-[#18181B] mb-1.5"
             >
-              الولاية (54 ولاية عبر ZR Express) <span className="text-[#E30613]">*</span>
+              الولاية (69 ولاية عبر ZR Express) <span className="text-[#E30613]">*</span>
             </label>
             <select
               id={`${idPrefix}-wilaya`}

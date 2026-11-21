@@ -100,7 +100,7 @@ export function Footer() {
             <ul className="space-y-2 text-xs text-stone-400">
               <li>
                 <a href="#delivery-rates" className="hover:text-white transition-colors">
-                  تسعيرة ZR Express لـ 54 ولاية
+                  تسعيرة ZR Express لـ 69 ولاية
                 </a>
               </li>
               <li>

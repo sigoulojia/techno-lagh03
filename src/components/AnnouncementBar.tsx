@@ -5,8 +5,8 @@ import { STORE_INFO } from '../data/products';
 const ANNOUNCEMENTS = [
   {
     icon: Truck,
-    text: 'توصيل رسمي سريع عبر ZR Express إلى كافة بلديات الأغواط (24 بلدية) وإلى 54 ولاية جزائرية مع الدفع عند الاستلام',
-    highlight: '54 ولاية',
+    text: 'توصيل رسمي سريع عبر ZR Express إلى كافة بلديات الأغواط (24 بلدية) وإلى 69 ولاية جزائرية مع الدفع عند الاستلام',
+    highlight: '69 ولاية',
   },
   {
     icon: Sparkles,

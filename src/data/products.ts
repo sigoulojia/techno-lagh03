@@ -102,7 +102,7 @@ export const DELIVERY_METHODS: DeliveryMethod[] = [
   {
     id: 'home',
     title: 'توصيل لباب المنزل',
-    subtitle: 'À Domicile عبر ZR Express داخل ولاية الأغواط وإلى 54 ولاية جزائرية',
+    subtitle: 'À Domicile عبر ZR Express داخل ولاية الأغواط وإلى 69 ولاية جزائرية',
     eta: '24 – 72 ساعة',
     baseFeeDzd: 500,
     requiresAddress: true,

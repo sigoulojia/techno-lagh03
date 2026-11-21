@@ -59,7 +59,7 @@ const CATEGORIES = [
     filterQuery: 'مدرسة',
     accentColor: 'from-blue-500/15 via-white to-white',
     iconBg: 'bg-blue-600 text-white',
-    countBadge: 'توصيل 54 ولاية',
+    countBadge: 'توصيل 69 ولاية',
   },
   {
     id: 'clocks',

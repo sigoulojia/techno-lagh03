@@ -91,7 +91,7 @@ export function Hero({
                 <span className="font-black text-[#E30613] underline underline-offset-4 decoration-[#FFD100] decoration-4">
                   ZR Express
                 </span>{' '}
-                لبلديات الأغواط و54 ولاية، والدفع نقداً عند استلام الطرد.
+                لبلديات الأغواط و69 ولاية، والدفع نقداً عند استلام الطرد.
               </p>
 
               {/* Action Buttons styled with physical stationery contrast */}
@@ -165,7 +165,7 @@ export function Hero({
               >
                 <p className="text-[11px] font-semibold text-stone-500">تغطية الشحن</p>
                 <p className="mt-0.5 font-display text-xl sm:text-2xl font-black text-[#18181B] tabular-nums">
-                  54 ولاية
+                  69 ولاية
                 </p>
                 <p className="text-[10px] text-emerald-700 font-bold mt-0.5">عبر ZR Express</p>
               </a>

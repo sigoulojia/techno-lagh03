@@ -19,7 +19,7 @@ const TRUST_PILLARS = [
   {
     icon: Truck,
     title: 'شحن سريع عبر ZR Express',
-    subtitle: 'تغطية 54 ولاية و24 بلدية بالأغواط',
+    subtitle: 'تغطية 69 ولاية و24 بلدية بالأغواط',
     description:
       'خدمة توصيل لباب المنزل (À Domicile) أو استلام اقتصادي من المكتب (Stop Desk) مع تغليف واقٍ متين لكل طرد.',
     tag: 'توصيل 24–72 ساعة',

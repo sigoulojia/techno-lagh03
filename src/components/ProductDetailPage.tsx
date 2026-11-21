@@ -408,7 +408,7 @@ export function ProductDetailPage({
               </div>
               <div className="p-3 bg-white rounded-xl border border-stone-200">
                 <Truck className="w-5 h-5 mx-auto text-[#E30613] mb-1.5" aria-hidden="true" />
-                <p className="font-semibold text-[#18181B]">توصيل 54 ولاية</p>
+                <p className="font-semibold text-[#18181B]">توصيل 69 ولاية</p>
                 <p className="text-[11px] text-[#71717A] mt-0.5">ZR Express · منزل ومكتب</p>
               </div>
               <div className="p-3 bg-white rounded-xl border border-stone-200">
