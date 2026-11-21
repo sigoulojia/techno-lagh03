@@ -11,6 +11,9 @@
   --color-brand-gold: #FFD100;
   --color-surface: #FAF9F6;
   --color-surface-muted: #F2F0EB;
+  --color-dark-surface: #0E0F14;
+  --color-dark-card: #15161E;
+  --color-dark-border: #232532;
   --color-ink: #18181B;
   --color-ink-muted: #52525B;
 }
@@ -25,20 +28,21 @@
     font-family: var(--font-display);
   }
 
-  /* Custom subtle stationery scrollbar */
+  /* Custom luxury scrollbar */
   ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 9px;
+    height: 9px;
   }
   ::-webkit-scrollbar-track {
-    background: #FAF9F6;
+    background: #0E0F14;
   }
   ::-webkit-scrollbar-thumb {
-    background: #D4D4D8;
+    background: #2D3042;
     border-radius: 9999px;
+    border: 2px solid #0E0F14;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: #A1A1AA;
+    background: #FFD100;
   }
 }
 
@@ -46,35 +50,56 @@
   text-wrap: balance;
 }
 
-/* Subtle stationery grid pattern (reminiscent of millimeter/dot architectural paper) */
+/* Atmospheric stationery dot grid pattern */
 .bg-stationery-pattern {
-  background-image: radial-gradient(#18181b 0.65px, transparent 0.65px);
+  background-image: radial-gradient(rgba(24, 24, 27, 0.12) 1px, transparent 1px);
   background-size: 20px 20px;
-  background-position: -10px -10px;
 }
 
-.bg-stationery-grid {
+.bg-dark-grid {
   background-image: 
-    linear-gradient(to right, rgba(24, 24, 27, 0.03) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(24, 24, 27, 0.03) 1px, transparent 1px);
-  background-size: 24px 24px;
+    linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 32px 32px;
 }
 
-/* Ambient lighting for flagship hero */
+/* Flagship ambient radial glows */
 .bg-ambient-techno {
   background: 
-    radial-gradient(circle at 15% 20%, rgba(255, 209, 0, 0.12) 0%, transparent 40%),
-    radial-gradient(circle at 85% 30%, rgba(227, 6, 19, 0.07) 0%, transparent 45%),
+    radial-gradient(circle at 10% 20%, rgba(255, 209, 0, 0.14) 0%, transparent 45%),
+    radial-gradient(circle at 90% 25%, rgba(227, 6, 19, 0.10) 0%, transparent 45%),
+    radial-gradient(circle at 50% 90%, rgba(255, 209, 0, 0.06) 0%, transparent 50%),
     #FAF9F6;
 }
 
-/* Shimmer effect for luxury CTA buttons */
+.bg-ambient-dark {
+  background: 
+    radial-gradient(circle at 15% 15%, rgba(255, 209, 0, 0.12) 0%, transparent 50%),
+    radial-gradient(circle at 85% 20%, rgba(227, 6, 19, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 50% 80%, rgba(255, 209, 0, 0.08) 0%, transparent 60%),
+    #0A0B10;
+}
+
+/* Glowing Neon Borders */
+.glow-yellow {
+  box-shadow: 0 0 35px -5px rgba(255, 209, 0, 0.35);
+}
+
+.glow-red {
+  box-shadow: 0 0 35px -5px rgba(227, 6, 19, 0.4);
+}
+
+.glow-card {
+  box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.15), 0 0 1px 1px rgba(255, 209, 0, 0.2);
+}
+
+/* Luxury button sheen shimmer */
 @keyframes sheen {
   0% {
-    transform: translateX(150%) skewX(-20deg);
+    transform: translateX(200%) skewX(-25deg);
   }
   100% {
-    transform: translateX(-150%) skewX(-20deg);
+    transform: translateX(-200%) skewX(-25deg);
   }
 }
 
@@ -93,13 +118,28 @@
   background: linear-gradient(
     90deg,
     transparent 0%,
-    rgba(255, 255, 255, 0.25) 50%,
+    rgba(255, 255, 255, 0.3) 50%,
     transparent 100%
   );
-  transform: translateX(150%) skewX(-20deg);
-  animation: sheen 4s infinite ease-in-out;
+  transform: translateX(200%) skewX(-25deg);
+  animation: sheen 3.5s infinite ease-in-out;
 }
 
+/* Digital scanline animation for the terminal */
+@keyframes scanline {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(1000%);
+  }
+}
+
+.animate-scanline {
+  animation: scanline 8s linear infinite;
+}
+
+/* Subtle breathing pulse */
 @keyframes pulse-subtle {
   0%, 100% {
     opacity: 1;

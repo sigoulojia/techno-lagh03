@@ -15,6 +15,10 @@ import {
   Sparkles,
   Truck,
   XCircle,
+  QrCode,
+  ShieldAlert,
+  Play,
+  RotateCcw,
 } from 'lucide-react';
 import {
   BRAND_BANNER_IMAGE,
@@ -68,14 +72,51 @@ export function BranchSection({ savedOrders }: BranchSectionProps) {
 
   const selectedRate = findWilayaRate(selectedWilayaLabel);
 
+  // Check if store is currently open (Algeria Time: UTC+1, 08:30 - 20:00, Closed Friday)
+  const isStoreOpen = (() => {
+    const now = new Date();
+    const utcHours = now.getUTCHours();
+    const dzHours = (utcHours + 1) % 24;
+    const day = now.getUTCDay(); // 5 is Friday
+    return day !== 5 && dzHours >= 8.5 && dzHours < 20;
+  })();
+
   const handleCopyCode = (code: string) => {
     try {
       navigator.clipboard.writeText(code);
       setCopiedCode(true);
       setTimeout(() => setCopiedCode(false), 2000);
     } catch {
-      // Ignore clipboard fallback
+      // Ignore
     }
+  };
+
+  // Load a rich demonstration order so the user can experience the tracking system live
+  const handleLoadDemoOrder = () => {
+    const demoCode = 'TL-8429-1950-3741';
+    setLookupInput(demoCode);
+    setSearchedCode(demoCode);
+    setIsSearchingOnline(false);
+    setLiveOrder({
+      orderId: demoCode,
+      createdAtIso: new Date().toISOString(),
+      status: 'confirmed',
+      statusLabel: 'تم تأكيد الطلب — قيد التجهيز والشحن عبر ZR Express',
+      customerName: 'عبد القادر ب•••',
+      deliveryMethod: 'stop_desk',
+      wilaya: '03 - ولاية الأغواط',
+      commune: 'حي المحطة — مكتب ZR Express الأغواط',
+      items: [
+        {
+          productId: 'probag-04',
+          name: 'حقيبة تكنو PROBAG-04 للكمبيوتر والوثائق',
+          variantLabel: 'بني ملكي فاخر',
+          quantity: 1,
+          unitPriceDzd: 12500,
+        },
+      ],
+      totalDzd: 12880,
+    });
   };
 
   const handleLookup = async (event: FormEvent<HTMLFormElement>) => {
@@ -133,26 +174,25 @@ export function BranchSection({ savedOrders }: BranchSectionProps) {
     setIsSearchingOnline(false);
   };
 
-  // Determine current tracking stage: 1=Received, 2=Confirmed, 3=Shipped/Ready
   const currentStage =
     liveOrder?.status === 'confirmed' ? 2 : liveOrder?.status === 'cancelled' ? 0 : 1;
 
   return (
     <>
-      {/* Interactive Nationwide ZR Express Delivery Tariff Calculator */}
+      {/* Nationwide ZR Express Delivery Tariff Calculator */}
       <section
         id="delivery-rates"
-        className="py-16 lg:py-20 border-t border-stone-200/80 bg-white"
+        className="py-16 lg:py-24 border-t border-stone-200/80 bg-white relative"
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-start">
-            <div className="lg:col-span-5 space-y-3">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#FFD100]/20 text-[#18181B] text-xs font-bold border border-[#FFD100]/50">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
+            <div className="lg:col-span-5 space-y-4">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#FFD100]/25 text-[#18181B] text-xs font-bold border border-[#FFD100]">
                 <Truck className="w-3.5 h-3.5 text-[#E30613]" />
-                <span>التوصيل الرسمي عبر {STORE_INFO.deliveryPartner}</span>
+                <span>الشريك اللوجستي الرسمي: {STORE_INFO.deliveryPartner}</span>
               </div>
-              <h2 className="font-display text-2xl sm:text-3xl font-bold text-[#18181B] text-balance">
-                تعرف على سعر التوصيل إلى ولايتك فوراً
+              <h2 className="font-display text-2xl sm:text-4xl font-black text-[#18181B] text-balance">
+                تسعيرة التوصيل الرسمي لكافة ولايات الجزائر
               </h2>
               <p className="text-sm sm:text-base leading-relaxed text-[#52525B]">
                 نوصل طلباتكم من فرع تكنو الأغواط إلى كافة بلديات ولاية الأغواط (24 مكتباً
@@ -163,16 +203,16 @@ export function BranchSection({ savedOrders }: BranchSectionProps) {
               <div className="pt-2">
                 <label
                   htmlFor="calculator-wilaya-select"
-                  className="block text-sm font-semibold text-[#18181B] mb-2"
+                  className="block text-sm font-bold text-[#18181B] mb-2"
                 >
-                  اختر الولاية:
+                  اختر ولايتك للمعاينة:
                 </label>
                 <select
                   id="calculator-wilaya-select"
                   data-testid="calculator-wilaya-select"
                   value={selectedWilayaLabel}
                   onChange={(e) => setSelectedWilayaLabel(e.target.value)}
-                  className="w-full px-4 py-3 min-h-[48px] rounded-xl border border-stone-300 text-sm font-semibold bg-[#FAF9F6] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#E30613]/20 focus:border-[#E30613]"
+                  className="w-full px-4 py-3.5 min-h-[50px] rounded-2xl border-2 border-stone-300 text-sm font-bold bg-[#FAF9F6] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#E30613]/20 focus:border-[#E30613]"
                 >
                   {WILAYA_DELIVERY_RATES.map((rate) => {
                     const label = formatWilayaLabel(rate);
@@ -187,28 +227,28 @@ export function BranchSection({ savedOrders }: BranchSectionProps) {
             </div>
 
             <div className="lg:col-span-7 space-y-4">
-              <div className="p-6 sm:p-7 rounded-2xl bg-[#FAF9F6] border border-stone-200 shadow-xs space-y-5">
-                <div className="flex flex-wrap items-baseline justify-between gap-2 pb-4 border-b border-stone-200">
+              <div className="p-6 sm:p-8 rounded-3xl bg-[#FAF9F6] border-2 border-stone-200 shadow-sm space-y-6">
+                <div className="flex flex-wrap items-baseline justify-between gap-3 pb-4 border-b border-stone-200">
                   <div>
-                    <p className="text-xs text-[#71717A]">التسعيرة الرسمية لولاية</p>
+                    <p className="text-xs text-[#71717A] font-semibold">التسعيرة المعتمدة لولاية:</p>
                     <h3
                       data-testid="calculator-selected-wilaya"
-                      className="font-display text-xl sm:text-2xl font-bold text-[#18181B] mt-0.5"
+                      className="font-display text-xl sm:text-2xl font-black text-[#18181B] mt-0.5"
                     >
                       {selectedRate.code} — {selectedRate.nameAr} ({selectedRate.nameFr})
                     </h3>
                   </div>
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FFD100] text-[#18181B] text-xs font-bold shadow-xs">
+                  <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-[#FFD100] text-[#18181B] text-xs font-black shadow-2xs">
                     الدفع عند الاستلام
                   </span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* Home Delivery Rate */}
-                  <div className="group p-5 rounded-xl bg-white border border-stone-200 hover:border-[#E30613]/40 transition-all duration-200 flex flex-col justify-between gap-3 shadow-xs">
-                    <div className="flex items-center gap-2 text-[#18181B]">
-                      <div className="w-8 h-8 rounded-lg bg-[#E30613]/10 flex items-center justify-center text-[#E30613]">
-                        <Truck className="w-4 h-4 shrink-0" aria-hidden="true" />
+                  <div className="group p-5 rounded-2xl bg-white border-2 border-stone-200 hover:border-[#E30613] transition-all duration-200 flex flex-col justify-between gap-3 shadow-xs">
+                    <div className="flex items-center gap-2.5 text-[#18181B]">
+                      <div className="w-9 h-9 rounded-xl bg-[#E30613]/10 flex items-center justify-center text-[#E30613]">
+                        <Truck className="w-5 h-5 shrink-0" aria-hidden="true" />
                       </div>
                       <span className="font-display text-base font-bold">
                         التوصيل لباب المنزل
@@ -219,17 +259,17 @@ export function BranchSection({ savedOrders }: BranchSectionProps) {
                     </p>
                     <p
                       data-testid="calculator-home-fee"
-                      className="font-display text-2xl font-bold text-[#E30613] tabular-nums pt-2 border-t border-stone-100"
+                      className="font-display text-2xl font-black text-[#E30613] tabular-nums pt-3 border-t border-stone-100"
                     >
                       {formatDzd(selectedRate.homeFeeDzd)}
                     </p>
                   </div>
 
                   {/* Stop Desk Rate */}
-                  <div className="group p-5 rounded-xl bg-white border border-stone-200 hover:border-[#18181B]/40 transition-all duration-200 flex flex-col justify-between gap-3 shadow-xs">
-                    <div className="flex items-center gap-2 text-[#18181B]">
-                      <div className="w-8 h-8 rounded-lg bg-[#FFD100]/25 flex items-center justify-center text-[#18181B]">
-                        <Building2 className="w-4 h-4 shrink-0" aria-hidden="true" />
+                  <div className="group p-5 rounded-2xl bg-white border-2 border-stone-200 hover:border-[#18181B] transition-all duration-200 flex flex-col justify-between gap-3 shadow-xs">
+                    <div className="flex items-center gap-2.5 text-[#18181B]">
+                      <div className="w-9 h-9 rounded-xl bg-[#FFD100]/30 flex items-center justify-center text-[#18181B]">
+                        <Building2 className="w-5 h-5 shrink-0" aria-hidden="true" />
                       </div>
                       <span className="font-display text-base font-bold">
                         استلام من المكتب (Stop Desk)
@@ -238,11 +278,11 @@ export function BranchSection({ savedOrders }: BranchSectionProps) {
                     <p className="text-xs text-[#52525B] leading-relaxed">
                       {selectedRate.stopDeskFeeDzd !== null
                         ? 'استلام اقتصادي وسريع من أقرب مكتب ZR Express في ولايتك.'
-                        : `خدمة المكتب غير متوفرة حالياً في ولاية ${selectedRate.nameAr} — التوصيل لباب المنزل متوفر.`}
+                        : `خدمة المكتب غير متوفرة حالياً في ولاية ${selectedRate.nameAr} — التوصيل للمنزل متوفر.`}
                     </p>
                     <p
                       data-testid="calculator-stopdesk-fee"
-                      className={`font-display text-2xl font-bold tabular-nums pt-2 border-t border-stone-100 ${
+                      className={`font-display text-2xl font-black tabular-nums pt-3 border-t border-stone-100 ${
                         selectedRate.stopDeskFeeDzd !== null
                           ? 'text-[#18181B]'
                           : 'text-sm text-[#71717A]'
@@ -259,7 +299,7 @@ export function BranchSection({ savedOrders }: BranchSectionProps) {
                 {selectedRate.code === '03' ? (
                   <div className="pt-2">
                     <div className="flex items-center justify-between gap-3">
-                      <p className="text-xs font-semibold text-[#18181B]">
+                      <p className="text-xs font-bold text-[#18181B]">
                         تغطية 24 بلدية ومكتب داخل ولاية الأغواط (500 د.ج للمنزل · 380 د.ج للمكتب):
                       </p>
                       <button
@@ -276,13 +316,13 @@ export function BranchSection({ savedOrders }: BranchSectionProps) {
                         {LAGHOUAT_BUREAUS.map((bureau) => (
                           <div
                             key={bureau.nameFr}
-                            className="px-3 py-2 rounded-lg bg-white border border-stone-200 flex items-center justify-between gap-1 shadow-2xs"
+                            className="px-3 py-2 rounded-xl bg-white border border-stone-200 flex items-center justify-between gap-1 shadow-2xs"
                           >
-                            <span className="font-medium text-[#18181B] truncate">
+                            <span className="font-semibold text-[#18181B] truncate">
                               {bureau.nameAr}
                             </span>
-                            <span className="font-mono text-[11px] text-[#71717A] shrink-0">
-                              380/500
+                            <span className="font-mono text-[11px] text-stone-500 shrink-0 font-bold">
+                              380 / 500
                             </span>
                           </div>
                         ))}
@@ -299,13 +339,13 @@ export function BranchSection({ savedOrders }: BranchSectionProps) {
       {/* Craftsmanship & Brand Identity Section */}
       <section
         id="craftsmanship"
-        className="py-16 lg:py-20 border-t border-stone-200/80 bg-[#FAF9F6]"
+        className="py-16 lg:py-24 border-t border-stone-200/80 bg-[#FAF9F6]"
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-center">
             <div className="lg:col-span-5">
-              <div className="rounded-2xl overflow-hidden border-2 border-[#FFD100] bg-[#FFD100] shadow-md p-1">
-                <div className="aspect-[5/4] w-full rounded-xl overflow-hidden bg-white">
+              <div className="rounded-3xl overflow-hidden border-4 border-[#FFD100] bg-[#FFD100] shadow-xl p-1.5">
+                <div className="aspect-[5/4] w-full rounded-2xl overflow-hidden bg-white">
                   <ProductImage
                     src={BRAND_BANNER_IMAGE}
                     alt="شعار تكنو ستيشنري الرسمي — تكنو ترافقك في رسم مسيرتك المهنية"
@@ -315,18 +355,18 @@ export function BranchSection({ savedOrders }: BranchSectionProps) {
                   />
                 </div>
               </div>
-              <div className="mt-3.5 flex items-center justify-between text-xs text-[#71717A]">
+              <div className="mt-4 flex items-center justify-between text-xs text-[#71717A]">
                 <span className="font-bold text-[#E30613]">{STORE_INFO.secondarySlogan}</span>
-                <span className="font-medium text-[#18181B]">{STORE_INFO.heritageLine}</span>
+                <span className="font-bold text-[#18181B]">{STORE_INFO.heritageLine}</span>
               </div>
             </div>
 
             <div className="lg:col-span-7">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#E30613]/10 text-[#E30613] text-xs font-bold mb-3">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#E30613]/10 text-[#E30613] text-xs font-bold mb-3">
                 <Sparkles className="w-3.5 h-3.5" />
                 <span>جودة تكنو المعتمدة — أصلية 100%</span>
               </div>
-              <h2 className="font-display text-2xl sm:text-3xl font-bold text-[#18181B] text-balance">
+              <h2 className="font-display text-2xl sm:text-4xl font-extrabold text-[#18181B] text-balance">
                 لماذا يختار المهنيون والأساتذة والطلبة فرع تكنو الأغواط؟
               </h2>
               <p className="mt-3 text-base leading-relaxed text-[#52525B]">
@@ -340,7 +380,7 @@ export function BranchSection({ savedOrders }: BranchSectionProps) {
                     key={pillar.index}
                     className="py-5 grid grid-cols-12 gap-4 items-baseline"
                   >
-                    <span className="col-span-2 sm:col-span-1 font-mono text-sm font-bold text-[#E30613] tabular-nums">
+                    <span className="col-span-2 sm:col-span-1 font-mono text-base font-black text-[#E30613] tabular-nums">
                       {pillar.index}.
                     </span>
                     <div className="col-span-10 sm:col-span-11">
@@ -359,38 +399,58 @@ export function BranchSection({ savedOrders }: BranchSectionProps) {
         </div>
       </section>
 
-      {/* Branch Info & LEGENDARY TECHNO ORDER TRACKER */}
+      {/* Branch Storefront & THE CYBER-STATIONERY ORDER TRACKING TERMINAL */}
       <section
         id="branch"
-        className="py-16 lg:py-24 border-t border-stone-200/80 bg-stone-50/60"
+        className="py-16 lg:py-24 border-t border-stone-200/80 bg-stone-100/70 relative"
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-            {/* Storefront Card */}
-            <div className="lg:col-span-5 p-6 sm:p-7 rounded-2xl bg-white border border-stone-200 shadow-xs">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
-                <p className="text-xs font-bold text-[#E30613] uppercase tracking-wide">
-                  فرع الأغواط الرسمي مفتوح
-                </p>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-start">
+            {/* Storefront Physical Branch Card */}
+            <div className="lg:col-span-5 p-6 sm:p-8 rounded-3xl bg-white border-2 border-stone-200 shadow-md space-y-5">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`w-3 h-3 rounded-full ${
+                      isStoreOpen ? 'bg-emerald-500 animate-ping' : 'bg-stone-400'
+                    }`}
+                  />
+                  <p className="text-xs font-bold text-[#E30613] uppercase tracking-wider">
+                    {isStoreOpen ? 'الفرع مفتوح الآن لاستقبالكم' : 'الفرع مغلق حالياً'}
+                  </p>
+                </div>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-stone-100 text-stone-600 font-mono">
+                  UTC+1
+                </span>
               </div>
 
-              <h3 className="font-display text-xl font-bold text-[#18181B]">
+              <h3 className="font-display text-xl sm:text-2xl font-black text-[#18181B]">
                 {STORE_INFO.fullTitle}
               </h3>
 
-              <ul className="mt-5 space-y-4 text-sm text-[#52525B]">
+              <ul className="space-y-4 text-sm text-[#52525B]">
                 <li className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-[#FFD100]/25 flex items-center justify-center text-[#18181B] shrink-0 mt-0.5">
+                  <div className="w-9 h-9 rounded-xl bg-[#FFD100]/25 flex items-center justify-center text-[#18181B] shrink-0 mt-0.5">
                     <MapPin className="w-4 h-4 text-[#E30613]" aria-hidden="true" />
                   </div>
                   <div>
                     <p className="text-xs font-bold text-[#18181B]">الموقع والعنوان</p>
                     <p className="mt-0.5 leading-relaxed">{STORE_INFO.address}</p>
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                        'Techno Stationery Laghouat الأغواط',
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs font-bold text-[#E30613] hover:underline mt-1"
+                    >
+                      <span>افتح الموقع في خرائط Google</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
                   </div>
                 </li>
                 <li className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-[#FFD100]/25 flex items-center justify-center text-[#18181B] shrink-0 mt-0.5">
+                  <div className="w-9 h-9 rounded-xl bg-[#FFD100]/25 flex items-center justify-center text-[#18181B] shrink-0 mt-0.5">
                     <Clock className="w-4 h-4 text-[#E30613]" aria-hidden="true" />
                   </div>
                   <div>
@@ -399,7 +459,7 @@ export function BranchSection({ savedOrders }: BranchSectionProps) {
                   </div>
                 </li>
                 <li className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-[#FFD100]/25 flex items-center justify-center text-[#18181B] shrink-0 mt-0.5">
+                  <div className="w-9 h-9 rounded-xl bg-[#FFD100]/25 flex items-center justify-center text-[#18181B] shrink-0 mt-0.5">
                     <Phone className="w-4 h-4 text-[#E30613]" aria-hidden="true" />
                   </div>
                   <div>
@@ -407,7 +467,7 @@ export function BranchSection({ savedOrders }: BranchSectionProps) {
                     <a
                       href={STORE_INFO.phoneHref}
                       dir="ltr"
-                      className="font-mono font-bold text-[#18181B] hover:text-[#E30613] transition-colors block mt-0.5"
+                      className="font-mono font-bold text-[#18181B] hover:text-[#E30613] transition-colors block mt-0.5 text-base"
                     >
                       {STORE_INFO.phoneDisplay}
                     </a>
@@ -416,35 +476,42 @@ export function BranchSection({ savedOrders }: BranchSectionProps) {
               </ul>
             </div>
 
-            {/* LEGENDARY ORDER TRACKING LOOKUP (Matching TECHNO Brand & Logo Aesthetics) */}
+            {/* THE LEGENDARY TECHNO CYBER-STATIONERY TRACKING TERMINAL */}
             <div
               id="track"
-              className="lg:col-span-7 rounded-3xl bg-white border-2 border-[#FFD100] shadow-lg overflow-hidden"
+              className="lg:col-span-7 rounded-3xl bg-white border-4 border-[#FFD100] shadow-2xl overflow-hidden glow-yellow"
             >
-              {/* Distinctive TECHNO Yellow Header Badge */}
-              <div className="bg-[#FFD100] px-6 sm:px-8 py-5 border-b border-[#E5BC00] flex flex-wrap items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <TechnoLogo size="sm" showBranch={false} />
+              {/* Authentic TECHNO Yellow Hardware Terminal Header */}
+              <div className="bg-[#FFD100] px-6 sm:px-8 py-5 border-b-2 border-[#E5BC00] flex flex-wrap items-center justify-between gap-4">
+                <div className="flex items-center gap-3.5">
+                  <TechnoLogo size="md" showBranch={false} />
                   <div>
-                    <h2 className="font-display text-lg sm:text-xl font-bold text-[#18181B] leading-none">
-                      تتبع حالة طلبك
+                    <h2 className="font-display text-lg sm:text-xl font-black text-[#18181B] leading-none">
+                      منظومة تتبع الشحنات الرسمية
                     </h2>
-                    <p className="text-xs text-[#18181B]/80 font-medium mt-1">
-                      منظومة المتابعة اللحظية المباشرة لفرع الأغواط
+                    <p className="text-xs text-[#18181B]/85 font-bold mt-1">
+                      TECHNO LAGHOUAT PARCEL RADAR
                     </p>
                   </div>
                 </div>
 
-                <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#18181B] text-[#FFD100] text-xs font-bold shadow-xs">
-                  <span className="w-2 h-2 rounded-full bg-[#FFD100] animate-pulse" />
-                  <span>تحديث فوري</span>
-                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleLoadDemoOrder}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#18181B] text-[#FFD100] hover:bg-black font-bold text-xs shadow-md transition-all active:scale-95 cursor-pointer"
+                    title="شاهد تجربة تفاعلية مباشرة لكيفية عمل تتبع الطلب"
+                  >
+                    <Play className="w-3.5 h-3.5 fill-[#FFD100]" />
+                    <span>معاينة حية نموذجية</span>
+                  </button>
+                </div>
               </div>
 
-              {/* Lookup Form Body */}
+              {/* Terminal Form Body */}
               <div className="p-6 sm:p-8 space-y-6">
-                <p className="text-sm text-[#52525B] leading-relaxed">
-                  أدخل كود تتبع طلبك السري المكون من 12 خانة لمراجعة تفاصيل فاتورتك وحالة التجهيز والشحن مباشرة من خوادم تكنو.
+                <p className="text-xs sm:text-sm text-[#52525B] leading-relaxed">
+                  أدخل كود تتبع طلبك السري المكون من 12 خانة لمراجعة مسار التجهيز والشحن مباشرة من خوادم تكنو.
                 </p>
 
                 <form onSubmit={handleLookup} className="flex flex-col sm:flex-row gap-3">
@@ -459,21 +526,21 @@ export function BranchSection({ savedOrders }: BranchSectionProps) {
                       placeholder="TL-XXXX-XXXX-XXXX"
                       value={lookupInput}
                       onChange={(e) => setLookupInput(e.target.value)}
-                      className="w-full px-4 py-3 min-h-[50px] rounded-xl border-2 border-stone-200 font-mono text-base font-bold text-center tracking-wider text-[#18181B] bg-stone-50 focus:bg-white focus:outline-none focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/10 transition-all uppercase"
+                      className="w-full px-4 py-3.5 min-h-[52px] rounded-2xl border-2 border-stone-300 font-mono text-base font-black text-center tracking-wider text-[#18181B] bg-stone-50 focus:bg-white focus:outline-none focus:border-[#E30613] focus:ring-4 focus:ring-[#E30613]/15 transition-all uppercase"
                     />
                   </div>
                   <button
                     type="submit"
-                    className="inline-flex items-center justify-center gap-2.5 px-7 py-3 min-h-[50px] rounded-xl bg-[#E30613] text-white text-sm font-bold hover:bg-[#C4000F] active:scale-95 transition-all shadow-xs whitespace-nowrap shrink-0 cursor-pointer"
+                    className="animate-sheen inline-flex items-center justify-center gap-2.5 px-8 py-3.5 min-h-[52px] rounded-2xl bg-[#E30613] text-white text-sm font-black hover:bg-[#C4000F] active:scale-95 transition-all shadow-md whitespace-nowrap shrink-0 cursor-pointer"
                   >
                     <Search className="w-4 h-4 shrink-0" aria-hidden="true" />
-                    <span>تحقق من الطلب</span>
+                    <span>فحص وتتبع الطلب</span>
                   </button>
                 </form>
 
                 {savedOrders.length > 0 && searchedCode === null ? (
                   <div className="p-3.5 rounded-xl bg-[#FAF9F6] border border-stone-200 flex flex-wrap items-center justify-between gap-2 text-xs">
-                    <span className="text-[#71717A]">طلبك الأخير المحفوظ على هذا الجهاز:</span>
+                    <span className="text-[#71717A] font-medium">طلبك المحفوظ على هذا الجهاز:</span>
                     <button
                       type="button"
                       onClick={() => {
@@ -490,34 +557,39 @@ export function BranchSection({ savedOrders }: BranchSectionProps) {
 
                 {/* Loading state */}
                 {isSearchingOnline ? (
-                  <div className="p-6 rounded-2xl bg-stone-50 border border-stone-200 text-center space-y-3">
-                    <Loader2 className="w-7 h-7 animate-spin text-[#E30613] mx-auto" />
-                    <p className="text-xs font-semibold text-[#52525B]">
-                      جاري فحص حالة الطلب وتأكيده مع خادم المتجر...
+                  <div className="p-8 rounded-2xl bg-stone-50 border border-stone-200 text-center space-y-3">
+                    <Loader2 className="w-8 h-8 animate-spin text-[#E30613] mx-auto" />
+                    <p className="text-xs font-bold text-[#52525B]">
+                      جاري الاتصال بقاعدة بيانات متجر تكنو الأغواط وفحص حالة الشحنة...
                     </p>
                   </div>
                 ) : searchedCode !== null ? (
                   liveOrder ? (
                     <div
                       data-testid="order-lookup-result"
-                      className="rounded-2xl border-2 border-stone-200 bg-white overflow-hidden shadow-xs space-y-0"
+                      className="rounded-3xl border-2 border-stone-300 bg-white overflow-hidden shadow-lg space-y-0"
                     >
-                      {/* Result Header Bar */}
-                      <div className="p-5 bg-stone-50/80 border-b border-stone-200 flex flex-wrap items-center justify-between gap-3">
-                        <div className="flex items-center gap-2.5">
-                          <span className="font-mono font-bold text-base sm:text-lg text-[#18181B] tracking-wide">
-                            #{liveOrder.orderId}
-                          </span>
+                      {/* Result Top Bar with Digital Seal */}
+                      <div className="p-5 bg-stone-900 text-white flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div>
+                            <span className="text-[10px] text-stone-400 block font-mono">
+                              TRACKING ID:
+                            </span>
+                            <span className="font-mono font-black text-lg text-[#FFD100] tracking-wide">
+                              #{liveOrder.orderId}
+                            </span>
+                          </div>
                           <button
                             type="button"
                             onClick={() => handleCopyCode(liveOrder.orderId)}
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-white border border-stone-200 text-xs font-medium text-[#52525B] hover:text-[#18181B] hover:border-stone-400 transition-colors cursor-pointer"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-stone-800 border border-stone-700 text-xs font-semibold text-stone-300 hover:text-white transition-colors cursor-pointer"
                             title="نسخ كود الطلب"
                           >
                             {copiedCode ? (
                               <>
-                                <Check className="w-3.5 h-3.5 text-emerald-600" />
-                                <span className="text-emerald-600 font-semibold">تم النسخ</span>
+                                <Check className="w-3.5 h-3.5 text-emerald-400" />
+                                <span className="text-emerald-400">تم النسخ</span>
                               </>
                             ) : (
                               <>
@@ -530,35 +602,35 @@ export function BranchSection({ savedOrders }: BranchSectionProps) {
 
                         {/* Status Badge */}
                         {liveOrder.status === 'confirmed' ? (
-                          <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-emerald-50 text-emerald-800 text-xs font-bold border border-emerald-300 shadow-2xs">
-                            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                            <span>تم تأكيد الطلب من صاحب المتجر</span>
+                          <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold border border-emerald-500/50">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                            <span>تم تأكيد الطلب رسميّاً</span>
                           </span>
                         ) : liveOrder.status === 'cancelled' ? (
-                          <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-red-50 text-red-800 text-xs font-bold border border-red-300 shadow-2xs">
-                            <XCircle className="w-4 h-4 text-red-600" />
+                          <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-red-500/20 text-red-300 text-xs font-bold border border-red-500/50">
+                            <XCircle className="w-4 h-4 text-red-400" />
                             <span>تم إلغاء الطلب</span>
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#FFD100]/30 text-amber-950 text-xs font-bold border border-[#FFD100] shadow-2xs">
-                            <Clock className="w-4 h-4 text-amber-700 animate-spin" />
+                          <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-[#FFD100]/25 text-[#FFD100] text-xs font-bold border border-[#FFD100]/50">
+                            <Clock className="w-4 h-4 text-[#FFD100] animate-spin" />
                             <span>تم استلام الطلب وهو تحت المعالجة</span>
                           </span>
                         )}
                       </div>
 
-                      {/* LEGENDARY 3-STEP INTERACTIVE PROGRESS PIPELINE */}
+                      {/* 3-STEP VISUAL PIPELINE */}
                       {liveOrder.status !== 'cancelled' ? (
-                        <div className="p-5 sm:p-6 bg-gradient-to-b from-stone-50/50 to-white border-b border-stone-200">
-                          <p className="text-xs font-bold text-[#71717A] mb-4">
-                            مراحل معالجة وشحن طلبك:
+                        <div className="p-6 bg-gradient-to-b from-stone-50 to-white border-b border-stone-200">
+                          <p className="text-xs font-bold text-[#71717A] mb-5">
+                            مسار معالجة وشحن طلبيتك عبر ZR Express:
                           </p>
 
                           <div className="relative flex items-center justify-between">
-                            {/* Background Connecting Bar */}
-                            <div className="absolute top-1/2 right-6 left-6 -translate-y-1/2 h-1 bg-stone-200 z-0">
+                            {/* Background Bar */}
+                            <div className="absolute top-1/2 right-6 left-6 -translate-y-1/2 h-1.5 bg-stone-200 z-0 rounded-full">
                               <div
-                                className="h-full bg-[#E30613] transition-all duration-500"
+                                className="h-full bg-[#E30613] rounded-full transition-all duration-700"
                                 style={{
                                   width:
                                     currentStage === 2
@@ -572,26 +644,28 @@ export function BranchSection({ savedOrders }: BranchSectionProps) {
 
                             {/* Step 1: Received */}
                             <div className="relative z-10 flex flex-col items-center text-center">
-                              <div className="w-10 h-10 rounded-full bg-[#E30613] text-white flex items-center justify-center font-bold text-sm shadow-md">
-                                <Check className="w-5 h-5 stroke-[2.5]" />
+                              <div className="w-11 h-11 rounded-full bg-[#E30613] text-white flex items-center justify-center font-bold text-sm shadow-md">
+                                <Check className="w-5 h-5 stroke-[3]" />
                               </div>
                               <span className="mt-2 text-xs font-bold text-[#18181B]">
                                 1. تم استلام الطلب
                               </span>
-                              <span className="text-[10px] text-[#71717A]">مشفر بالنظام</span>
+                              <span className="text-[10px] text-stone-500 font-semibold">
+                                مشفر بالنظام
+                              </span>
                             </div>
 
-                            {/* Step 2: Confirmed & Processing */}
+                            {/* Step 2: Confirmed */}
                             <div className="relative z-10 flex flex-col items-center text-center">
                               <div
-                                className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all shadow-md ${
+                                className={`w-11 h-11 rounded-full flex items-center justify-center font-bold text-sm transition-all shadow-md ${
                                   currentStage >= 2
                                     ? 'bg-[#E30613] text-white'
-                                    : 'bg-[#FFD100] text-[#18181B] ring-4 ring-[#FFD100]/30 animate-pulse'
+                                    : 'bg-[#FFD100] text-[#18181B] ring-4 ring-[#FFD100]/40 animate-pulse'
                                 }`}
                               >
                                 {currentStage >= 2 ? (
-                                  <Check className="w-5 h-5 stroke-[2.5]" />
+                                  <Check className="w-5 h-5 stroke-[3]" />
                                 ) : (
                                   <Clock className="w-5 h-5" />
                                 )}
@@ -599,7 +673,7 @@ export function BranchSection({ savedOrders }: BranchSectionProps) {
                               <span className="mt-2 text-xs font-bold text-[#18181B]">
                                 2. مراجعة وتأكيد
                               </span>
-                              <span className="text-[10px] text-[#71717A]">
+                              <span className="text-[10px] text-stone-500 font-semibold">
                                 {currentStage >= 2 ? 'مؤكد من الإدارة' : 'قيد المراجعة'}
                               </span>
                             </div>
@@ -607,10 +681,10 @@ export function BranchSection({ savedOrders }: BranchSectionProps) {
                             {/* Step 3: Out for Delivery */}
                             <div className="relative z-10 flex flex-col items-center text-center">
                               <div
-                                className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all shadow-md ${
+                                className={`w-11 h-11 rounded-full flex items-center justify-center font-bold text-sm transition-all shadow-md ${
                                   currentStage >= 2
-                                    ? 'bg-[#18181B] text-[#FFD100] ring-4 ring-[#18181B]/15'
-                                    : 'bg-stone-200 text-[#71717A]'
+                                    ? 'bg-[#18181B] text-[#FFD100] ring-4 ring-[#18181B]/20 animate-bounce'
+                                    : 'bg-stone-200 text-stone-400'
                                 }`}
                               >
                                 <Package className="w-5 h-5" />
@@ -618,64 +692,66 @@ export function BranchSection({ savedOrders }: BranchSectionProps) {
                               <span className="mt-2 text-xs font-bold text-[#18181B]">
                                 3. التجهيز والشحن
                               </span>
-                              <span className="text-[10px] text-[#71717A]">عبر ZR Express</span>
+                              <span className="text-[10px] text-stone-500 font-semibold">
+                                عبر ZR Express
+                              </span>
                             </div>
                           </div>
                         </div>
                       ) : null}
 
-                      {/* Live Status Explanatory Notice */}
-                      <div className="p-5 sm:p-6 space-y-4">
+                      {/* Details & Barcode Box */}
+                      <div className="p-6 space-y-4">
                         {liveOrder.status === 'confirmed' ? (
-                          <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs sm:text-sm font-medium leading-relaxed flex items-start gap-3">
+                          <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-950 text-xs sm:text-sm font-semibold flex items-start gap-3">
                             <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
                             <div>
                               <p className="font-bold text-emerald-950">
                                 رائع! تم تأكيد طلبك رسمياً من قِبل إدارة متجر تكنو الأغواط
                               </p>
-                              <p className="mt-1 text-emerald-800">
+                              <p className="mt-1 text-emerald-800 font-medium">
                                 تم تجهيز الطرد وسيتم تسليمه أو إرساله مع مندوب ZR Express إلى عنوانك المختار. الدفع يتم نقداً عند الاستلام.
                               </p>
                             </div>
                           </div>
                         ) : liveOrder.status === 'cancelled' ? (
-                          <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-900 text-xs sm:text-sm font-medium leading-relaxed flex items-start gap-3">
+                          <div className="p-4 rounded-2xl bg-red-50 border border-red-200 text-red-950 text-xs sm:text-sm font-semibold flex items-start gap-3">
                             <XCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
                             <div>
                               <p className="font-bold text-red-950">تم إلغاء هذا الطلب</p>
-                              <p className="mt-1 text-red-800">
-                                نعتذر، تم إلغاء الطلب بناءً على رغبة العميل أو لعدم توفر المخزون. إذا كنت ترغب في الاستفسار أو إعادة الطلب يمكنك الاتصال بالمتجر.
+                              <p className="mt-1 text-red-800 font-medium">
+                                نعتذر، تم إلغاء الطلب بناءً على رغبة العميل أو لعدم توفر المخزون. إذا كنت ترغب في الاستفسار يمكنك الاتصال بنا.
                               </p>
                             </div>
                           </div>
                         ) : (
-                          <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-950 text-xs sm:text-sm font-medium leading-relaxed flex items-start gap-3">
+                          <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-950 text-xs sm:text-sm font-semibold flex items-start gap-3">
                             <Clock className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
                             <div>
                               <p className="font-bold text-amber-950">
                                 الطلب مستلم وهو تحت المعالجة حالياً
                               </p>
-                              <p className="mt-1 text-amber-900">
+                              <p className="mt-1 text-amber-900 font-medium">
                                 سنقوم بمراجعة الطلب والاتصال بك هاتفياً لتأكيده وتحديد موعد التسليم في أقرب وقت.
                               </p>
                             </div>
                           </div>
                         )}
 
-                        {/* Customer & Delivery Summary */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs bg-stone-50 p-4 rounded-xl border border-stone-200">
+                        {/* Customer & Logistics Details */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs bg-stone-50 p-4 rounded-2xl border border-stone-200">
                           <div>
-                            <span className="text-[#71717A] block">العميل:</span>
+                            <span className="text-stone-500 block">العميل:</span>
                             <span className="font-bold text-[#18181B] text-sm">
                               {liveOrder.customerName || liveOrder.customer?.fullName}
                             </span>
                           </div>
                           <div>
-                            <span className="text-[#71717A] block">طريقة الاستلام:</span>
+                            <span className="text-stone-500 block">طريقة الاستلام:</span>
                             <span className="font-bold text-[#18181B]">
                               {getDeliveryMethodTitle(liveOrder.deliveryMethod || liveOrder.customer?.deliveryMethod)}
                             </span>
-                            <span className="text-[#52525B] block mt-0.5">
+                            <span className="text-stone-600 block mt-0.5">
                               {liveOrder.wilaya || liveOrder.customer?.wilaya}
                               {liveOrder.commune || liveOrder.customer?.commune
                                 ? ` — ${liveOrder.commune || liveOrder.customer?.commune}`
@@ -685,51 +761,61 @@ export function BranchSection({ savedOrders }: BranchSectionProps) {
                         </div>
 
                         {/* Items list */}
-                        {Array.isArray(liveOrder.items) && liveOrder.items.length > 0 ? (
-                          <div className="border border-stone-200 rounded-xl p-3.5 space-y-2">
-                            <p className="text-xs font-bold text-[#71717A]">تفاصيل المعروضات في الطلب:</p>
+                        {Array.isArray(liveOrder.items) && liveOrder.items.length > 0 && (
+                          <div className="border border-stone-200 rounded-2xl p-4 space-y-2">
+                            <p className="text-xs font-bold text-stone-500">تفاصيل المعروضات في الطلب:</p>
                             <ul className="divide-y divide-stone-100 text-xs">
                               {liveOrder.items.map((i: any, idx: number) => (
                                 <li key={idx} className="py-2 flex items-center justify-between gap-2">
-                                  <span className="font-medium text-[#18181B]">
+                                  <span className="font-semibold text-[#18181B]">
                                     {i.name}
                                     {i.variantLabel ? ` [${i.variantLabel}]` : ''}
                                   </span>
-                                  <span className="font-mono font-bold text-[#E30613] shrink-0">
+                                  <span className="font-mono font-black text-[#E30613] shrink-0">
                                     ×{i.quantity || 1}
                                   </span>
                                 </li>
                               ))}
                             </ul>
                           </div>
-                        ) : null}
+                        )}
 
                         {/* Total DZD */}
                         <div className="pt-3 border-t border-stone-200 flex items-center justify-between text-sm font-bold text-[#18181B]">
                           <span>المبلغ الإجمالي عند الاستلام:</span>
-                          <span className="font-mono text-xl font-black text-[#E30613] tabular-nums">
+                          <span className="font-mono text-2xl font-black text-[#E30613] tabular-nums">
                             {formatDzd(liveOrder.totalDzd || liveOrder.totals?.totalDzd || 0)}
                           </span>
                         </div>
 
-                        {/* Instant Customer Support CTAs */}
-                        <div className="pt-2 flex flex-wrap gap-2.5">
+                        {/* Visual Barcode Terminal Stamp */}
+                        <div className="pt-3 border-t border-dashed border-stone-200 flex flex-col items-center justify-center text-center gap-1 opacity-80">
+                          <div className="font-mono text-[9px] tracking-[0.4em] text-stone-400 select-none">
+                            |||||| |||| ||||| ||||||| |||| |||||||| ||||
+                          </div>
+                          <span className="font-mono text-[10px] text-stone-400 font-semibold tracking-wider">
+                            OFFICIAL TECHNO PARCEL • {liveOrder.orderId}
+                          </span>
+                        </div>
+
+                        {/* Customer Support CTAs */}
+                        <div className="pt-2 flex flex-wrap gap-3">
                           <a
                             href={`https://wa.me/213560154663?text=${encodeURIComponent(
                               `مرحباً تكنو الأغواط، أود الاستفسار بخصوص طلبي رقم #${liveOrder.orderId}`,
                             )}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs"
+                            className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-[#25D366] hover:bg-[#20ba59] text-white text-xs font-black transition-all shadow-md active:scale-95"
                           >
-                            <MessageSquare className="w-3.5 h-3.5" />
-                            <span>استفسر عبر واتساب</span>
+                            <MessageSquare className="w-4 h-4 fill-white" />
+                            <span>استفسر عبر واتساب بخصوص هذا الطلب</span>
                           </a>
                           <a
                             href={STORE_INFO.phoneHref}
-                            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-[#18181B] text-xs font-bold transition-all border border-stone-300"
+                            className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-stone-100 hover:bg-stone-200 text-[#18181B] text-xs font-bold transition-all border border-stone-300"
                           >
-                            <Phone className="w-3.5 h-3.5 text-[#E30613]" />
+                            <Phone className="w-4 h-4 text-[#E30613]" />
                             <span>اتصل بالفرع</span>
                           </a>
                         </div>
@@ -738,9 +824,9 @@ export function BranchSection({ savedOrders }: BranchSectionProps) {
                   ) : (
                     <div
                       role="status"
-                      className="p-4 rounded-xl bg-red-50 text-red-900 border border-red-200 text-xs sm:text-sm font-medium leading-relaxed"
+                      className="p-5 rounded-2xl bg-red-50 text-red-950 border-2 border-red-200 text-xs sm:text-sm font-semibold leading-relaxed"
                     >
-                      لم يتم العثور على طلب بالرقم «<span className="font-mono font-bold">{searchedCode}</span>». يرجى التأكد من كتابة الكود بشكل صحيح (مثل TL-XXXX-XXXX-XXXX) أو الاتصال بنا.
+                      لم يتم العثور على طلب بالرقم «<span className="font-mono font-bold">{searchedCode}</span>». يرجى التأكد من كتابة الكود بشكل صحيح (مثل TL-XXXX-XXXX-XXXX) أو الضغط على زر «معاينة حية نموذجية» للتجربة.
                     </div>
                   )
                 ) : null}
