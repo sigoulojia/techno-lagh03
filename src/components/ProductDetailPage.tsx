@@ -217,36 +217,41 @@ export function ProductDetailPage({
   return (
     <div className="min-h-screen bg-lined-paper text-[#18181B] pb-24">
       {/* Top Action Bar */}
-      <header className="sticky top-0 z-40 bg-[#FAF8F5]/95 backdrop-blur-md border-b-4 border-[#FFD100] shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
-          <button
-            type="button"
-            onClick={onBackToHome}
-            className="inline-flex items-center gap-2 text-sm font-semibold text-[#18181B] hover:text-[#E30613] transition-colors cursor-pointer"
-          >
-            <ArrowRight className="w-4 h-4" aria-hidden="true" />
-            <span>العودة للمتجر الرئيسي</span>
-          </button>
+      <header className="sticky top-0 z-40 bg-[#FAF8F5]/98 backdrop-blur-md border-b-4 border-[#FFD100] shadow-xs py-3">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={onBackToHome}
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border-2 border-[#18181B] bg-white hover:bg-[#FFD100] text-xs sm:text-sm font-black text-[#18181B] shadow-[2px_2px_0px_#18181B] active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer"
+            >
+              <ArrowRight className="w-4 h-4 text-[#E30613]" aria-hidden="true" />
+              <span>العودة للمتجر</span>
+            </button>
+            <div className="hidden sm:block">
+              <TechnoLogo size="sm" showBranch={true} />
+            </div>
+          </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2 sm:gap-2.5">
             <button
               type="button"
               onClick={handleCopyProductLink}
-              className="inline-flex items-center gap-1.5 px-3 py-2 min-h-[40px] rounded-lg border border-stone-200 bg-white text-xs font-semibold text-[#18181B] hover:border-[#E30613] transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-2 min-h-[42px] rounded-xl border-2 border-[#18181B] bg-white hover:bg-stone-50 text-xs font-black text-[#18181B] shadow-[2px_2px_0px_#18181B] active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer"
             >
               <Copy className="w-3.5 h-3.5 text-[#E30613]" aria-hidden="true" />
-              <span>{copiedLink ? 'تم نسخ الرابط بنجاح' : `نسخ رابط #${product.sku}`}</span>
+              <span className="hidden sm:inline">{copiedLink ? 'تم نسخ الرابط' : `رابط #${product.sku}`}</span>
             </button>
 
             <button
               type="button"
               onClick={onOpenCart}
               data-testid="pdp-cart-button"
-              className="inline-flex items-center gap-2 px-3.5 py-2 min-h-[40px] rounded-lg bg-stone-900 text-white text-xs sm:text-sm font-medium hover:bg-[#E30613] transition-colors cursor-pointer"
+              className="relative group inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 min-h-[42px] rounded-xl bg-[#E30613] hover:bg-[#C4000F] text-white text-xs sm:text-sm font-black border-2 border-[#18181B] shadow-[2px_2px_0px_#18181B] active:translate-x-0.5 active:translate-y-0.5 transition-all whitespace-nowrap cursor-pointer"
             >
-              <ShoppingBag className="w-4 h-4" aria-hidden="true" />
+              <ShoppingBag className="w-4 h-4 shrink-0" aria-hidden="true" />
               <span className="hidden sm:inline">سلة الطلب</span>
-              <span className="bg-white/20 px-1.5 py-0.5 rounded text-xs font-mono tabular-nums">
+              <span className="bg-[#FFD100] text-[#18181B] border border-[#18181B] px-2 py-0.5 rounded-md text-xs font-mono font-black tabular-nums">
                 {cartCount}
               </span>
             </button>
@@ -577,48 +582,66 @@ export function ProductDetailPage({
               </div>
             </div>
 
-            {/* Direct Order Form */}
-            <div className="p-6 bg-white rounded-2xl border border-stone-200 shadow-xs space-y-5">
-              <div className="pb-3 border-b border-stone-100">
-                <h2 className="font-display text-lg font-bold text-[#18181B]">
-                  طلب سريع ومباشر
+            {/* Direct Order Form matching homepage style */}
+            <div className="p-6 sm:p-8 bg-white rounded-3xl border-2 border-[#18181B] shadow-[8px_8px_0px_#18181B] space-y-6 relative overflow-hidden">
+              <div className="pb-4 border-b-2 border-stone-200 space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="stamp-red text-xs font-black">خدمة تكنو السريعة</span>
+                  <span className="stamp-yellow text-xs font-black">الدفع عند الاستلام</span>
+                </div>
+                <h2 className="font-display text-2xl font-black text-[#18181B]">
+                  <span className="highlight-yellow">طلب سريع ومباشر</span>
                 </h2>
-                <p className="mt-0.5 text-xs text-[#71717A]">
-                  أدخل معلوماتك واختر الولاية وطريقة الاستلام — سيتصل بك فرع تكنو الأغواط لتأكيد طلبك
+                <p className="text-xs sm:text-sm font-bold text-[#52525B] leading-relaxed">
+                  سجل طلبك في أقل من دقيقة، وسيتصل بك فرع تكنو الأغواط هاتفياً للتأكيد والتسليم الفوري عبر ZR Express.
                 </p>
               </div>
 
               {confirmedOrder ? (
                 <div
                   data-testid="pdp-order-confirmed"
-                  className="p-5 rounded-2xl bg-[#FAF9F6] border border-stone-200 text-center space-y-4"
+                  className="p-6 sm:p-8 rounded-3xl bg-[#FAF8F5] border-2 border-[#18181B] shadow-[6px_6px_0px_#18181B] text-center space-y-5"
                 >
-                  <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto" aria-hidden="true" />
+                  <div className="w-16 h-16 rounded-2xl bg-emerald-100 text-emerald-800 border-2 border-[#18181B] shadow-[3px_3px_0px_#18181B] flex items-center justify-center mx-auto">
+                    <CheckCircle2 className="w-9 h-9 text-emerald-700" aria-hidden="true" />
+                  </div>
                   <div>
-                    <h3 className="font-display text-xl font-bold text-[#18181B]">
-                      تم تأكيد طلبك بنجاح
+                    <span className="stamp-yellow text-xs font-black">
+                      تم تسجيل وتشفير طلبك بنجاح
+                    </span>
+                    <h3 className="mt-3 font-display text-xl sm:text-2xl font-black text-[#18181B]">
+                      كود تتبع طلبيتك:
                     </h3>
-                    <p
-                      data-testid="pdp-confirmed-order-id"
-                      className="font-mono text-lg font-bold text-[#E30613] mt-1"
-                    >
-                      {confirmedOrder.orderId}
-                    </p>
-                    <p className="text-xs text-[#52525B] mt-1 leading-relaxed">
+                    <div className="mt-2 p-3 bg-stone-100 rounded-xl border-2 border-[#18181B] shadow-[2px_2px_0px_#18181B] inline-block">
+                      <p
+                        data-testid="pdp-confirmed-order-id"
+                        className="font-mono text-xl sm:text-2xl font-black text-[#E30613] tracking-wider m-0"
+                      >
+                        {confirmedOrder.orderId}
+                      </p>
+                    </div>
+                    <p className="mt-3 text-xs sm:text-sm text-[#52525B] font-bold leading-relaxed">
                       {getDeliveryMethodTitle(confirmedOrder.customer.deliveryMethod)} ·{' '}
-                      {confirmedOrder.customer.wilaya} · المجموع:{' '}
-                      <span className="font-mono font-bold text-[#18181B]">
-                        {formatDzd(confirmedOrder.totals.totalDzd)}
-                      </span>
+                      {confirmedOrder.customer.wilaya}
+                    </p>
+                    <p className="text-xs text-[#71717A] mt-1">
+                      سيتصل بك فرع تكنو الأغواط هاتفياً لتأكيد انطلاق الشحنة إلى ولايتك عبر ZR Express.
                     </p>
                   </div>
 
-                  <div className="space-y-2 pt-2">
+                  <div className="p-4 rounded-xl bg-white border-2 border-stone-300 flex items-center justify-between text-sm font-bold">
+                    <span className="text-stone-600">المبلغ الإجمالي عند الاستلام:</span>
+                    <span className="font-mono text-xl font-black text-[#18181B] highlight-yellow">
+                      {formatDzd(confirmedOrder.totals.totalDzd)}
+                    </span>
+                  </div>
+
+                  <div className="space-y-2.5 pt-2">
                     <button
                       type="button"
                       disabled={isGeneratingPdf}
                       onClick={() => handleDownloadPdf(confirmedOrder)}
-                      className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 min-h-[46px] rounded-xl bg-[#E30613] text-white text-sm font-semibold hover:bg-[#C4000F] transition-colors cursor-pointer disabled:opacity-75"
+                      className="w-full inline-flex items-center justify-center gap-2 px-5 py-3.5 min-h-[48px] rounded-xl bg-[#E30613] hover:bg-[#C4000F] text-white text-sm font-black border-2 border-[#18181B] shadow-[3px_3px_0px_#18181B] active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer disabled:opacity-75"
                     >
                       {isGeneratingPdf ? (
                         <>
@@ -632,19 +655,19 @@ export function ProductDetailPage({
                         </>
                       )}
                     </button>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-2 gap-2.5">
                       <button
                         type="button"
                         onClick={() => printOrderReceipt(confirmedOrder)}
-                        className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 min-h-[42px] rounded-lg border border-stone-300 bg-white text-xs font-semibold text-[#18181B] hover:bg-stone-50 cursor-pointer"
+                        className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 min-h-[44px] rounded-xl border-2 border-[#18181B] bg-white hover:bg-stone-50 text-xs font-black text-[#18181B] shadow-[2px_2px_0px_#18181B] active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer"
                       >
-                        <Printer className="w-3.5 h-3.5 text-stone-500" aria-hidden="true" />
+                        <Printer className="w-3.5 h-3.5 text-[#18181B]" aria-hidden="true" />
                         <span>طباعة الوصل</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => setConfirmedOrder(null)}
-                        className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 min-h-[42px] rounded-lg border border-stone-300 bg-white text-xs font-semibold text-[#18181B] hover:bg-stone-50 cursor-pointer"
+                        className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 min-h-[44px] rounded-xl border-2 border-[#18181B] bg-white hover:bg-[#FFD100] text-xs font-black text-[#18181B] shadow-[2px_2px_0px_#18181B] active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer"
                       >
                         <span>تقديم طلب آخر</span>
                       </button>
@@ -678,7 +701,7 @@ export function ProductDetailPage({
                   <div>
                     <label
                       htmlFor="pdp-name"
-                      className="block text-sm font-medium text-[#18181B] mb-1.5"
+                      className="block text-sm font-black text-[#18181B] mb-1.5"
                     >
                       الاسم الكامل <span className="text-[#E30613]">*</span>
                     </label>
@@ -692,10 +715,10 @@ export function ProductDetailPage({
                         setForm((prev) => ({ ...prev, fullName: e.target.value }));
                         handleClearErrors(['fullName']);
                       }}
-                      className="w-full px-3.5 py-2.5 min-h-[44px] rounded-lg border border-stone-300 text-sm bg-white focus:outline-none focus:border-[#E30613]"
+                      className="w-full px-4 py-3 min-h-[46px] rounded-xl border-2 border-[#18181B] shadow-[2px_2px_0px_#18181B] text-sm font-bold bg-white focus:outline-none focus:shadow-[4px_4px_0px_#E30613] transition-all"
                     />
                     {errors.fullName ? (
-                      <p role="alert" className="mt-1 text-xs text-[#E30613] font-medium">
+                      <p role="alert" className="mt-1.5 text-xs text-[#E30613] font-black">
                         {errors.fullName}
                       </p>
                     ) : null}
@@ -704,7 +727,7 @@ export function ProductDetailPage({
                   <div>
                     <label
                       htmlFor="pdp-phone"
-                      className="block text-sm font-medium text-[#18181B] mb-1.5"
+                      className="block text-sm font-black text-[#18181B] mb-1.5"
                     >
                       رقم الهاتف (للتأكيد والتسليم) <span className="text-[#E30613]">*</span>
                     </label>
@@ -719,16 +742,16 @@ export function ProductDetailPage({
                         setForm((prev) => ({ ...prev, phone: e.target.value }));
                         handleClearErrors(['phone']);
                       }}
-                      className="w-full px-3.5 py-2.5 min-h-[44px] rounded-lg border border-stone-300 text-sm text-right font-mono bg-white focus:outline-none focus:border-[#E30613]"
+                      className="w-full px-4 py-3 min-h-[46px] rounded-xl border-2 border-[#18181B] shadow-[2px_2px_0px_#18181B] text-sm font-mono font-bold text-right bg-white focus:outline-none focus:shadow-[4px_4px_0px_#E30613] transition-all"
                     />
                     {errors.phone ? (
-                      <p role="alert" className="mt-1 text-xs text-[#E30613] font-medium">
+                      <p role="alert" className="mt-1.5 text-xs text-[#E30613] font-black">
                         {errors.phone}
                       </p>
                     ) : null}
                   </div>
 
-                  {/* Reusable 54-Wilaya + 24-Commune ZR Express Delivery Selector */}
+                  {/* Reusable 69-Wilaya + 24-Commune ZR Express Delivery Selector */}
                   <DeliverySelector
                     idPrefix="pdp"
                     form={form}
@@ -738,14 +761,14 @@ export function ProductDetailPage({
                     hideOptionPrices={true}
                   />
 
-                  {/* Summary Box */}
-                  <div className="p-4 rounded-xl bg-[#FAF9F6] border border-stone-200 text-xs space-y-2">
+                  {/* Summary Box matching homepage */}
+                  <div className="p-4 sm:p-5 rounded-2xl bg-[#FAF8F5] border-2 border-stone-300 text-xs sm:text-sm space-y-2.5 font-bold">
                     <div className="flex justify-between text-[#52525B]">
                       <span>
                         {product.shortName}
                         {activeVariant ? ` (${activeVariant.label})` : ''} × {quantity}
                       </span>
-                      <span className="font-mono font-semibold text-[#18181B] tabular-nums">
+                      <span className="font-mono font-black text-[#18181B] tabular-nums">
                         {formatDzd(totals.subtotalDzd)}
                       </span>
                     </div>
@@ -755,18 +778,18 @@ export function ProductDetailPage({
                       </span>
                       <span
                         data-testid="pdp-shipping-fee"
-                        className="font-mono font-semibold text-[#18181B] tabular-nums"
+                        className="font-mono font-black text-[#E30613] tabular-nums"
                       >
                         {totals.shippingFeeDzd === 0
-                          ? 'مجاني'
+                          ? 'مجاني (0 د.ج)'
                           : formatDzd(totals.shippingFeeDzd)}
                       </span>
                     </div>
-                    <div className="flex justify-between text-base font-bold text-[#18181B] pt-2 border-t border-stone-200">
+                    <div className="flex justify-between items-center text-sm sm:text-base font-black text-[#18181B] pt-2.5 border-t-2 border-stone-300">
                       <span>المبلغ الإجمالي عند الاستلام:</span>
                       <span
                         data-testid="pdp-total-amount"
-                        className="text-[#E30613] font-mono tabular-nums"
+                        className="font-mono text-xl sm:text-2xl font-black text-[#18181B] highlight-yellow tabular-nums"
                       >
                         {formatDzd(totals.totalDzd)}
                       </span>
@@ -774,29 +797,24 @@ export function ProductDetailPage({
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="space-y-2.5 pt-1">
+                  <div className="space-y-3 pt-1">
                     {submitError && (
-                      <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold flex items-center gap-2">
+                      <div className="p-3.5 rounded-xl bg-red-50 border-2 border-red-300 text-red-700 text-xs font-black flex items-center gap-2">
                         <AlertTriangle className="w-4 h-4 shrink-0 text-red-600" />
                         <span>{submitError}</span>
                       </div>
                     )}
 
-                    <div className="p-3 rounded-xl bg-stone-50 border border-stone-200 text-xs flex items-center justify-between text-[#18181B]">
-                      <span>سعر التوصيل: <strong className="font-bold text-[#E30613]">{totals.shippingFeeDzd === 0 ? 'مجاني (0 د.ج)' : formatDzd(totals.shippingFeeDzd)}</strong></span>
-                      <span>المبلغ الإجمالي عند الاستلام: <strong className="font-bold text-[#E30613] font-mono text-sm">{formatDzd(totals.totalDzd)}</strong></span>
-                    </div>
-
                     <button
                       type="submit"
                       data-testid="pdp-submit-order"
                       disabled={isSubmitting}
-                      className="w-full inline-flex items-center justify-center gap-2 px-5 py-3.5 min-h-[48px] rounded-xl bg-[#E30613] text-white text-sm sm:text-base font-bold hover:bg-[#C4000F] disabled:opacity-60 transition-colors cursor-pointer"
+                      className="w-full inline-flex items-center justify-center gap-2 px-6 py-4 min-h-[52px] rounded-2xl bg-[#E30613] hover:bg-[#C4000F] text-white text-sm sm:text-base font-black border-2 border-[#18181B] shadow-[4px_4px_0px_#18181B] hover:shadow-[6px_6px_0px_#18181B] active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer disabled:opacity-60"
                     >
                       {isSubmitting ? (
                         <>
                           <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" />
-                          <span>جاري تأكيد طلبك...</span>
+                          <span>جاري تأكيد وتسجيل طلبك...</span>
                         </>
                       ) : (
                         <span>تأكيد الطلب الآن · {formatDzd(totals.totalDzd)}</span>
@@ -807,7 +825,7 @@ export function ProductDetailPage({
                       type="button"
                       data-testid="pdp-add-to-cart"
                       onClick={() => onAddToCart(product, quantity, activeVariant?.id)}
-                      className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 min-h-[44px] rounded-xl border border-stone-300 bg-white text-[#18181B] text-sm font-semibold hover:border-[#18181B] transition-colors cursor-pointer"
+                      className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 min-h-[46px] rounded-xl border-2 border-[#18181B] bg-white text-[#18181B] text-xs sm:text-sm font-black shadow-[2px_2px_0px_#18181B] hover:bg-[#FFD100] active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer"
                     >
                       <ShoppingBag className="w-4 h-4" aria-hidden="true" />
                       <span>إضافة إلى سلة التسوق للمتابعة</span>

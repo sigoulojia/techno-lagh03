@@ -33,10 +33,9 @@ export function Header({ cartCount, onOpenCart }: HeaderProps) {
   const closeMobileMenu = () => setIsMobileMenuOpen(false);
 
   const navLinks = [
-    { label: 'المعروضات والحقائب', href: '#collection' },
-    { label: 'تعريفة ZR Express', href: '#delivery-rates' },
-    { label: 'الطلب المباشر', href: '#quick-order' },
-    { label: 'حكاية 25 سنة', href: '#craftsmanship' },
+    { label: 'المعروضات', href: '#collection' },
+    { label: 'أسعار التوصيل', href: '#delivery-rates' },
+    { label: 'تتبع الشحنة', href: '#track' },
     { label: 'موقع الفرع', href: '#branch' },
   ];
 
@@ -46,31 +45,31 @@ export function Header({ cartCount, onOpenCart }: HeaderProps) {
         className={`sticky top-0 z-40 transition-all duration-300 border-b-4 border-[#FFD100] ${
           isScrolled
             ? 'bg-[#FAF8F5]/98 backdrop-blur-xl shadow-md py-2.5'
-            : 'bg-[#FAF8F5]/95 backdrop-blur-md shadow-xs py-3.5'
+            : 'bg-[#FAF8F5]/95 backdrop-blur-md shadow-xs py-3'
         }`}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-3 lg:gap-6 flex-nowrap">
           {/* Zone 1: Authentic Official TECHNO STATIONERY Brand Badge */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <a
               href="#top"
-              className="group flex items-center gap-3 shrink-0 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#E30613]"
+              className="group flex items-center gap-2 shrink-0 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#E30613]"
               aria-label={STORE_INFO.fullTitle}
             >
               <TechnoLogo size="md" showBranch={true} />
             </a>
 
-            {/* Subtle Live Store Status Pill (Desktop) */}
-            <div className="hidden xl:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-300 text-[11px] font-bold text-emerald-800">
+            {/* Subtle Live Store Status Dot (Desktop) */}
+            <div className="hidden xl:inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-white border border-stone-300 text-[11px] font-bold text-stone-700 shadow-2xs">
               <span className={`w-2 h-2 rounded-full ${isStoreOpen ? 'bg-emerald-500 animate-pulse' : 'bg-stone-400'}`} />
-              <span>{isStoreOpen ? 'مفتوح الآن لاستقبالكم' : 'مغلق حالياً'}</span>
+              <span>{isStoreOpen ? 'مفتوح الآن' : 'مغلق حالياً'}</span>
             </div>
           </div>
 
-          {/* Zone 2: Interactive Desktop Navigation */}
+          {/* Zone 2: Streamlined Desktop Navigation */}
           <nav
             aria-label="التنقل الرئيسي"
-            className="hidden lg:flex items-center gap-4 xl:gap-6 text-sm font-bold text-[#18181B]"
+            className="hidden lg:flex items-center gap-5 xl:gap-7 text-sm font-black text-[#18181B]"
           >
             {navLinks.map((link) => (
               <a
@@ -82,34 +81,25 @@ export function Header({ cartCount, onOpenCart }: HeaderProps) {
                 <span className="absolute bottom-0 right-0 left-0 h-0.5 bg-[#E30613] scale-x-0 group-hover:scale-x-100 transition-transform origin-right" />
               </a>
             ))}
-
-            {/* Interactive Pulse Tracking Button */}
-            <a
-              href="#track"
-              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-[#FFD100] text-[#18181B] border-2 border-[#18181B] shadow-[2px_2px_0px_#18181B] hover:shadow-[3px_3px_0px_#18181B] active:translate-x-0.5 active:translate-y-0.5 transition-all whitespace-nowrap shrink-0 font-black text-xs"
-            >
-              <span className="w-2 h-2 rounded-full bg-[#E30613] animate-ping" />
-              <span>تتبع شحنتك</span>
-            </a>
           </nav>
 
           {/* Zone 3: Interactive Action Suite */}
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
             {/* Quick Call Button (Desktop) */}
             <a
               href={STORE_INFO.phoneHref}
               dir="ltr"
               aria-label="اتصل بفرع تكنو الأغواط"
-              className="hidden sm:inline-flex items-center gap-2 px-3.5 py-2.5 min-h-[44px] rounded-xl border-2 border-[#18181B] bg-white hover:bg-[#FFD100] text-xs font-mono font-bold text-[#18181B] transition-colors shadow-[2px_2px_0px_#18181B] cursor-pointer active:translate-x-0.5 active:translate-y-0.5"
+              className="hidden xl:inline-flex items-center gap-1.5 px-3 py-2 min-h-[42px] rounded-xl border-2 border-[#18181B] bg-white hover:bg-[#FFD100] text-xs font-mono font-black text-[#18181B] transition-colors shadow-[2px_2px_0px_#18181B] cursor-pointer active:translate-x-0.5 active:translate-y-0.5"
             >
               <Phone className="w-3.5 h-3.5 text-[#E30613]" />
               <span>{STORE_INFO.phoneDisplay}</span>
             </a>
 
-            {/* Quick Order Shortcut (Tablet & Up) */}
+            {/* Quick Order Primary CTA Button */}
             <a
               href="#quick-order"
-              className="hidden md:inline-flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-xl bg-[#FFD100] border-2 border-[#18181B] shadow-[2px_2px_0px_#18181B] hover:bg-[#E5BC00] text-xs font-black text-[#18181B] transition-all active:translate-x-0.5 active:translate-y-0.5"
+              className="inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-2 min-h-[42px] rounded-xl bg-[#FFD100] hover:bg-[#E5BC00] border-2 border-[#18181B] shadow-[2px_2px_0px_#18181B] text-xs font-black text-[#18181B] transition-all active:translate-x-0.5 active:translate-y-0.5 whitespace-nowrap cursor-pointer"
             >
               <Sparkles className="w-3.5 h-3.5 text-[#E30613]" />
               <span>طلب مباشر</span>
@@ -121,7 +111,7 @@ export function Header({ cartCount, onOpenCart }: HeaderProps) {
               onClick={onOpenCart}
               aria-label={`فتح سلة الطلب (${cartCount} منتج)`}
               data-testid="header-cart-button"
-              className="relative group inline-flex items-center gap-2 sm:gap-2.5 px-3.5 sm:px-4 py-2 min-h-[44px] rounded-xl bg-[#E30613] text-white text-sm font-black border-2 border-[#18181B] shadow-[2px_2px_0px_#18181B] hover:bg-[#C4000F] active:translate-x-0.5 active:translate-y-0.5 transition-all whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E30613]"
+              className="relative group inline-flex items-center gap-2 px-3 sm:px-3.5 py-2 min-h-[42px] rounded-xl bg-[#E30613] text-white text-xs sm:text-sm font-black border-2 border-[#18181B] shadow-[2px_2px_0px_#18181B] hover:bg-[#C4000F] active:translate-x-0.5 active:translate-y-0.5 transition-all whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E30613]"
             >
               <ShoppingBag className="w-4 h-4 shrink-0 transition-transform group-hover:-translate-y-0.5" aria-hidden="true" />
               <span className="hidden sm:inline">سلة الطلب</span>
@@ -129,7 +119,7 @@ export function Header({ cartCount, onOpenCart }: HeaderProps) {
                 data-testid="header-cart-count"
                 className={`font-mono text-xs tabular-nums px-2 py-0.5 rounded-md font-black border border-[#18181B] transition-all ${
                   cartCount > 0
-                    ? 'bg-[#FFD100] text-[#18181B] scale-105 shadow-xs'
+                    ? 'bg-[#FFD100] text-[#18181B] scale-105 shadow-2xs'
                     : 'bg-white/20 text-white'
                 }`}
               >
@@ -142,7 +132,7 @@ export function Header({ cartCount, onOpenCart }: HeaderProps) {
               type="button"
               onClick={() => setIsMobileMenuOpen((prev) => !prev)}
               aria-label={isMobileMenuOpen ? 'إغلاق القائمة' : 'فتح القائمة الرئيسية'}
-              className="lg:hidden p-2.5 rounded-xl border border-stone-300 bg-white text-[#18181B] hover:bg-stone-50 transition-colors cursor-pointer"
+              className="lg:hidden p-2 rounded-xl border-2 border-[#18181B] bg-white text-[#18181B] hover:bg-stone-50 shadow-[2px_2px_0px_#18181B] transition-colors cursor-pointer"
             >
               {isMobileMenuOpen ? <X className="w-5 h-5 text-[#E30613]" /> : <Menu className="w-5 h-5" />}
             </button>
@@ -207,22 +197,46 @@ export function Header({ cartCount, onOpenCart }: HeaderProps) {
                   <ArrowLeft className="w-4 h-4 text-[#E30613]" />
                 </a>
 
-                {navLinks.map((link) => (
-                  <a
-                    key={link.href}
-                    href={link.href}
-                    onClick={closeMobileMenu}
-                    className="flex items-center justify-between px-4 py-3 rounded-xl text-stone-700 hover:text-[#E30613] hover:bg-stone-50 font-bold text-sm transition-colors"
-                  >
-                    <span>{link.label}</span>
-                    <ArrowLeft className="w-4 h-4 text-stone-400" />
-                  </a>
-                ))}
+                <a
+                  href="#collection"
+                  onClick={closeMobileMenu}
+                  className="flex items-center justify-between px-4 py-3 rounded-xl text-stone-800 hover:text-[#E30613] hover:bg-stone-50 font-bold text-sm transition-colors"
+                >
+                  <span>المعروضات والحقائب</span>
+                  <ArrowLeft className="w-4 h-4 text-stone-400" />
+                </a>
+
+                <a
+                  href="#delivery-rates"
+                  onClick={closeMobileMenu}
+                  className="flex items-center justify-between px-4 py-3 rounded-xl text-stone-800 hover:text-[#E30613] hover:bg-stone-50 font-bold text-sm transition-colors"
+                >
+                  <span>تسعيرة ZR Express (كافة الولايات)</span>
+                  <ArrowLeft className="w-4 h-4 text-stone-400" />
+                </a>
+
+                <a
+                  href="#branch"
+                  onClick={closeMobileMenu}
+                  className="flex items-center justify-between px-4 py-3 rounded-xl text-stone-800 hover:text-[#E30613] hover:bg-stone-50 font-bold text-sm transition-colors"
+                >
+                  <span>موقع الفرع (حي المقام)</span>
+                  <ArrowLeft className="w-4 h-4 text-stone-400" />
+                </a>
+
+                <a
+                  href="#craftsmanship"
+                  onClick={closeMobileMenu}
+                  className="flex items-center justify-between px-4 py-3 rounded-xl text-stone-800 hover:text-[#E30613] hover:bg-stone-50 font-bold text-sm transition-colors"
+                >
+                  <span>حكاية تكنو (25 سنة خبرة)</span>
+                  <ArrowLeft className="w-4 h-4 text-stone-400" />
+                </a>
 
                 <a
                   href="#quick-order"
                   onClick={closeMobileMenu}
-                  className="flex items-center justify-between px-4 py-3 rounded-xl bg-stone-900 text-[#FFD100] font-bold text-sm mt-3"
+                  className="flex items-center justify-between px-4 py-3 rounded-xl bg-[#FFD100] border-2 border-[#18181B] shadow-[2px_2px_0px_#18181B] text-[#18181B] font-black text-sm mt-3"
                 >
                   <div className="flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-[#E30613]" />

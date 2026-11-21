@@ -68,7 +68,7 @@ export function DeliverySelector({
   return (
     <div className="space-y-4">
       <fieldset>
-        <legend className="text-sm font-semibold text-[#18181B] mb-2">
+        <legend className="text-sm font-black text-[#18181B] mb-2.5">
           طريقة الاستلام والتوصيل ({STORE_INFO.deliveryPartner})
         </legend>
         <div className="space-y-2.5">
@@ -91,15 +91,15 @@ export function DeliverySelector({
               <label
                 key={method.id}
                 data-testid={`${idPrefix}-delivery-option-${method.id}`}
-                className={`flex items-start justify-between gap-3 p-3.5 rounded-xl border transition-colors ${
+                className={`flex items-start justify-between gap-3 p-4 rounded-2xl border-2 transition-all ${
                   isDisabled
-                    ? 'border-stone-200 bg-stone-50 opacity-65 cursor-not-allowed'
+                    ? 'border-stone-200 bg-stone-50 opacity-60 cursor-not-allowed'
                     : isChecked
-                      ? 'border-[#E30613] bg-[#E30613]/[0.04] cursor-pointer'
-                      : 'border-stone-200 hover:border-stone-300 bg-white cursor-pointer'
+                      ? 'border-[#18181B] bg-[#FFD100]/15 shadow-[3px_3px_0px_#18181B] cursor-pointer'
+                      : 'border-stone-300 hover:border-[#18181B] bg-white cursor-pointer shadow-2xs'
                 }`}
               >
-                <div className="flex items-start gap-2.5 min-w-0">
+                <div className="flex items-start gap-3 min-w-0">
                   <input
                     type="radio"
                     name={`${idPrefix}-delivery-method`}
@@ -107,14 +107,14 @@ export function DeliverySelector({
                     checked={isChecked}
                     disabled={isDisabled}
                     onChange={() => handleMethodSelect(method.id)}
-                    className="mt-1 accent-[#E30613] shrink-0"
+                    className="mt-1 accent-[#E30613] shrink-0 w-4 h-4"
                   />
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold text-[#18181B] flex items-center gap-1.5">
+                    <p className="text-sm font-black text-[#18181B] flex items-center gap-1.5">
                       <Icon className="w-4 h-4 text-[#E30613] shrink-0" aria-hidden="true" />
                       <span>{method.title}</span>
                     </p>
-                    <p className="mt-0.5 text-xs text-[#52525B] leading-relaxed">
+                    <p className="mt-1 text-xs font-bold text-[#52525B] leading-relaxed">
                       {isDisabled
                         ? `الاستلام من المكتب غير متوفر في ولاية ${selectedWilayaRate.nameAr} — التوصيل للمنزل متوفر.`
                         : `${method.eta} · ${method.subtitle}`}
@@ -122,7 +122,7 @@ export function DeliverySelector({
                   </div>
                 </div>
                 {!hideOptionPrices ? (
-                  <span className="text-xs font-bold text-[#18181B] tabular-nums whitespace-nowrap shrink-0 mt-0.5">
+                  <span className="text-xs font-black text-[#18181B] tabular-nums whitespace-nowrap shrink-0 mt-0.5">
                     {liveFee === null
                       ? 'غير متوفر'
                       : liveFee === 0
@@ -137,18 +137,18 @@ export function DeliverySelector({
       </fieldset>
 
       {form.deliveryMethod === 'pickup' ? (
-        <div className="rounded-xl bg-[#FAF9F6] border border-stone-200 p-4 text-xs leading-relaxed text-[#52525B]">
-          <p className="font-semibold text-[#18181B]">عنوان الاستلام المباشر المجاني:</p>
-          <p className="mt-1">{STORE_INFO.address}</p>
-          <p className="mt-1">{STORE_INFO.hours}</p>
+        <div className="rounded-2xl bg-[#FAF9F6] border-2 border-stone-300 p-4 text-xs font-bold leading-relaxed text-[#52525B] space-y-1">
+          <p className="font-black text-[#18181B]">عنوان الاستلام المباشر المجاني:</p>
+          <p>{STORE_INFO.address}</p>
+          <p className="text-stone-500">{STORE_INFO.hours}</p>
         </div>
       ) : (
-        <div className="space-y-3.5 pt-1">
+        <div className="space-y-4 pt-1">
           {/* Wilaya Selector (69 Wilayas with live fee preview) */}
           <div>
             <label
               htmlFor={`${idPrefix}-wilaya`}
-              className="block text-sm font-medium text-[#18181B] mb-1.5"
+              className="block text-sm font-black text-[#18181B] mb-1.5"
             >
               الولاية (69 ولاية عبر ZR Express) <span className="text-[#E30613]">*</span>
             </label>
@@ -157,7 +157,7 @@ export function DeliverySelector({
               data-testid={`${idPrefix}-wilaya-select`}
               value={form.wilaya}
               onChange={(e) => handleWilayaChange(e.target.value)}
-              className="w-full px-3.5 py-2.5 min-h-[44px] rounded-lg border border-stone-300 text-sm bg-white focus:outline-none focus:border-[#E30613]"
+              className="w-full px-4 py-3 min-h-[46px] rounded-xl border-2 border-[#18181B] shadow-[2px_2px_0px_#18181B] text-sm font-bold bg-white focus:outline-none focus:shadow-[4px_4px_0px_#E30613] transition-all cursor-pointer"
             >
               {WILAYA_DELIVERY_RATES.map((rate) => {
                 const label = formatWilayaLabel(rate);
@@ -175,7 +175,7 @@ export function DeliverySelector({
               })}
             </select>
             {errors.wilaya ? (
-              <p role="alert" className="mt-1.5 text-xs font-medium text-[#E30613]">
+              <p role="alert" className="mt-1.5 text-xs font-black text-[#E30613]">
                 {errors.wilaya}
               </p>
             ) : null}
@@ -186,7 +186,7 @@ export function DeliverySelector({
             <div>
               <label
                 htmlFor={`${idPrefix}-commune`}
-                className="block text-sm font-medium text-[#18181B] mb-1.5"
+                className="block text-sm font-black text-[#18181B] mb-1.5"
               >
                 البلدية / المكتب داخل ولاية الأغواط
               </label>
@@ -197,7 +197,7 @@ export function DeliverySelector({
                 onChange={(e) =>
                   onChangeForm((prev) => ({ ...prev, commune: e.target.value }))
                 }
-                className="w-full px-3.5 py-2.5 min-h-[44px] rounded-lg border border-stone-300 text-sm bg-white focus:outline-none focus:border-[#E30613]"
+                className="w-full px-4 py-3 min-h-[46px] rounded-xl border-2 border-[#18181B] shadow-[2px_2px_0px_#18181B] text-sm font-bold bg-white focus:outline-none focus:shadow-[4px_4px_0px_#E30613] transition-all cursor-pointer"
               >
                 {LAGHOUAT_COMMUNES.map((commune) => (
                   <option key={commune} value={commune}>
@@ -210,17 +210,17 @@ export function DeliverySelector({
 
           {/* Address Field (Required for Home Delivery, Optional info for Stop Desk) */}
           {form.deliveryMethod === 'stop_desk' ? (
-            <div className="rounded-xl bg-[#FAF9F6] border border-stone-200 p-3.5 text-xs leading-relaxed text-[#52525B]">
-              <p className="font-semibold text-[#18181B]">
+            <div className="rounded-2xl bg-[#FAF9F6] border-2 border-stone-300 p-4 text-xs font-bold leading-relaxed text-[#52525B]">
+              <p className="font-black text-[#18181B]">
                 استلام من مكتب ZR Express — {selectedWilayaRate.nameAr}
               </p>
               <p className="mt-1">
                 سيصلك إشعار أو اتصال عند وصول الطرد إلى مكتب ZR Express في{' '}
-                <span className="font-semibold text-[#18181B]">
+                <span className="font-black text-[#18181B]">
                   {isLaghouat && form.commune ? form.commune : selectedWilayaRate.nameAr}
                 </span>
                 . سعر التوصيل المعتمد:{' '}
-                <span className="font-mono font-bold text-[#E30613]">
+                <span className="font-mono font-black text-[#E30613]">
                   {formatDzd(getShippingFeeForWilaya('stop_desk', form.wilaya))}
                 </span>
                 .
@@ -230,7 +230,7 @@ export function DeliverySelector({
             <div>
               <label
                 htmlFor={`${idPrefix}-address`}
-                className="block text-sm font-medium text-[#18181B] mb-1.5"
+                className="block text-sm font-black text-[#18181B] mb-1.5"
               >
                 البلدية والعنوان الدقيق للتوصيل للمنزل <span className="text-[#E30613]">*</span>
               </label>
@@ -249,14 +249,14 @@ export function DeliverySelector({
                   onClearErrors(['address']);
                 }}
                 aria-invalid={Boolean(errors.address)}
-                className={`w-full px-3.5 py-2.5 min-h-[44px] rounded-lg border text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#E30613]/20 ${
+                className={`w-full px-4 py-3 min-h-[46px] rounded-xl border-2 text-sm font-bold bg-white focus:outline-none transition-all ${
                   errors.address
-                    ? 'border-[#E30613]'
-                    : 'border-stone-300 focus:border-[#E30613]'
+                    ? 'border-[#E30613] shadow-[2px_2px_0px_#E30613]'
+                    : 'border-[#18181B] shadow-[2px_2px_0px_#18181B] focus:shadow-[4px_4px_0px_#E30613]'
                 }`}
               />
               {errors.address ? (
-                <p role="alert" className="mt-1.5 text-xs font-medium text-[#E30613]">
+                <p role="alert" className="mt-1.5 text-xs font-black text-[#E30613]">
                   {errors.address}
                 </p>
               ) : null}
