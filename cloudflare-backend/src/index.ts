@@ -1202,37 +1202,37 @@ async function sendDashboardMenu(
   const adminPin = await getAdminPin(env);
 
   const text =
-    `🎛️ <b>لوحة التحكم المركزية - متجر تكنو الأغواط (@items03bot)</b> 🏬\n` +
+    `<b>لوحة التحكم المركزية — متجر تكنو الأغواط</b>\n` +
     `━━━━━━━━━━━━━━━━━━━━\n` +
-    `📦 <b>المنتجات المعروضة بالموقع:</b> <code>${products.length}</code> منتج\n` +
-    `📂 <b>الأقسام المنشأة:</b> <code>${categories.length}</code> أقسام\n` +
-    `🌐 <b>رابط المتجر الحالي:</b> <code>${siteUrl}</code>\n` +
-    `🔐 <b>حماية لوحة الإدارة (PIN):</b> 🟢 مشفر بنظام PBKDF2 و Salt\n` +
-    `🛡️ <b>تشفير بيانات الزبائن:</b> 🟢 مشفرة بالكامل بـ AES-256-GCM\n` +
-    `📡 <b>المزامنة السحابية:</b> 🟢 متصلة وفورية (Cloudflare KV)\n` +
+    `• <b>المنتجات المعروضة بالموقع:</b> <code>${products.length}</code> منتج\n` +
+    `• <b>الأقسام المنشأة:</b> <code>${categories.length}</code> أقسام\n` +
+    `• <b>رابط المتجر الحالي:</b> <code>${siteUrl}</code>\n` +
+    `• <b>حماية لوحة الإدارة (PIN):</b> مشفر بنظام PBKDF2 و Salt\n` +
+    `• <b>تشفير بيانات الزبائن:</b> مشفرة بالكامل بـ AES-256-GCM\n` +
+    `• <b>المزامنة السحابية:</b> متصلة وفورية (Cloudflare KV)\n` +
     `━━━━━━━━━━━━━━━━━━━━\n` +
     `<i>اختر من الأزرار التفاعلية أدناه لإدارة الأقسام والمنتجات والصور والقياسات:</i>`;
 
   const keyboard: any[][] = [
     [
-      { text: '➕ إضافة منتج جديد (تفاعلي)', callback_data: 'menu:add_wizard' },
-      { text: `📂 إدارة الأقسام (${categories.length})`, callback_data: 'menu:categories' },
+      { text: '+ إضافة منتج جديد (تفاعلي)', callback_data: 'menu:add_wizard' },
+      { text: `إدارة الأقسام (${categories.length})`, callback_data: 'menu:categories' },
     ],
     [
-      { text: `📋 قائمة المنتجات (${products.length})`, callback_data: 'menu:list' },
-      { text: '🗑️ حذف منتج معين', callback_data: 'menu:delete' },
+      { text: `قائمة المنتجات (${products.length})`, callback_data: 'menu:list' },
+      { text: 'حذف منتج معين', callback_data: 'menu:delete' },
     ],
     [
-      { text: '⚡ دليل الإضافة السريعة', callback_data: 'menu:add' },
-      { text: '📊 إحصائيات المتجر', callback_data: 'menu:stats' },
+      { text: 'دليل الإضافة السريعة', callback_data: 'menu:add' },
+      { text: 'إحصائيات المتجر', callback_data: 'menu:stats' },
     ],
     [
-      { text: '🌐 عرض رابط المتجر', callback_data: 'menu:show_url' },
-      { text: '🔗 تعديل رابط المتجر', callback_data: 'menu:url_guide' },
+      { text: 'عرض رابط المتجر', callback_data: 'menu:show_url' },
+      { text: 'تعديل رابط المتجر', callback_data: 'menu:url_guide' },
     ],
     [
-      { text: '📢 قنوات التنبيهات والطلبات', callback_data: 'menu:alerts_info' },
-      { text: '🧹 مسح كل المنتجات', callback_data: 'menu:clear_ask' },
+      { text: 'قنوات التنبيهات والطلبات', callback_data: 'menu:alerts_info' },
+      { text: 'مسح كل المنتجات', callback_data: 'menu:clear_ask' },
     ],
   ];
 
