@@ -110,14 +110,14 @@ export function BranchSection({ savedOrders }: BranchSectionProps) {
       commune: 'حي المحطة — مكتب ZR Express الأغواط',
       items: [
         {
-          productId: 'probag-04',
-          name: 'حقيبة تكنو PROBAG-04 للكمبيوتر والوثائق',
-          variantLabel: 'بني ملكي فاخر',
+          productId: 'probag-04-brown',
+          name: 'حقيبة تكنو PROBAG-04 التنفيذية — بني كونياك',
+          variantLabel: 'Item No. 71635',
           quantity: 1,
-          unitPriceDzd: 12500,
+          unitPriceDzd: 4800,
         },
       ],
-      totalDzd: 12880,
+      totalDzd: 5180,
     });
   };
 

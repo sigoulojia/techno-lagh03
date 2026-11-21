@@ -5,12 +5,12 @@ import { WILAYA_DELIVERY_RATES, findWilayaRate } from '../data/deliveryRates';
 import { formatDzd } from '../utils/storeLogic';
 
 const QUICK_PRODUCTS = [
-  { id: 'custom-package', name: 'أدوات مكتبية ولوازم متنوعة (حسب طلبي)', basePriceDzd: 3500 },
-  { id: 'probag-04', name: 'حقيبة تكنو PROBAG للكمبيوتر والوثائق', basePriceDzd: 12500 },
-  { id: 'executive-pens', name: 'طقم أقلام التوقيع التنفيذية الفاخرة تكنو', basePriceDzd: 4200 },
-  { id: 'student-kit', name: 'باقة التفوق للطلبة والجامعيين المتكاملة', basePriceDzd: 4800 },
-  { id: 'architect-kit', name: 'باقة الرسم التقني والهندسة المعمارية', basePriceDzd: 9500 },
-  { id: 'office-kit', name: 'باقة الأرشفة والتنظيم المكتبي والسجلات', basePriceDzd: 14500 },
+  { id: 'probag-04-brown', name: 'حقيبة تكنو PROBAG-04 التنفيذية — بني كونياك', basePriceDzd: 4800 },
+  { id: 'probag-04-black', name: 'حقيبة تكنو PROBAG-04 التنفيذية — أسود كلاسيكي', basePriceDzd: 4800 },
+  { id: 'techno-classic-caramel', name: 'حقيبة تكنو التراثية الكلاسيكية — بني كراميل', basePriceDzd: 5400 },
+  { id: 'techno-classic-black', name: 'حقيبة تكنو التراثية الكلاسيكية — أسود فاحم', basePriceDzd: 5400 },
+  { id: 'versal-executive-black', name: 'حقيبة Versal الرسمية — أسود مطفي', basePriceDzd: 4500 },
+  { id: 'custom-package', name: 'أدوات مكتبية أو لوازم أخرى (حسب طلبي)', basePriceDzd: 3500 },
 ];
 
 export function QuickOrderSection() {

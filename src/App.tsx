@@ -16,6 +16,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import {
+  PRODUCTS,
   STORE_INFO,
   type Product,
   type StoreCategory,
@@ -95,9 +96,10 @@ export default function App() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [drawerStep, setDrawerStep] = useState<DrawerStep>('cart');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [products, setProducts] = useState<Product[]>(() =>
-    readStorage<Product[]>(PRODUCTS_CACHE_KEY, []),
-  );
+  const [products, setProducts] = useState<Product[]>(() => {
+    const cached = readStorage<Product[]>(PRODUCTS_CACHE_KEY, []);
+    return cached.length > 0 ? cached : PRODUCTS;
+  });
   const [backendCategories, setBackendCategories] = useState<StoreCategory[]>(() =>
     readStorage<StoreCategory[]>(CATEGORIES_CACHE_KEY, []),
   );
@@ -110,7 +112,7 @@ export default function App() {
     if (typeof window === 'undefined') return null;
     const initialId = extractProductIdFromLocation(window.location);
     if (!initialId) return null;
-    const initialCatalog = readStorage<Product[]>(PRODUCTS_CACHE_KEY, []);
+    const initialCatalog = readStorage<Product[]>(PRODUCTS_CACHE_KEY, PRODUCTS);
     return findProductByIdOrSku(initialCatalog, initialId);
   });
 
@@ -123,7 +125,7 @@ export default function App() {
         const res = await fetch(`${BACKEND_URL}/api/products`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-        if (data?.success && Array.isArray(data.products)) {
+        if (data?.success && Array.isArray(data.products) && data.products.length > 0) {
           if (isMounted) {
             setProducts(data.products);
             try {
