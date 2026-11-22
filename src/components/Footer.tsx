@@ -23,193 +23,25 @@ export function Footer({ categories = [], onSelectCategory }: FooterProps) {
   return (
     <footer className="relative text-white overflow-hidden border-t-4 border-[#FFD100] bg-[#07111E]">
       {/* =========================================================================
-          ALGERIAN NATIONAL FOOTBALL TEAM ZELLIGE (زليج قميص المنتخب الوطني الجزائري)
-          Inspired by the iconic Adidas 2022 jersey & Palais El Mechouar (Tlemcen)
-          Hi-Res Aqua (#00C2CB), Bold Gold (#FFD100), Team Navy (#0B1728), White & Green
+          EXACT ALGERIAN ZELLIGE (زليج قميص المنتخب الوطني الجزائري — قصر المشور)
+          Authentic high-resolution ceramic mosaic tiles directly matching the official jersey
           ========================================================================= */}
-      <div className="absolute inset-0 pointer-events-none opacity-80 select-none">
-        <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <pattern
-              id="algeria-jersey-zellige"
-              width="120"
-              height="120"
-              patternUnits="userSpaceOnUse"
-            >
-              {/* Deep Team Navy Base of the Jersey */}
-              <rect width="120" height="120" fill="#0B1728" />
+      <div
+        className="absolute inset-0 pointer-events-none opacity-85 select-none"
+        style={{
+          backgroundImage: "url('/assets/algerian-zellige-jersey.webp')",
+          backgroundRepeat: 'repeat',
+          backgroundSize: '360px 360px',
+          backgroundPosition: 'center top',
+        }}
+      />
 
-              {/* Interlocking Geometric Chevron Grid (تسطير سلاسل قميص المنتخب) */}
-              <path
-                d="M0,30 L30,0 L60,30 L90,0 L120,30 L90,60 L120,90 L90,120 L60,90 L30,120 L0,90 L30,60 Z"
-                fill="#071220"
-                stroke="#00C2CB"
-                strokeWidth="1"
-                opacity="0.6"
-              />
-
-              {/* Radiating Darts / Arrows (سفائن وسواسن زليج قميص المنتخب) */}
-              {/* Cardinal Darts in Hi-Res Aqua */}
-              <polygon points="60,32 54,16 60,6 66,16" fill="#00C2CB" stroke="#FFFFFF" strokeWidth="0.8" />
-              <polygon points="60,88 54,104 60,114 66,104" fill="#00C2CB" stroke="#FFFFFF" strokeWidth="0.8" />
-              <polygon points="32,60 16,54 6,60 16,66" fill="#00C2CB" stroke="#FFFFFF" strokeWidth="0.8" />
-              <polygon points="88,60 104,54 114,60 104,66" fill="#00C2CB" stroke="#FFFFFF" strokeWidth="0.8" />
-
-              {/* Diagonal Darts in Bold Gold */}
-              <polygon points="40.2,40.2 28,32 20,20 32,28" fill="#FFD100" stroke="#FFFFFF" strokeWidth="0.8" />
-              <polygon points="79.8,40.2 88,28 100,20 92,32" fill="#FFD100" stroke="#FFFFFF" strokeWidth="0.8" />
-              <polygon points="40.2,79.8 32,92 20,100 28,88" fill="#FFD100" stroke="#FFFFFF" strokeWidth="0.8" />
-              <polygon points="79.8,79.8 92,88 100,100 88,92" fill="#FFD100" stroke="#FFFFFF" strokeWidth="0.8" />
-
-              {/* Interlocking Diamond Lozenges (معينات الزليج الخزفي) */}
-              <polygon points="60,6 74,16 60,26 46,16" fill="#1D4ED8" stroke="#FFFFFF" strokeWidth="0.8" />
-              <polygon points="60,114 74,104 60,94 46,104" fill="#1D4ED8" stroke="#FFFFFF" strokeWidth="0.8" />
-              <polygon points="6,60 16,46 26,60 16,74" fill="#1D4ED8" stroke="#FFFFFF" strokeWidth="0.8" />
-              <polygon points="114,60 104,46 94,60 104,74" fill="#1D4ED8" stroke="#FFFFFF" strokeWidth="0.8" />
-
-              {/* Algerian Flag Emerald Green Lozenges */}
-              <polygon points="30,30 40,30 35,40" fill="#059669" stroke="#FFFFFF" strokeWidth="0.6" />
-              <polygon points="90,30 80,30 85,40" fill="#059669" stroke="#FFFFFF" strokeWidth="0.6" />
-              <polygon points="30,90 40,90 35,80" fill="#059669" stroke="#FFFFFF" strokeWidth="0.6" />
-              <polygon points="90,90 80,90 85,80" fill="#059669" stroke="#FFFFFF" strokeWidth="0.6" />
-
-              {/* Techno Red & Flag Accent Diamonds */}
-              <polygon points="60,39 66,47 60,53 54,47" fill="#E30613" stroke="#FFD100" strokeWidth="0.8" />
-              <polygon points="60,81 66,73 60,67 54,73" fill="#E30613" stroke="#FFD100" strokeWidth="0.8" />
-              <polygon points="39,60 47,54 53,60 47,66" fill="#E30613" stroke="#FFD100" strokeWidth="0.8" />
-              <polygon points="81,60 73,54 67,60 73,66" fill="#E30613" stroke="#FFD100" strokeWidth="0.8" />
-
-              {/* Center 8-Point Rosette (النجمة الثمانية المركزية لقميص المنتخب) */}
-              <g transform="translate(60,60)">
-                {/* Layer 1: Outer Star in Bold Gold */}
-                <polygon
-                  points="0,-24 7,-17 17,-17 17,-7 24,0 17,7 17,17 7,17 0,24 -7,17 -17,17 -17,7 -24,0 -17,-7 -17,-17 -7,-17"
-                  fill="#FFD100"
-                  stroke="#FFFFFF"
-                  strokeWidth="1.2"
-                />
-                {/* Layer 2: Middle Star in Hi-Res Aqua */}
-                <polygon
-                  points="0,-16 5,-11 11,-11 11,-5 16,0 11,5 11,11 5,11 0,16 -5,11 -11,11 -11,5 -16,0 -11,-5 -11,-11 -5,-11"
-                  fill="#00C2CB"
-                  stroke="#0B1728"
-                  strokeWidth="1"
-                />
-                {/* Layer 3: Inner Star in Crisp White */}
-                <polygon
-                  points="0,-10 3,-7 7,-7 7,-3 10,0 7,3 7,7 3,7 0,10 -3,7 -7,7 -7,3 -10,0 -7,-3 -7,-7 -3,-7"
-                  fill="#FFFFFF"
-                  stroke="#E30613"
-                  strokeWidth="0.8"
-                />
-                {/* Central Jewel in Techno Red */}
-                <circle cx="0" cy="0" r="3.5" fill="#E30613" stroke="#FFD100" strokeWidth="1" />
-              </g>
-
-              {/* Corner 8-Point Stars (Seamless interlocking across all 4 corners) */}
-              {/* Corner 1: (0,0) */}
-              <g transform="translate(0,0)">
-                <polygon
-                  points="0,-24 7,-17 17,-17 17,-7 24,0 17,7 17,17 7,17 0,24 -7,17 -17,17 -17,7 -24,0 -17,-7 -17,-17 -7,-17"
-                  fill="#00C2CB"
-                  stroke="#FFFFFF"
-                  strokeWidth="1.2"
-                />
-                <polygon
-                  points="0,-16 5,-11 11,-11 11,-5 16,0 11,5 11,11 5,11 0,16 -5,11 -11,11 -11,5 -16,0 -11,-5 -11,-11 -5,-11"
-                  fill="#FFD100"
-                  stroke="#0B1728"
-                  strokeWidth="1"
-                />
-                <polygon
-                  points="0,-10 3,-7 7,-7 7,-3 10,0 7,3 7,7 3,7 0,10 -3,7 -7,7 -7,3 -10,0 -7,-3 -7,-7 -3,-7"
-                  fill="#FFFFFF"
-                  stroke="#059669"
-                  strokeWidth="0.8"
-                />
-                <circle cx="0" cy="0" r="3.5" fill="#059669" stroke="#FFD100" strokeWidth="1" />
-              </g>
-
-              {/* Corner 2: (120,0) */}
-              <g transform="translate(120,0)">
-                <polygon
-                  points="0,-24 7,-17 17,-17 17,-7 24,0 17,7 17,17 7,17 0,24 -7,17 -17,17 -17,7 -24,0 -17,-7 -17,-17 -7,-17"
-                  fill="#00C2CB"
-                  stroke="#FFFFFF"
-                  strokeWidth="1.2"
-                />
-                <polygon
-                  points="0,-16 5,-11 11,-11 11,-5 16,0 11,5 11,11 5,11 0,16 -5,11 -11,11 -11,5 -16,0 -11,-5 -11,-11 -5,-11"
-                  fill="#FFD100"
-                  stroke="#0B1728"
-                  strokeWidth="1"
-                />
-                <polygon
-                  points="0,-10 3,-7 7,-7 7,-3 10,0 7,3 7,7 3,7 0,10 -3,7 -7,7 -7,3 -10,0 -7,-3 -7,-7 -3,-7"
-                  fill="#FFFFFF"
-                  stroke="#059669"
-                  strokeWidth="0.8"
-                />
-                <circle cx="0" cy="0" r="3.5" fill="#059669" stroke="#FFD100" strokeWidth="1" />
-              </g>
-
-              {/* Corner 3: (0,120) */}
-              <g transform="translate(0,120)">
-                <polygon
-                  points="0,-24 7,-17 17,-17 17,-7 24,0 17,7 17,17 7,17 0,24 -7,17 -17,17 -17,7 -24,0 -17,-7 -17,-17 -7,-17"
-                  fill="#00C2CB"
-                  stroke="#FFFFFF"
-                  strokeWidth="1.2"
-                />
-                <polygon
-                  points="0,-16 5,-11 11,-11 11,-5 16,0 11,5 11,11 5,11 0,16 -5,11 -11,11 -11,5 -16,0 -11,-5 -11,-11 -5,-11"
-                  fill="#FFD100"
-                  stroke="#0B1728"
-                  strokeWidth="1"
-                />
-                <polygon
-                  points="0,-10 3,-7 7,-7 7,-3 10,0 7,3 7,7 3,7 0,10 -3,7 -7,7 -7,3 -10,0 -7,-3 -7,-7 -3,-7"
-                  fill="#FFFFFF"
-                  stroke="#059669"
-                  strokeWidth="0.8"
-                />
-                <circle cx="0" cy="0" r="3.5" fill="#059669" stroke="#FFD100" strokeWidth="1" />
-              </g>
-
-              {/* Corner 4: (120,120) */}
-              <g transform="translate(120,120)">
-                <polygon
-                  points="0,-24 7,-17 17,-17 17,-7 24,0 17,7 17,17 7,17 0,24 -7,17 -17,17 -17,7 -24,0 -17,-7 -17,-17 -7,-17"
-                  fill="#00C2CB"
-                  stroke="#FFFFFF"
-                  strokeWidth="1.2"
-                />
-                <polygon
-                  points="0,-16 5,-11 11,-11 11,-5 16,0 11,5 11,11 5,11 0,16 -5,11 -11,11 -11,5 -16,0 -11,-5 -11,-11 -5,-11"
-                  fill="#FFD100"
-                  stroke="#0B1728"
-                  strokeWidth="1"
-                />
-                <polygon
-                  points="0,-10 3,-7 7,-7 7,-3 10,0 7,3 7,7 3,7 0,10 -3,7 -7,7 -7,3 -10,0 -7,-3 -7,-7 -3,-7"
-                  fill="#FFFFFF"
-                  stroke="#059669"
-                  strokeWidth="0.8"
-                />
-                <circle cx="0" cy="0" r="3.5" fill="#059669" stroke="#FFD100" strokeWidth="1" />
-              </g>
-
-              {/* Subtle White Mortar Joint Lines */}
-              <rect x="0" y="0" width="120" height="120" fill="none" stroke="#FFFFFF" strokeWidth="0.4" opacity="0.3" />
-            </pattern>
-          </defs>
-          <rect width="100%" height="100%" fill="url(#algeria-jersey-zellige)" />
-        </svg>
-      </div>
+      {/* Atmospheric ceramic glaze overlay: ensures optimal contrast for typography while keeping every tile vibrant */}
+      <div className="absolute inset-0 bg-gradient-to-b from-[#07111E]/80 via-[#07111E]/55 to-[#07111E]/85 pointer-events-none" />
 
       {/* Decorative Cyan and Gold Radial Glows */}
-      <div className="absolute top-0 right-1/4 w-96 h-96 bg-[#00C2CB]/15 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-[#FFD100]/15 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-0 right-1/4 w-96 h-96 bg-[#00A896]/20 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-[#D89B00]/20 rounded-full blur-3xl pointer-events-none" />
 
       {/* 1. Top Algerian Zellige Frieze (إفريز زليج قميص المنتخب الوطني الجزائري) */}
       <div className="relative z-10 w-full bg-[#081526]/95 backdrop-blur-md border-b-2 border-[#00C2CB]/60 py-2.5 px-4 select-none shadow-lg">
