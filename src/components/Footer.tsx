@@ -5,8 +5,8 @@ import {
   ShieldCheck,
   Truck,
   MessageSquare,
-  ChevronLeft,
-  Sparkles,
+  ArrowUpRight,
+  CheckCircle2,
 } from 'lucide-react';
 import { STORE_INFO, DEFAULT_CATEGORIES } from '../data/products';
 import { TechnoLogo } from './TechnoLogo';
@@ -21,61 +21,32 @@ export function Footer({ categories = [], onSelectCategory }: FooterProps) {
   const displayedCategories = (categories.length > 0 ? categories : DEFAULT_CATEGORIES).slice(0, 6);
 
   return (
-    <footer className="relative text-white overflow-hidden border-t-4 border-[#FFD100] bg-[#07111E]">
+    <footer className="relative text-white overflow-hidden border-t-2 border-[#FFD100]/60 bg-[#060D17]">
       {/* =========================================================================
-          EXACT ALGERIAN ZELLIGE (زليج قميص المنتخب الوطني الجزائري — قصر المشور)
-          Authentic high-resolution ceramic mosaic tiles directly matching the official jersey
+          ALGERIAN ZELLIGE BACKGROUND TEXTURE
+          Authentic ceramic mosaic tiles backdrop with atmospheric glaze
           ========================================================================= */}
       <div
-        className="absolute inset-0 pointer-events-none opacity-85 select-none"
+        className="absolute inset-0 pointer-events-none opacity-45 select-none"
         style={{
           backgroundImage: "url('/assets/algerian-zellige-jersey.webp')",
           backgroundRepeat: 'repeat',
-          backgroundSize: '360px 360px',
+          backgroundSize: '340px 340px',
           backgroundPosition: 'center top',
         }}
       />
 
-      {/* Atmospheric ceramic glaze overlay: ensures optimal contrast for typography while keeping every tile vibrant */}
-      <div className="absolute inset-0 bg-gradient-to-b from-[#07111E]/80 via-[#07111E]/55 to-[#07111E]/85 pointer-events-none" />
+      {/* Atmospheric glaze gradients to ensure pristine text readability */}
+      <div className="absolute inset-0 bg-gradient-to-b from-[#060D17]/85 via-[#060D17]/65 to-[#060D17]/90 pointer-events-none" />
+      <div className="absolute top-0 right-1/4 w-96 h-96 bg-[#00A896]/15 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-[#FFD100]/10 rounded-full blur-3xl pointer-events-none" />
 
-      {/* Decorative Cyan and Gold Radial Glows */}
-      <div className="absolute top-0 right-1/4 w-96 h-96 bg-[#00A896]/20 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-[#D89B00]/20 rounded-full blur-3xl pointer-events-none" />
-
-      {/* 1. Top Algerian Zellige Frieze (إفريز زليج قميص المنتخب الوطني الجزائري) */}
-      <div className="relative z-10 w-full bg-[#081526]/95 backdrop-blur-md border-b-2 border-[#00C2CB]/60 py-2.5 px-4 select-none shadow-lg">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 text-[#FFD100] text-xs font-bold">
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#00C2CB] border border-white animate-pulse" />
-            <span className="font-display font-black tracking-wide text-white">
-              زليج قميص المنتخب الوطني الجزائري (قصر المشور) · فرع الأغواط
-            </span>
-          </div>
-
-          <div className="hidden md:flex items-center gap-5 text-stone-200 text-xs font-medium">
-            <span className="text-[#00C2CB]">✦</span>
-            <span>أصالة وتراث جزائري 100%</span>
-            <span className="text-[#FFD100]">✦</span>
-            <span>25 سنة من الخدمة والوفاء</span>
-            <span className="text-[#00C2CB]">✦</span>
-            <span>توصيل رسمي لـ 69 ولاية عبر ZR Express</span>
-          </div>
-
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="stamp-yellow text-[10px] font-black py-0.5 px-2.5 border border-[#00C2CB]">
-              الأغواط 03
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* 2. Brand Identity & Instant Contact Header */}
-      <div className="relative z-10 border-b border-[#FFD100]/25 bg-[#081220]/75 backdrop-blur-md py-7 sm:py-9">
+      {/* 1. Brand Identity & Instant Contact Header */}
+      <div className="relative z-10 border-b border-white/10 bg-[#060D17]/60 backdrop-blur-md py-6 sm:py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-right gap-4">
             <TechnoLogo size="lg" showBranch={true} />
-            <div className="border-t sm:border-t-0 sm:border-r-2 border-[#FFD100]/40 pt-3 sm:pt-0 sm:pr-4">
+            <div className="border-t sm:border-t-0 sm:border-r border-white/15 pt-3 sm:pt-0 sm:pr-4">
               <div className="flex items-center justify-center sm:justify-start gap-2 mb-1">
                 <span className="stamp-red text-[10px] font-black bg-white">25 سنة</span>
                 <p className="font-display text-base font-black text-[#FFD100]">
@@ -93,7 +64,7 @@ export function Footer({ categories = [], onSelectCategory }: FooterProps) {
               href="https://wa.me/213560154663"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-[#25D366] hover:bg-[#20ba59] text-white text-xs font-black border-2 border-[#18181B] shadow-[3px_3px_0px_#FFD100] active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white text-xs font-black shadow-md transition-all cursor-pointer"
             >
               <MessageSquare className="w-4 h-4 fill-white" />
               <span>محادثة واتساب فورية</span>
@@ -101,7 +72,7 @@ export function Footer({ categories = [], onSelectCategory }: FooterProps) {
             <a
               href={STORE_INFO.phoneHref}
               dir="ltr"
-              className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-[#E30613] hover:bg-[#C4000F] text-white text-xs font-black border-2 border-[#18181B] shadow-[3px_3px_0px_#FFD100] active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#E30613] hover:bg-[#C4000F] text-white text-xs font-black shadow-md transition-all cursor-pointer"
             >
               <Phone className="w-4 h-4 text-[#FFD100]" />
               <span className="font-mono">{STORE_INFO.phoneDisplay}</span>
@@ -110,179 +81,173 @@ export function Footer({ categories = [], onSelectCategory }: FooterProps) {
         </div>
       </div>
 
-      {/* 3. Main Content Cards over Algerian Jersey Zellige (ألواح زليج قميص المنتخب) */}
+      {/* 2. Unified Modern Architectural Layout (بدون جداول أو صناديق بدائية) */}
       <div className="relative z-10 py-12 lg:py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
-            {/* Column 1: About the Branch (لوح فرع تكنو الأغواط) */}
-            <div className="p-6 rounded-3xl bg-[#081526]/85 backdrop-blur-md border-2 border-[#00C2CB]/40 hover:border-[#FFD100] transition-colors shadow-2xl flex flex-col justify-between space-y-4">
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-[#00C2CB] text-sm">✦</span>
-                  <h3 className="font-display text-sm font-black text-[#00C2CB] uppercase tracking-wider">
-                    عن فرع تكنو الأغواط
+          <div className="p-8 sm:p-10 rounded-3xl bg-[#081322]/80 backdrop-blur-xl border border-white/10 shadow-2xl">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-10">
+              
+              {/* Column 1: Store Heritage & Trust */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 pb-2 border-b border-white/10">
+                  <span className="w-2 h-2 rounded-full bg-[#FFD100]" />
+                  <h3 className="font-display text-sm font-black text-[#FFD100] tracking-wide">
+                    فرع تكنو الأغواط
                   </h3>
                 </div>
-                <h4 className="font-display text-base font-black text-white leading-snug">
-                  {STORE_INFO.fullTitle}
-                </h4>
-                <p className="mt-2.5 text-xs text-stone-200 leading-relaxed font-medium">
-                  تكنو ترافقكم في رسم وتجهيز مسيرتكم المهنية والدراسية والهندسية بأجود الأدوات المكتبية، حقائب PROBAG، وأقلام التوقيع العالمية، مع تسليم فوري لـ 69 ولاية.
+                <p className="text-xs text-stone-300 leading-relaxed font-medium">
+                  {STORE_INFO.fullTitle}. نرافقكم في تجهيز مسيرتكم المهنية والدراسية والهندسية بأجود الأدوات المكتبية، حقائب PROBAG، وأقلام التوقيع العالمية.
                 </p>
-              </div>
-
-              <div className="p-3.5 rounded-2xl bg-black/40 border border-[#00C2CB]/30 flex items-center gap-2.5 text-xs text-stone-200">
-                <ShieldCheck className="w-5 h-5 text-[#FFD100] shrink-0" />
-                <div>
-                  <span className="font-black text-white block">ضمان الأصالة 100%</span>
-                  <span className="text-[11px] text-stone-300">معتمد وموثق من تكنو الجزائر</span>
+                <div className="space-y-2 pt-1 text-xs text-stone-200">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-[#00A896] shrink-0" />
+                    <span>موزع رسمي معتمد من تكنو الجزائر</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-[#FFD100] shrink-0" />
+                    <span>ضمان أصالة المنتجات وجودة الصنع 100%</span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Column 2: Main Store Categories (Synced from Telegram, max 6) */}
-            <div className="p-6 rounded-3xl bg-[#081526]/85 backdrop-blur-md border-2 border-[#00C2CB]/40 hover:border-[#FFD100] transition-colors shadow-2xl space-y-4">
-              <div className="flex items-center justify-between gap-2 border-b border-[#00C2CB]/30 pb-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-[#00C2CB] text-sm">✦</span>
-                  <h3 className="font-display text-sm font-black text-[#00C2CB] uppercase tracking-wider">
-                    أقسام المتجر
+              {/* Column 2: Main Store Categories (Dynamic from Telegram) */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between pb-2 border-b border-white/10">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-[#00A896]" />
+                    <h3 className="font-display text-sm font-black text-white tracking-wide">
+                      أقسام المتجر
+                    </h3>
+                  </div>
+                  <span className="text-[10px] font-mono text-[#FFD100] bg-white/5 px-2 py-0.5 rounded border border-white/10">
+                    مباشر
+                  </span>
+                </div>
+                <ul className="space-y-2.5 text-xs">
+                  {displayedCategories.map((cat) => (
+                    <li key={cat.id || cat.name}>
+                      <a
+                        href="#collection"
+                        onClick={(e) => {
+                          if (onSelectCategory) {
+                            e.preventDefault();
+                            onSelectCategory(cat.id || cat.name);
+                            const elem = document.getElementById('collection');
+                            if (elem) elem.scrollIntoView({ behavior: 'smooth' });
+                          }
+                        }}
+                        className="group flex items-center justify-between text-stone-300 hover:text-[#FFD100] transition-colors py-1 cursor-pointer"
+                      >
+                        <span className="flex items-center gap-2">
+                          <span className="w-1 h-1 rounded-full bg-stone-500 group-hover:bg-[#FFD100] transition-colors" />
+                          <span className="font-medium group-hover:translate-x-0.5 transition-transform">{cat.name}</span>
+                        </span>
+                        <ArrowUpRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity text-[#FFD100]" />
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Column 3: Logistics & ZR Express Shipping */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 pb-2 border-b border-white/10">
+                  <span className="w-2 h-2 rounded-full bg-[#FFD100]" />
+                  <h3 className="font-display text-sm font-black text-white tracking-wide">
+                    التوصيل والخدمات
                   </h3>
                 </div>
-                <span className="text-[10px] font-mono text-[#00C2CB] bg-black/50 px-2 py-0.5 rounded border border-[#00C2CB]/40 font-bold">
-                  محدث ومباشر
-                </span>
-              </div>
+                <div className="space-y-3 text-xs">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-stone-200 font-bold">
+                      <Truck className="w-4 h-4 text-[#00A896] shrink-0" />
+                      <span>شحن رسمي عبر ZR Express لـ 69 ولاية</span>
+                    </div>
+                    <p className="text-[11px] text-stone-400 pr-6">
+                      تسليم آمن لباب المنزل أو للمكتب مع الدفع عند الاستلام.
+                    </p>
+                  </div>
 
-              <ul className="space-y-2 text-xs">
-                {displayedCategories.map((cat) => (
-                  <li key={cat.id || cat.name}>
+                  <div className="pt-2 border-t border-white/10 space-y-1">
+                    <div className="flex items-center justify-between font-bold text-stone-200">
+                      <span>داخل ولاية الأغواط (24 بلدية):</span>
+                    </div>
+                    <p className="text-[11px] text-[#FFD100] font-semibold">
+                      500 د.ج لباب المنزل · 380 د.ج للمكتب (Stop Desk)
+                    </p>
+                  </div>
+
+                  <div className="pt-2">
                     <a
-                      href="#collection"
-                      onClick={(e) => {
-                        if (onSelectCategory) {
-                          e.preventDefault();
-                          onSelectCategory(cat.id || cat.name);
-                          const elem = document.getElementById('collection');
-                          if (elem) elem.scrollIntoView({ behavior: 'smooth' });
-                        }
-                      }}
-                      className="group flex items-center justify-between p-2 rounded-xl bg-black/35 hover:bg-[#FFD100] border border-white/10 hover:border-[#FFD100] text-stone-200 hover:text-[#18181B] font-bold transition-all cursor-pointer shadow-xs"
+                      href="#track"
+                      className="inline-flex items-center justify-center gap-2 w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-[#FFD100] to-[#F59E0B] hover:brightness-105 text-[#18181B] text-xs font-black shadow-md transition-all cursor-pointer"
                     >
-                      <span className="flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#00C2CB] group-hover:bg-[#18181B] transition-colors" />
-                        <span>{cat.name}</span>
-                      </span>
-                      <ChevronLeft className="w-3.5 h-3.5 text-stone-400 group-hover:text-[#18181B] group-hover:-translate-x-1 transition-transform" />
+                      <span className="w-2 h-2 rounded-full bg-[#E30613] animate-pulse" />
+                      <span>فحص ومتابعة حالة الطلب</span>
                     </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Column 3: Logistics & ZR Express (لوح خدمات الشحن) */}
-            <div className="p-6 rounded-3xl bg-[#081526]/85 backdrop-blur-md border-2 border-[#00C2CB]/40 hover:border-[#FFD100] transition-colors shadow-2xl space-y-4">
-              <div className="flex items-center gap-2 border-b border-[#00C2CB]/30 pb-3">
-                <span className="text-[#00C2CB] text-sm">✦</span>
-                <h3 className="font-display text-sm font-black text-[#00C2CB] uppercase tracking-wider">
-                  التوصيل والخدمات
-                </h3>
+                  </div>
+                </div>
               </div>
 
-              <div className="space-y-2.5 text-xs">
-                <div className="p-3 rounded-2xl bg-black/35 border border-white/10 space-y-1">
-                  <div className="flex items-center gap-2 text-[#00C2CB] font-bold">
-                    <Truck className="w-4 h-4 shrink-0 text-[#00C2CB]" />
-                    <span className="text-white">شحن رسمي عبر ZR Express</span>
+              {/* Column 4: Physical Branch Desk & Hours */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between pb-2 border-b border-white/10">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-[#E30613]" />
+                    <h3 className="font-display text-sm font-black text-white tracking-wide">
+                      الفرع الميداني
+                    </h3>
                   </div>
-                  <p className="text-[11px] text-stone-300">
-                    تغطية رسمية لـ 69 ولاية جزائرية مع تسليم لباب المنزل أو للمكتب.
-                  </p>
-                </div>
-
-                <div className="p-3 rounded-2xl bg-[#E30613]/25 border border-[#E30613]/50 space-y-1">
-                  <div className="flex items-center justify-between text-[#FFD100] font-black">
-                    <span className="text-white">داخل ولاية الأغواط</span>
-                    <span className="text-[10px] font-mono text-[#FFD100] bg-black/40 px-2 py-0.5 rounded">24 بلدية</span>
-                  </div>
-                  <p className="text-[11px] text-stone-200">
-                    500 د.ج لباب المنزل · 380 د.ج للمكتب (Stop Desk).
-                  </p>
-                </div>
-
-                <a
-                  href="#track"
-                  className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-[#FFD100] hover:bg-[#E5BC00] text-[#18181B] text-xs font-black border-2 border-[#18181B] shadow-[2px_2px_0px_#00C2CB] active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer"
-                >
-                  <span className="w-2 h-2 rounded-full bg-[#E30613] animate-pulse" />
-                  <span>فحص ومتابعة حالة الطلب</span>
-                </a>
-              </div>
-            </div>
-
-            {/* Column 4: Physical Branch Desk Card (لوح الفرع الميداني) */}
-            <div className="p-6 rounded-3xl bg-[#081526]/85 backdrop-blur-md border-2 border-[#00C2CB]/40 hover:border-[#FFD100] transition-colors shadow-2xl flex flex-col justify-between space-y-4">
-              <div>
-                <div className="flex items-center justify-between border-b border-[#00C2CB]/30 pb-3 mb-3">
-                  <div className="flex items-center gap-1.5 text-xs font-mono font-black text-[#00C2CB]">
-                    <span>✦</span>
-                    <span>الفرع الميداني</span>
-                  </div>
-                  <span className="text-[10px] font-mono font-bold bg-[#E30613] text-white px-2 py-0.5 rounded border border-[#FFD100]/50">
+                  <span className="text-[10px] font-mono font-bold bg-[#E30613] text-white px-2 py-0.5 rounded">
                     الأغواط 03
                   </span>
                 </div>
 
-                <div className="space-y-3 text-xs text-stone-200 font-medium">
+                <div className="space-y-3 text-xs text-stone-300">
                   <div className="flex items-start gap-2.5">
                     <MapPin className="w-4 h-4 text-[#E30613] shrink-0 mt-0.5" />
                     <div>
-                      <span className="font-black text-[#FFD100] block">العنوان الدقيق:</span>
+                      <span className="text-stone-400 block text-[11px]">العنوان المباشر:</span>
                       <span className="text-white font-bold">{STORE_INFO.address}</span>
                     </div>
                   </div>
 
                   <div className="flex items-start gap-2.5">
-                    <Clock className="w-4 h-4 text-[#00C2CB] shrink-0 mt-0.5" />
+                    <Clock className="w-4 h-4 text-[#00A896] shrink-0 mt-0.5" />
                     <div>
-                      <span className="font-black text-[#00C2CB] block">أوقات الاستقبال:</span>
+                      <span className="text-stone-400 block text-[11px]">أوقات العمل:</span>
                       <span className="text-white font-bold">{STORE_INFO.hours}</span>
                     </div>
+                  </div>
+
+                  <div className="pt-2">
+                    <a
+                      href={STORE_INFO.phoneHref}
+                      dir="ltr"
+                      className="inline-flex items-center justify-center gap-2 w-full py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white text-xs font-bold transition-all"
+                    >
+                      <Phone className="w-3.5 h-3.5 text-[#FFD100]" />
+                      <span className="font-mono">{STORE_INFO.phoneDisplay}</span>
+                    </a>
                   </div>
                 </div>
               </div>
 
-              <div className="pt-2 border-t border-[#00C2CB]/30">
-                <a
-                  href={STORE_INFO.phoneHref}
-                  dir="ltr"
-                  className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-white hover:bg-[#FAF8F5] text-[#18181B] text-xs font-black shadow-md border-2 border-[#18181B] transition-all"
-                >
-                  <Phone className="w-3.5 h-3.5 text-[#E30613]" />
-                  <span className="font-mono">{STORE_INFO.phoneDisplay}</span>
-                </a>
-              </div>
             </div>
           </div>
 
-          {/* 4. Bottom Algerian Jersey Zellige Barcode & Certification Strip */}
-          <div className="mt-12 pt-8 border-t border-[#00C2CB]/30 flex flex-col md:flex-row items-center justify-between gap-6 text-xs text-stone-300">
+          {/* 3. Bottom Strip: Clean, Modern Certification */}
+          <div className="mt-8 pt-6 border-t border-white/10 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-stone-400">
             <div className="flex items-center gap-3">
-              {/* Ceramic Dispatch Barcode */}
-              <div className="px-2.5 py-1 rounded-lg bg-white text-[#18181B] border border-[#00C2CB] font-mono tracking-widest text-[11px] font-black select-none shadow-sm">
+              <div className="px-2.5 py-1 rounded-md bg-white text-[#18181B] font-mono tracking-widest text-[11px] font-black select-none">
                 ||| | |||| | || | ||| ||
               </div>
-              <div>
-                <p className="font-bold text-white">
-                  {STORE_INFO.fullTitle}
-                </p>
-                <p className="text-[11px] text-[#00C2CB] mt-0.5 font-medium">
-                  طابع زليج قميص المنتخب الوطني الجزائري (قصر المشور) · 25 سنة حكاية أجيال ومازال
-                </p>
-              </div>
+              <p className="font-bold text-white">
+                {STORE_INFO.fullTitle} — 25 سنة حكاية أجيال ومازال
+              </p>
             </div>
 
-            <div className="flex flex-wrap items-center justify-center gap-3 text-xs">
+            <div className="flex items-center gap-3 text-xs">
               <span className="stamp-yellow text-[10px] font-black">
                 الدفع عند الاستلام
               </span>
@@ -291,7 +256,7 @@ export function Footer({ categories = [], onSelectCategory }: FooterProps) {
               </span>
             </div>
 
-            <p className="text-center md:text-left text-[11px] text-stone-400 font-mono">
+            <p className="text-center md:text-left text-[11px] text-stone-500 font-mono">
               © {new Date().getFullYear()} جميع الحقوق محفوظة لفرع تكنو الأغواط
             </p>
           </div>
