@@ -81,7 +81,7 @@ export function AnnouncementBar() {
       }}
     >
       {/* =========================================================================
-          1. 3D HEXAGONAL ROLLING PENCIL SHAFT (جسم قلم الرصاص الأخضر السداسي ثلاثي الأبعاد)
+          1. 3D HEXAGONAL ROLLING PENCIL SHAFT (جسم قلم الرصاص الأخضر ثلاثي الأبعاد)
           Spans 100% full width across the entire screen from edge to edge
           ========================================================================= */}
       <div
@@ -112,8 +112,8 @@ export function AnnouncementBar() {
                 borderBottom: '1px solid #031008',
               }}
             >
-              {/* Right Side: Gold Stamped Pencil Grade Label */}
-              <div className="flex items-center gap-2 shrink-0 z-10 pr-8 sm:pr-12">
+              {/* Right Side: Gold Stamped Pencil Grade Label (clear of the tip) */}
+              <div className="flex items-center gap-2 shrink-0 z-10 pr-12 sm:pr-16">
                 <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-black/40 border border-[#D4AF37]/50 shadow-inner">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#FFD100] animate-pulse" />
                   <span className="font-mono text-[10px] font-black text-[#FFD100] tracking-wider uppercase">
@@ -133,8 +133,8 @@ export function AnnouncementBar() {
                 </p>
               </div>
 
-              {/* Left Side: Direct Action & Manual Controls */}
-              <div className="flex items-center gap-2 shrink-0 z-10 pl-8 sm:pl-12">
+              {/* Left Side: Direct Action & Manual Controls (clear of the eraser) */}
+              <div className="flex items-center gap-2 shrink-0 z-10 pl-16 sm:pl-22">
                 {face.href ? (
                   <a
                     href={face.href}
@@ -176,77 +176,101 @@ export function AnnouncementBar() {
       </div>
 
       {/* =========================================================================
-          2. RIGHT END: REALISTIC SHARPENED WOODEN PENCIL CONE & GRAPHITE POINT
-          Extending to the extreme right edge of the screen
+          2. RIGHT END: REALISTIC SHARPENED WOODEN PENCIL TIP (رأس القلم المبري الصحيح)
+          Points outwards towards the right edge of the screen
           ========================================================================= */}
       <div className="absolute top-0 right-0 h-full flex items-center pointer-events-none z-20">
         <svg
-          className="h-full w-10 sm:w-14"
-          viewBox="0 0 56 40"
+          className="h-full w-12 sm:w-16"
+          viewBox="0 0 60 40"
           preserveAspectRatio="none"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
         >
           <defs>
-            {/* Cedar Wood Natural Grain Gradient */}
-            <linearGradient id="cedar-wood-grain" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#F0D3B0" />
-              <stop offset="30%" stopColor="#DFB689" />
-              <stop offset="65%" stopColor="#CA9B68" />
-              <stop offset="100%" stopColor="#9C7245" />
+            {/* Natural Cedar Wood Grain Gradient */}
+            <linearGradient id="cedar-wood-correct" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#C99B68" />
+              <stop offset="25%" stopColor="#E5BE90" />
+              <stop offset="60%" stopColor="#DFB689" />
+              <stop offset="100%" stopColor="#A87A4A" />
             </linearGradient>
-            {/* Graphite Lead Metallic Sheen */}
-            <linearGradient id="graphite-lead" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#475569" />
-              <stop offset="45%" stopColor="#1E293B" />
+
+            {/* Graphite Metallic Sheen Gradient */}
+            <linearGradient id="graphite-correct" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#334155" />
+              <stop offset="50%" stopColor="#1E293B" />
               <stop offset="100%" stopColor="#0B111A" />
             </linearGradient>
           </defs>
 
-          {/* Sharpened Cedar Wood Cone */}
+          {/* Sharpened Cedar Wood Cone: Base at x=0, tapering outward to x=38 */}
           <path
-            d="M56 0 L16 16 C12 19 12 21 16 24 L56 40 Z"
-            fill="url(#cedar-wood-grain)"
+            d="M0,0 C6,7 8,14 0,20 C8,26 6,33 0,40 L38,26 C38,26 39,20 38,14 Z"
+            fill="url(#cedar-wood-correct)"
             stroke="#9C7245"
             strokeWidth="0.8"
           />
 
-          {/* Scalloped sharpener blade cuts */}
+          {/* Green lacquer scalloped border at x=0 */}
           <path
-            d="M56 0 C50 8 47 13 56 20 C47 27 50 32 56 40"
-            fill="#123C25"
+            d="M0,0 C6,7 8,14 0,20 C8,26 6,33 0,40"
             stroke="#06190F"
-            strokeWidth="1"
+            strokeWidth="1.5"
+            fill="none"
           />
 
-          {/* Wood grain lines */}
-          <line x1="28" y1="16" x2="52" y2="8" stroke="#B38656" strokeWidth="0.6" strokeDasharray="3,2" />
-          <line x1="28" y1="24" x2="52" y2="32" stroke="#B38656" strokeWidth="0.6" strokeDasharray="3,2" />
+          {/* Subtle natural woodgrain lines */}
+          <line x1="4" y1="10" x2="32" y2="17" stroke="#A87A4A" strokeWidth="0.6" strokeDasharray="3,2" />
+          <line x1="4" y1="30" x2="32" y2="23" stroke="#A87A4A" strokeWidth="0.6" strokeDasharray="3,2" />
 
-          {/* Graphite Lead Point */}
-          <polygon points="16,16 0,20 16,24" fill="url(#graphite-lead)" stroke="#0F172A" strokeWidth="0.6" />
-          {/* Graphite shine */}
-          <polygon points="10,18 2,20 10,21" fill="#64748B" opacity="0.6" />
+          {/* Graphite Lead Point: Base at x=38, sharp tip pointing right to x=58, y=20 */}
+          <polygon
+            points="38,14 58,20 38,26"
+            fill="url(#graphite-correct)"
+            stroke="#0F172A"
+            strokeWidth="0.8"
+          />
+          {/* Graphite top highlight shine */}
+          <line x1="38" y1="16" x2="55" y2="20" stroke="#64748B" strokeWidth="0.8" strokeLinecap="round" />
         </svg>
       </div>
 
       {/* =========================================================================
-          3. LEFT END: REALISTIC GOLDEN BRASS FERRULE & GREEN DIPPED CROWN
+          3. LEFT END: CLASSIC RED RUBBER ERASER & GOLDEN BRASS FERRULE (الممحاة الحمراء)
           Extending to the extreme left edge of the screen
           ========================================================================= */}
       <div className="absolute top-0 left-0 h-full flex items-center pointer-events-none z-20">
+        
+        {/* Red / Coral Pink Rubber Pencil Eraser (الممحاة الحمراء الكلاسيكية الشهيرة) */}
         <div
-          className="h-full w-8 sm:w-10 flex items-center justify-between px-1 border-r border-[#8A6D1B]"
+          className="h-[34px] w-7 sm:w-9 rounded-l-md flex items-center justify-center border-l-2 border-y border-[#991B1B] shadow-sm ml-0.5"
           style={{
-            background: 'linear-gradient(90deg, #99751A 0%, #D4AF37 30%, #FFE58F 60%, #B38F24 100%)',
+            // Authentic Classic Red Pencil Eraser Rubber Texture & 3D Shading
+            background: 'linear-gradient(180deg, #F87171 0%, #E11D48 30%, #BE123C 75%, #881337 100%)',
+            boxShadow: 'inset 0 1.5px 2px rgba(255,255,255,0.4), inset 0 -2px 3px rgba(0,0,0,0.5)',
+          }}
+          title="ممحاة قلم الرصاص الحمراء الكلاسيكية"
+        >
+          {/* Subtle rubber eraser matte highlight */}
+          <div className="w-full h-1 bg-white/20 -mt-4 rounded-full" />
+        </div>
+
+        {/* Golden Brass Ferrule Band (الحلقة النحاسية الذهبية المضلعة المثبتة للممحاة) */}
+        <div
+          className="h-full w-6 sm:w-7 flex items-center justify-between px-1 border-r border-[#7D5D0D] -ml-[1px]"
+          style={{
+            background: 'linear-gradient(90deg, #99751A 0%, #D4AF37 35%, #FFE58F 65%, #B38F24 100%)',
             boxShadow: 'inset 0 1px 2px rgba(255,255,255,0.4), inset 0 -1px 2px rgba(0,0,0,0.4)',
           }}
+          title="الحلقة المعدنية الذهبية"
         >
-          {/* Ribbed ferrule grooves */}
-          <div className="w-[1.5px] h-3/4 bg-[#5A450F]/50 rounded-full" />
-          <div className="w-[1.5px] h-3/4 bg-[#5A450F]/50 rounded-full" />
-          <div className="w-[1.5px] h-3/4 bg-[#5A450F]/50 rounded-full" />
+          {/* Ribbed crimp grooves in the brass ferrule */}
+          <div className="w-[1px] h-3/4 bg-[#5A450F]/60 rounded-full" />
+          <div className="w-[1.5px] h-3/4 bg-[#5A450F]/70 rounded-full" />
+          <div className="w-[1px] h-3/4 bg-[#5A450F]/60 rounded-full" />
         </div>
+
       </div>
     </div>
   );
