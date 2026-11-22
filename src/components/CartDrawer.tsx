@@ -407,7 +407,7 @@ export function CartDrawer({
                   type="tel"
                   dir="ltr"
                   autoComplete="tel"
-                  placeholder="0560 15 46 63"
+                  placeholder="ادخل رقم هاتفك"
                   value={form.phone}
                   onChange={(e) => {
                     setForm((prev) => ({ ...prev, phone: e.target.value }));
