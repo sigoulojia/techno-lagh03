@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Phone, Truck, Sparkles, MapPin, ChevronLeft, ChevronRight, Briefcase, Clock } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { STORE_INFO } from '../data/products';
 
-const FACES = [
+const ANNOUNCEMENTS = [
   {
     id: 'branch',
     icon: MapPin,
@@ -48,230 +49,251 @@ const FACES = [
   },
 ];
 
-// Hexagonal Prism geometry:
-// 6 faces, face height = 40px
-// apothem R = 40 / (2 * tan(30deg)) = 34.64px
-const FACE_HEIGHT = 40;
-const RADIUS = 34.64;
-
 export function AnnouncementBar() {
-  const [step, setStep] = useState(0);
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
 
   useEffect(() => {
     if (isHovered) return;
     const interval = setInterval(() => {
-      setStep((prev) => prev + 1);
+      setCurrentIndex((prev) => (prev + 1) % ANNOUNCEMENTS.length);
     }, 4500);
     return () => clearInterval(interval);
   }, [isHovered]);
 
-  const handleNext = () => setStep((prev) => prev + 1);
-  const handlePrev = () => setStep((prev) => (prev > 0 ? prev - 1 : 0));
+  const active = ANNOUNCEMENTS[currentIndex];
+  const Icon = active.icon;
+
+  const handleNext = () => {
+    setCurrentIndex((prev) => (prev + 1) % ANNOUNCEMENTS.length);
+  };
+
+  const handlePrev = () => {
+    setCurrentIndex((prev) => (prev - 1 + ANNOUNCEMENTS.length) % ANNOUNCEMENTS.length);
+  };
 
   return (
-    <div
-      aria-label="قلم الرصاص الأخضر الكلاسيكي ثلاثي الأبعاد"
+    <aside
+      aria-label="شريط قلم الرصاص الأخضر الكلاسيكي ثلاثي الأبعاد"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className="w-full relative overflow-hidden select-none z-30 shadow-md bg-[#05160E]"
+      className="w-full relative select-none z-30 overflow-hidden"
       style={{
-        height: `${FACE_HEIGHT}px`,
-        perspective: '1200px',
+        boxShadow: '0 3px 12px rgba(0,0,0,0.4)',
       }}
     >
-      {/* =========================================================================
-          1. 3D HEXAGONAL ROLLING PENCIL SHAFT (جسم قلم الرصاص الأخضر ثلاثي الأبعاد)
-          Spans 100% full width across the entire screen from edge to edge
-          ========================================================================= */}
-      <div
-        className="w-full h-full relative"
-        style={{
-          transformStyle: 'preserve-3d',
-          transform: `rotateX(${step * 60}deg)`,
-          transition: 'transform 0.85s cubic-bezier(0.22, 1, 0.36, 1)',
-        }}
-      >
-        {FACES.map((face, i) => {
-          const Icon = face.icon;
-          const faceAngle = -i * 60;
-
-          return (
-            <div
-              key={face.id}
-              className="absolute inset-0 w-full flex items-center justify-between px-3 sm:px-6"
-              style={{
-                height: `${FACE_HEIGHT}px`,
-                transformStyle: 'preserve-3d',
-                transform: `rotateX(${faceAngle}deg) translateZ(${RADIUS}px)`,
-                backfaceVisibility: 'hidden',
-                WebkitBackfaceVisibility: 'hidden',
-                // Photorealistic Stationery Green Pencil Lacquer
-                background: 'linear-gradient(180deg, #1C5133 0%, #123C25 45%, #0B2A19 85%, #06190F 100%)',
-                borderTop: '1px solid rgba(74, 184, 122, 0.35)',
-                borderBottom: '1px solid #031008',
-              }}
-            >
-              {/* Right Side: Gold Stamped Pencil Grade Label (clear of the tip) */}
-              <div className="flex items-center gap-2 shrink-0 z-10 pr-12 sm:pr-16">
-                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-black/40 border border-[#D4AF37]/50 shadow-inner">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#FFD100] animate-pulse" />
-                  <span className="font-mono text-[10px] font-black text-[#FFD100] tracking-wider uppercase">
-                    TECHNO · 2B
-                  </span>
-                </div>
-              </div>
-
-              {/* Center: The Announcement Stamped on the Pencil Face */}
-              <div className="flex-1 flex items-center justify-center gap-2 sm:gap-3 min-w-0 px-2 text-center z-10">
-                <span className="shrink-0 px-2.5 py-0.5 rounded-full bg-gradient-to-r from-[#FFD100] to-[#E5A800] text-[#0B2B1B] text-[10px] sm:text-[11px] font-black shadow-xs flex items-center gap-1">
-                  <Icon className="w-3 h-3 text-[#0B2B1B]" />
-                  <span>{face.badge}</span>
-                </span>
-                <p className="truncate text-xs sm:text-[13px] font-bold text-white tracking-wide drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">
-                  {face.text}
-                </p>
-              </div>
-
-              {/* Left Side: Direct Action & Manual Controls (clear of the eraser) */}
-              <div className="flex items-center gap-2 shrink-0 z-10 pl-16 sm:pl-22">
-                {face.href ? (
-                  <a
-                    href={face.href}
-                    dir="ltr"
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-[#E30613] hover:bg-[#C4000F] text-white text-[11px] font-mono font-black border border-[#D4AF37]/60 shadow-xs transition-colors cursor-pointer"
-                  >
-                    <Phone className="w-3 h-3 text-[#FFD100]" />
-                    <span>{face.cta}</span>
-                  </a>
-                ) : (
-                  <span className="hidden sm:inline-block px-2.5 py-0.5 rounded bg-black/35 border border-white/10 text-[11px] font-bold text-[#FFD100]">
-                    {face.cta}
-                  </span>
-                )}
-
-                {/* Stepper Buttons to rotate the pencil */}
-                <div className="flex items-center gap-0.5">
-                  <button
-                    type="button"
-                    onClick={handlePrev}
-                    aria-label="الضلع السابق"
-                    className="p-1 rounded hover:bg-white/15 text-[#FFD100] transition-colors cursor-pointer"
-                  >
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleNext}
-                    aria-label="الضلع التالي"
-                    className="p-1 rounded hover:bg-white/15 text-[#FFD100] transition-colors cursor-pointer"
-                  >
-                    <ChevronLeft className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* =========================================================================
-          2. RIGHT END: REALISTIC SHARPENED WOODEN PENCIL TIP (رأس القلم المبري الصحيح)
-          Points outwards towards the right edge of the screen
-          ========================================================================= */}
-      <div className="absolute top-0 right-0 h-full flex items-center pointer-events-none z-20">
-        <svg
-          className="h-full w-12 sm:w-16"
-          viewBox="0 0 60 40"
-          preserveAspectRatio="none"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <defs>
-            {/* Natural Cedar Wood Grain Gradient */}
-            <linearGradient id="cedar-wood-correct" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#C99B68" />
-              <stop offset="25%" stopColor="#E5BE90" />
-              <stop offset="60%" stopColor="#DFB689" />
-              <stop offset="100%" stopColor="#A87A4A" />
-            </linearGradient>
-
-            {/* Graphite Metallic Sheen Gradient */}
-            <linearGradient id="graphite-correct" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#334155" />
-              <stop offset="50%" stopColor="#1E293B" />
-              <stop offset="100%" stopColor="#0B111A" />
-            </linearGradient>
-          </defs>
-
-          {/* Sharpened Cedar Wood Cone: Base at x=0, tapering outward to x=38 */}
-          <path
-            d="M0,0 C6,7 8,14 0,20 C8,26 6,33 0,40 L38,26 C38,26 39,20 38,14 Z"
-            fill="url(#cedar-wood-correct)"
-            stroke="#9C7245"
-            strokeWidth="0.8"
-          />
-
-          {/* Green lacquer scalloped border at x=0 */}
-          <path
-            d="M0,0 C6,7 8,14 0,20 C8,26 6,33 0,40"
-            stroke="#06190F"
-            strokeWidth="1.5"
-            fill="none"
-          />
-
-          {/* Subtle natural woodgrain lines */}
-          <line x1="4" y1="10" x2="32" y2="17" stroke="#A87A4A" strokeWidth="0.6" strokeDasharray="3,2" />
-          <line x1="4" y1="30" x2="32" y2="23" stroke="#A87A4A" strokeWidth="0.6" strokeDasharray="3,2" />
-
-          {/* Graphite Lead Point: Base at x=38, sharp tip pointing right to x=58, y=20 */}
-          <polygon
-            points="38,14 58,20 38,26"
-            fill="url(#graphite-correct)"
-            stroke="#0F172A"
-            strokeWidth="0.8"
-          />
-          {/* Graphite top highlight shine */}
-          <line x1="38" y1="16" x2="55" y2="20" stroke="#64748B" strokeWidth="0.8" strokeLinecap="round" />
-        </svg>
-      </div>
-
-      {/* =========================================================================
-          3. LEFT END: CLASSIC RED RUBBER ERASER & GOLDEN BRASS FERRULE (الممحاة الحمراء)
-          Extending to the extreme left edge of the screen
-          ========================================================================= */}
-      <div className="absolute top-0 left-0 h-full flex items-center pointer-events-none z-20">
+      {/* 
+        Full-Width Classic Hexagonal Green Stationery Pencil 
+        (قلم الرصاص الأخضر الكلاسيكي الكامل من الممحاة إلى السن)
+      */}
+      <div className="w-full h-[40px] sm:h-[44px] flex items-center bg-[#05150C]">
         
-        {/* Red / Coral Pink Rubber Pencil Eraser (الممحاة الحمراء الكلاسيكية الشهيرة) */}
-        <div
-          className="h-[34px] w-7 sm:w-9 rounded-l-md flex items-center justify-center border-l-2 border-y border-[#991B1B] shadow-sm ml-0.5"
-          style={{
-            // Authentic Classic Red Pencil Eraser Rubber Texture & 3D Shading
-            background: 'linear-gradient(180deg, #F87171 0%, #E11D48 30%, #BE123C 75%, #881337 100%)',
-            boxShadow: 'inset 0 1.5px 2px rgba(255,255,255,0.4), inset 0 -2px 3px rgba(0,0,0,0.5)',
-          }}
-          title="ممحاة قلم الرصاص الحمراء الكلاسيكية"
-        >
-          {/* Subtle rubber eraser matte highlight */}
-          <div className="w-full h-1 bg-white/20 -mt-4 rounded-full" />
+        {/* =========================================================================
+            1. LEFT END: CLASSIC RED RUBBER ERASER & GOLDEN BRASS FERRULE
+            الممحاة الحمراء الكلاسيكية الأيقونية مع الحلقة النحاسية المذهبة
+            ========================================================================= */}
+        <div className="flex items-center shrink-0 pl-1 sm:pl-2">
+          {/* Classic Red / Coral Rubber Eraser (الممحاة الحمراء) */}
+          <div
+            className="h-[28px] sm:h-[32px] w-7 sm:w-11 rounded-l-md flex items-center justify-center border-l-2 border-y border-[#991B1B] relative overflow-hidden shadow-xs"
+            style={{
+              background: 'linear-gradient(180deg, #F87171 0%, #E11D48 30%, #BE123C 75%, #881337 100%)',
+              boxShadow: 'inset 0 1.5px 2px rgba(255,255,255,0.45), inset 0 -2px 3px rgba(0,0,0,0.5)',
+            }}
+            title="ممحاة قلم الرصاص الحمراء الكلاسيكية"
+          >
+            {/* Rubber cylindrical light reflection */}
+            <div className="w-full h-[2px] bg-white/30 absolute top-1 inset-x-0 rounded-full" />
+          </div>
+
+          {/* Golden Brass Ferrule Band (الحلقة النحاسية المذهبة المضلعة) */}
+          <div
+            className="h-[38px] sm:h-[42px] w-6 sm:w-8 flex items-center justify-evenly px-0.5 border-y border-[#7D5D0D] -ml-[1px] relative shadow-xs"
+            style={{
+              background: 'linear-gradient(180deg, #FFE58F 0%, #D4AF37 30%, #B38F24 70%, #7D5D0D 100%)',
+              boxShadow: 'inset 0 1px 2px rgba(255,255,255,0.5), inset 0 -1px 2px rgba(0,0,0,0.5)',
+            }}
+            title="الحلقة المعدنية الذهبية المثبتة للممحاة"
+          >
+            <div className="w-[1.5px] h-3/4 bg-[#4A380A]/60 rounded-full" />
+            <div className="w-[1.5px] h-3/4 bg-[#4A380A]/60 rounded-full" />
+            <div className="w-[1.5px] h-3/4 bg-[#4A380A]/60 rounded-full" />
+          </div>
         </div>
 
-        {/* Golden Brass Ferrule Band (الحلقة النحاسية الذهبية المضلعة المثبتة للممحاة) */}
-        <div
-          className="h-full w-6 sm:w-7 flex items-center justify-between px-1 border-r border-[#7D5D0D] -ml-[1px]"
-          style={{
-            background: 'linear-gradient(90deg, #99751A 0%, #D4AF37 35%, #FFE58F 65%, #B38F24 100%)',
-            boxShadow: 'inset 0 1px 2px rgba(255,255,255,0.4), inset 0 -1px 2px rgba(0,0,0,0.4)',
-          }}
-          title="الحلقة المعدنية الذهبية"
-        >
-          {/* Ribbed crimp grooves in the brass ferrule */}
-          <div className="w-[1px] h-3/4 bg-[#5A450F]/60 rounded-full" />
-          <div className="w-[1.5px] h-3/4 bg-[#5A450F]/70 rounded-full" />
-          <div className="w-[1px] h-3/4 bg-[#5A450F]/60 rounded-full" />
+        {/* =========================================================================
+            2. CENTER: 3D HEXAGONAL GREEN PENCIL SHAFT
+            جسم قلم الرصاص الأخضر السداسي بأضلاعه الثلاثية الأبعاد والكتابة الذهبية
+            ========================================================================= */}
+        <div className="flex-1 h-full flex flex-col justify-between relative overflow-hidden border-y border-[#04140B]">
+          
+          {/* Top Hexagonal Highlight Facet (الضلع العلوي المجسم المنعكس للضوء) */}
+          <div
+            className="w-full h-[8px] sm:h-[9px] border-b border-[#2C8552]/40"
+            style={{
+              background: 'linear-gradient(180deg, #2A7B4D 0%, #1F613C 100%)',
+            }}
+          />
+
+          {/* Center Main Facet (الضلع الأوسط الرئيسي الحامل للكتابة الذهبية) */}
+          <div
+            className="w-full flex-1 flex items-center justify-between px-2 sm:px-4 relative"
+            style={{
+              background: 'linear-gradient(180deg, #15452A 0%, #0F3520 100%)',
+            }}
+          >
+            {/* Grade Stamp (الختم الذهبي المحفور على قلم الرصاص) */}
+            <div className="hidden md:flex items-center gap-1.5 px-2 py-0.5 rounded bg-black/40 border border-[#D4AF37]/50 shadow-inner shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#FFD100] animate-pulse" />
+              <span className="font-mono text-[10px] font-black text-[#FFD100] tracking-wider uppercase">
+                TECHNO · 2B
+              </span>
+            </div>
+
+            {/* 3D Rolling Text Container (دوران الأضلاع وتقلب الجمل ثلاثي الأبعاد) */}
+            <div
+              className="flex-1 flex items-center justify-center min-w-0 px-2"
+              style={{ perspective: '800px' }}
+            >
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={currentIndex}
+                  initial={{ rotateX: 90, opacity: 0, y: -8 }}
+                  animate={{ rotateX: 0, opacity: 1, y: 0 }}
+                  exit={{ rotateX: -90, opacity: 0, y: 8 }}
+                  transition={{
+                    duration: 0.55,
+                    ease: [0.22, 1, 0.36, 1], // Smooth mechanical roll
+                  }}
+                  className="flex items-center justify-center gap-2 sm:gap-3 text-center min-w-0"
+                  style={{ transformStyle: 'preserve-3d' }}
+                >
+                  {/* Golden Embossed Badge */}
+                  <span className="shrink-0 px-2.5 py-0.5 rounded-full bg-gradient-to-r from-[#FFD100] to-[#E5A800] text-[#0B2B1B] text-[10px] sm:text-[11px] font-black shadow-xs flex items-center gap-1">
+                    <Icon className="w-3 h-3 text-[#0B2B1B]" />
+                    <span>{active.badge}</span>
+                  </span>
+
+                  {/* Hot-Stamped Sentence */}
+                  <p className="truncate text-xs sm:text-[13px] font-bold text-white tracking-wide drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">
+                    {active.text}
+                  </p>
+                </motion.div>
+              </AnimatePresence>
+            </div>
+
+            {/* Quick Action / Phone Link */}
+            <div className="hidden sm:flex items-center gap-2 shrink-0">
+              {active.href ? (
+                <a
+                  href={active.href}
+                  dir="ltr"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-[#E30613] hover:bg-[#C4000F] text-white text-[11px] font-mono font-black border border-[#D4AF37]/60 shadow-xs transition-colors cursor-pointer"
+                >
+                  <Phone className="w-3 h-3 text-[#FFD100]" />
+                  <span>{active.cta}</span>
+                </a>
+              ) : (
+                <span className="px-2 py-0.5 rounded bg-black/35 border border-white/10 text-[11px] font-bold text-[#FFD100]">
+                  {active.cta}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Lower Shadow Facet (الضلع السفلي في الظل الواقعي) */}
+          <div
+            className="w-full h-[7px] sm:h-[8px] border-t border-[#092214]"
+            style={{
+              background: 'linear-gradient(180deg, #0A2718 0%, #05150C 100%)',
+            }}
+          />
+        </div>
+
+        {/* =========================================================================
+            3. RIGHT END: SHARPENED CEDAR WOOD CONE & GRAPHITE LEAD POINT
+            رأس قلم الرصاص المبري بخشب الأرز الطبيعي وسن الجرافيت الصحيح نحو اليمين
+            ========================================================================= */}
+        <div className="flex items-center shrink-0 pr-1 sm:pr-2">
+          {/* Stepper Chevrons to manually rotate the pencil */}
+          <div className="flex items-center gap-0.5 ml-1">
+            <button
+              type="button"
+              onClick={handlePrev}
+              aria-label="الضلع السابق"
+              className="p-1 rounded hover:bg-white/15 text-[#FFD100] transition-colors cursor-pointer"
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={handleNext}
+              aria-label="الضلع التالي"
+              className="p-1 rounded hover:bg-white/15 text-[#FFD100] transition-colors cursor-pointer"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* Realistic Sharpened Tip Graphic (pointing OUTWARDS to the right) */}
+          <div className="relative flex items-center shrink-0" title="رأس قلم الرصاص المبري وسن الجرافيت">
+            <svg
+              className="h-[38px] sm:h-[42px] w-12 sm:w-16 select-none"
+              viewBox="0 0 60 40"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <defs>
+                {/* Natural Cedar Wood Grain Gradient */}
+                <linearGradient id="natural-cedar-cone" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#C99B68" />
+                  <stop offset="30%" stopColor="#E5BE90" />
+                  <stop offset="65%" stopColor="#DFB689" />
+                  <stop offset="100%" stopColor="#A87A4A" />
+                </linearGradient>
+
+                {/* Graphite Lead Metallic Sheen */}
+                <linearGradient id="sharp-graphite-point" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#334155" />
+                  <stop offset="50%" stopColor="#1E293B" />
+                  <stop offset="100%" stopColor="#0B111A" />
+                </linearGradient>
+              </defs>
+
+              {/* Sharpened Cedar Wood Cone: Base at x=0, tapering outward to x=38 */}
+              <path
+                d="M0,0 C6,7 8,14 0,20 C8,26 6,33 0,40 L38,26 C38,26 39,20 38,14 Z"
+                fill="url(#natural-cedar-cone)"
+                stroke="#9C7245"
+                strokeWidth="0.8"
+              />
+
+              {/* Scalloped sharpener blade cuts where green lacquer meets wood */}
+              <path
+                d="M0,0 C6,7 8,14 0,20 C8,26 6,33 0,40"
+                stroke="#06190F"
+                strokeWidth="1.5"
+                fill="none"
+              />
+
+              {/* Natural wood grain striations */}
+              <line x1="4" y1="10" x2="32" y2="17" stroke="#A87A4A" strokeWidth="0.6" strokeDasharray="3,2" />
+              <line x1="4" y1="30" x2="32" y2="23" stroke="#A87A4A" strokeWidth="0.6" strokeDasharray="3,2" />
+
+              {/* Graphite Lead Point: Base at x=38, sharp tip pointing right to x=58, y=20 */}
+              <polygon
+                points="38,14 58,20 38,26"
+                fill="url(#sharp-graphite-point)"
+                stroke="#0F172A"
+                strokeWidth="0.8"
+              />
+              {/* Graphite specular glint reflection */}
+              <line x1="38" y1="16" x2="55" y2="20" stroke="#64748B" strokeWidth="0.8" strokeLinecap="round" />
+            </svg>
+          </div>
         </div>
 
       </div>
-    </div>
+    </aside>
   );
 }
