@@ -41,6 +41,14 @@ const ANNOUNCEMENTS = [
     cta: 'تجهيز شركات',
   },
   {
+    id: 'vip-card',
+    icon: Sparkles,
+    badge: 'بطاقة الوفاء VIP',
+    text: 'احصل على بطاقتك الافتراضية الخاصة مع نقاط مشتريات وتخفيض فوري بالفرع الميداني',
+    cta: 'بطاقتي VIP',
+    href: '#vip-card',
+  },
+  {
     id: 'hours',
     icon: Clock,
     badge: 'أوقات العمل',

@@ -37,6 +37,7 @@ import { TrustBadges } from './components/TrustBadges';
 import { CategoryShowcase } from './components/CategoryShowcase';
 import { QuickOrderSection } from './components/QuickOrderSection';
 import { PacksSection } from './components/PacksSection';
+import { LoyaltyCardSection } from './components/LoyaltyCardSection';
 import { type StorePack } from './data/packs';
 import { FloatingActions } from './components/FloatingActions';
 import { ProductCard } from './components/ProductCard';
@@ -777,6 +778,9 @@ export default function App() {
               onOrderPack={handleOrderPack}
               onAddToCart={handleAddPackToCart}
             />
+
+            {/* Legendary VIP Virtual Loyalty Card Section */}
+            <LoyaltyCardSection savedOrders={savedOrders} />
 
             <QuickOrderSection
               products={products}

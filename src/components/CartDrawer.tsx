@@ -10,6 +10,7 @@ import {
   Plus,
   Printer,
   ShoppingBag,
+  Sparkles,
   Trash2,
   X,
 } from 'lucide-react';
@@ -479,6 +480,28 @@ export function CartDrawer({
                 <p className="mt-1 text-xs text-[#52525B]">
                   سيتواصل معك فريق فرع تكنو الأغواط هاتفياً لتأكيد التسليم.
                 </p>
+
+                {/* Loyalty Card Reward Celebration */}
+                <div className="mt-4 p-3 rounded-xl bg-gradient-to-r from-amber-50 to-emerald-50 border border-amber-200 text-xs text-stone-800 flex items-center justify-between gap-2 shadow-2xs text-right">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-[#D4AF37] shrink-0" />
+                    <div>
+                      <span className="font-black text-[#18181B] block">
+                        + {Math.floor(confirmedOrder.totals.grandTotalDzd / 100)} نقطة وفاء مضافة!
+                      </span>
+                      <span className="text-[10px] text-stone-600">
+                        أُضيفت تلقائياً إلى بطاقتك الرقمية (Techno VIP Pass)
+                      </span>
+                    </div>
+                  </div>
+                  <a
+                    href="#vip-card"
+                    onClick={() => onClose()}
+                    className="px-2.5 py-1.5 rounded-lg bg-[#18181B] text-white text-[10px] font-black hover:bg-[#E30613] transition-colors whitespace-nowrap cursor-pointer"
+                  >
+                    معاينة بطاقتي
+                  </a>
+                </div>
               </div>
 
               <div className="border border-stone-200 rounded-xl divide-y divide-stone-200 text-sm">

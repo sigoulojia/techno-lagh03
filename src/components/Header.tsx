@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ShoppingBag, Phone, MapPin, Search, Menu, X, Truck, MessageSquare, Clock, ArrowLeft, Sparkles } from 'lucide-react';
+import { ShoppingBag, Phone, MapPin, Search, Menu, X, Truck, MessageSquare, Clock, ArrowLeft, Sparkles, CreditCard } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { STORE_INFO } from '../data/products';
 import { TechnoLogo } from './TechnoLogo';
@@ -35,6 +35,7 @@ export function Header({ cartCount, onOpenCart }: HeaderProps) {
   const navLinks = [
     { label: 'المعروضات', href: '#collection' },
     { label: 'عروض الباقات', href: '#packs' },
+    { label: 'بطاقة الوفاء VIP', href: '#vip-card' },
     { label: 'أسعار التوصيل', href: '#delivery-rates' },
     { label: 'فحص الطلب', href: '#track' },
     { label: 'موقع الفرع', href: '#branch' },
@@ -95,6 +96,16 @@ export function Header({ cartCount, onOpenCart }: HeaderProps) {
             >
               <Phone className="w-3.5 h-3.5 text-[#E30613]" />
               <span>{STORE_INFO.phoneDisplay}</span>
+            </a>
+
+            {/* VIP Loyalty Card Button */}
+            <a
+              href="#vip-card"
+              aria-label="بطاقة الوفاء VIP الرقمية"
+              className="hidden md:inline-flex items-center gap-1.5 px-3 py-2 min-h-[42px] rounded-xl bg-gradient-to-r from-[#0F492B] to-[#062615] hover:brightness-110 border-2 border-[#D4AF37] shadow-[2px_2px_0px_#D4AF37] text-xs font-black text-[#FFD100] transition-all active:translate-x-0.5 active:translate-y-0.5 whitespace-nowrap cursor-pointer"
+            >
+              <CreditCard className="w-3.5 h-3.5 text-[#FFD100]" />
+              <span>بطاقتي VIP</span>
             </a>
 
             {/* Quick Order Primary CTA Button */}
