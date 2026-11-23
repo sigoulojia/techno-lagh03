@@ -85,69 +85,114 @@ export function Footer({ categories = [], onSelectCategory }: FooterProps) {
       <div className="relative z-10 py-12 lg:py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
-          {/* Top Spiral Wire Binding (النابض الحلزوني للكراريس) */}
-          <div className="relative z-20 w-full overflow-hidden -mb-4 px-3 sm:px-6">
+          {/* Top Spiral Wire Binding (النابض الحلزوني للكراريس ثلاثي الأبعاد) */}
+          <div className="relative z-20 w-full overflow-hidden -mb-[30px] sm:-mb-[32px] pointer-events-none">
             <svg
-              className="w-full h-9 sm:h-10 select-none overflow-visible"
-              viewBox="0 0 1024 36"
-              preserveAspectRatio="none"
+              className="w-full select-none"
+              style={{ width: '100%', height: '54px' }}
               xmlns="http://www.w3.org/2000/svg"
             >
               <defs>
-                {/* 3D Metallic Steel Wire Gradient for the Spring Coil */}
-                <linearGradient id="notebook-spiral-metal" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#FFFFFF" />
-                  <stop offset="25%" stopColor="#CBD5E1" />
-                  <stop offset="50%" stopColor="#475569" />
-                  <stop offset="75%" stopColor="#94A3B8" />
+                {/* 3D Metallic Steel Wire Gradient - Front Loop */}
+                <linearGradient id="spring-front-steel" x1="0%" y1="0%" x2="100%" y2="80%">
+                  <stop offset="0%" stopColor="#CBD5E1" />
+                  <stop offset="25%" stopColor="#FFFFFF" />
+                  <stop offset="45%" stopColor="#E2E8F0" />
+                  <stop offset="70%" stopColor="#64748B" />
+                  <stop offset="90%" stopColor="#334155" />
                   <stop offset="100%" stopColor="#1E293B" />
                 </linearGradient>
 
-                <pattern id="spiral-ring-pattern" width="32" height="36" patternUnits="userSpaceOnUse">
-                  {/* Punch Hole in Notebook Paper */}
-                  <ellipse cx="16" cy="24" rx="4" ry="6" fill="#060D17" stroke="#94A3B8" strokeWidth="0.5" />
-                  {/* Inner Hole Shadow */}
-                  <ellipse cx="16" cy="23" rx="3.2" ry="4.8" fill="#000000" opacity="0.8" />
-                  {/* Wire Coil Shadow */}
+                {/* Shaded Steel Wire Gradient - Back Loop (behind paper) */}
+                <linearGradient id="spring-back-steel" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#64748B" />
+                  <stop offset="40%" stopColor="#475569" />
+                  <stop offset="80%" stopColor="#334155" />
+                  <stop offset="100%" stopColor="#0F172A" />
+                </linearGradient>
+
+                <pattern id="notebook-helical-spring" width="32" height="54" patternUnits="userSpaceOnUse">
+                  {/* 1. Back Wire Loop: Behind paper, visible above paper edge (y < 22) and entering hole */}
                   <path
-                    d="M13,24 C11,4 21,4 19,24"
-                    stroke="rgba(0,0,0,0.4)"
-                    strokeWidth="3.5"
-                    fill="none"
-                    transform="translate(1, 2)"
-                  />
-                  {/* 3D Metallic Wire Loop (حلقة السلك المعدني) */}
-                  <path
-                    d="M13,24 C11,6 21,6 19,24"
-                    stroke="url(#notebook-spiral-metal)"
-                    strokeWidth="3.2"
+                    d="M 0,22 C 2,13 6,6 10,5"
+                    stroke="url(#spring-back-steel)"
+                    strokeWidth="3.4"
                     fill="none"
                     strokeLinecap="round"
                   />
-                  {/* Highlight Glint on Wire */}
                   <path
-                    d="M14,15 C13,8 19,8 18,15"
-                    stroke="#FFFFFF"
-                    strokeWidth="1"
+                    d="M 22,38 C 26,36 30,29 32,22"
+                    stroke="url(#spring-back-steel)"
+                    strokeWidth="3.4"
                     fill="none"
-                    opacity="0.9"
+                  />
+
+                  {/* 2. Punched Hole in Notebook Paper (ثقب الورق المنتظم) */}
+                  {/* Paper cut bevel / embossed rim highlight */}
+                  <rect
+                    x="17.5"
+                    y="31.5"
+                    width="9"
+                    height="13"
+                    rx="4.5"
+                    stroke="rgba(255, 255, 255, 0.85)"
+                    strokeWidth="0.8"
+                    fill="none"
+                  />
+                  {/* Hole Interior */}
+                  <rect x="18" y="32" width="8" height="12" rx="4" fill="#060D17" />
+                  {/* Deep inner drop shadow at top of hole */}
+                  <path
+                    d="M 18.5,35 C 18.5,32.5 25.5,32.5 25.5,35"
+                    stroke="#000000"
+                    strokeWidth="1.2"
+                    fill="none"
+                  />
+
+                  {/* 3. Cast Shadow of Front Wire onto Cream Paper */}
+                  <path
+                    d="M 10,5 C 14,5 18,12 20,22 C 21,27 22,32 22,38"
+                    stroke="rgba(0,0,0,0.24)"
+                    strokeWidth="4"
+                    fill="none"
+                    strokeLinecap="round"
+                    transform="translate(2, 2.5)"
+                  />
+
+                  {/* 4. Front Wire Loop: Polished 3D Chrome Steel */}
+                  <path
+                    d="M 10,5 C 14,5 18,12 20,22 C 21,27 22,32 22,38"
+                    stroke="url(#spring-front-steel)"
+                    strokeWidth="3.5"
+                    fill="none"
+                    strokeLinecap="round"
+                  />
+
+                  {/* 5. Specular Reflection Glint (لمعان الضوء المعدني المركز) */}
+                  <path
+                    d="M 10,5.5 C 13.5,5.5 17,11 19,21 C 19.8,25 20.6,29 21.2,35"
+                    stroke="#FFFFFF"
+                    strokeWidth="1.1"
+                    fill="none"
+                    strokeLinecap="round"
+                    opacity="0.95"
                   />
                 </pattern>
               </defs>
-              <rect width="100%" height="36" fill="url(#spiral-ring-pattern)" />
+              <rect width="100%" height="54" fill="url(#notebook-helical-spring)" />
             </svg>
           </div>
 
           {/* Notebook Paper Body (ورقة الكراس العاجية المسطرة) */}
           <div
-            className="relative pt-8 sm:pt-10 pb-8 sm:pb-10 px-6 sm:px-10 rounded-b-3xl rounded-t-xl bg-[#FCFAF6] text-[#18181B] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.85)] border-2 border-stone-300/80 overflow-hidden"
+            className="relative pt-10 sm:pt-12 pb-8 sm:pb-10 px-6 sm:px-10 rounded-b-3xl rounded-t-2xl bg-[#FCFAF6] text-[#18181B] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.85)] border-2 border-stone-300/80 overflow-hidden"
             style={{
               // Faint Notebook Ruling Lines (تسطير أسطر الكراس الأزرق الخفيف جداً)
               backgroundImage: 'repeating-linear-gradient(transparent, transparent 31px, rgba(148, 163, 184, 0.15) 31px, rgba(148, 163, 184, 0.15) 32px)',
             }}
           >
             {/* Top Perforated Tear-Line (خط فواصل الورق المثقوب) */}
-            <div className="absolute top-0 inset-x-0 h-2 border-b-2 border-dashed border-stone-300/80 pointer-events-none" />
+            <div className="absolute top-3 inset-x-0 h-1 border-b-2 border-dashed border-stone-300/80 pointer-events-none" />
 
             {/* Right-Hand Notebook Margin Line (هامش الكراس الأحمر الأيمن للغة العربية) */}
             <div className="absolute inset-y-0 right-4 sm:right-6 w-[2px] bg-[#E30613]/25 pointer-events-none" />
