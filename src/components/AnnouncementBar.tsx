@@ -77,7 +77,7 @@ export function AnnouncementBar() {
       aria-label="قلم الرصاص الكلاسيكي الأخضر ثلاثي الأبعاد"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className="w-full relative select-none z-30 overflow-hidden shadow-md"
+      className="w-full relative select-none z-30 overflow-hidden bg-white border-b border-stone-200 shadow-xs"
     >
       {/* 
         Explicit dir="ltr" container:
@@ -86,7 +86,7 @@ export function AnnouncementBar() {
       */}
       <div
         dir="ltr"
-        className="w-full h-[40px] sm:h-[42px] flex items-center bg-[#05150C] relative"
+        className="w-full h-[42px] sm:h-[44px] flex items-center bg-white relative px-1 sm:px-2"
       >
         {/* =========================================================================
             1. LEFT END: CLASSIC RED RUBBER ERASER & GOLDEN BRASS FERRULE
@@ -98,26 +98,26 @@ export function AnnouncementBar() {
             className="h-[28px] sm:h-[30px] w-7 sm:w-10 rounded-l-lg flex items-center justify-center border-l-2 border-y border-[#991B1B] relative overflow-hidden shadow-sm"
             style={{
               background: 'linear-gradient(180deg, #F87171 0%, #E11D48 35%, #BE123C 75%, #881337 100%)',
-              boxShadow: 'inset 0 1.5px 2px rgba(255,255,255,0.45), inset 0 -2px 3px rgba(0,0,0,0.5)',
+              boxShadow: 'inset 0 1.5px 2px rgba(255,255,255,0.45), inset 0 -2px 3px rgba(0,0,0,0.3)',
             }}
             title="ممحاة قلم الرصاص الحمراء الكلاسيكية"
           >
             {/* Rubber cylindrical light reflection */}
-            <div className="w-full h-[2px] bg-white/35 absolute top-1 inset-x-0 rounded-full" />
+            <div className="w-full h-[2px] bg-white/40 absolute top-1 inset-x-0 rounded-full" />
           </div>
 
           {/* Golden Brass Ferrule Band (الحلقة النحاسية المذهبة المضلعة) */}
           <div
-            className="h-[38px] sm:h-[40px] w-6 sm:w-7 flex items-center justify-evenly px-0.5 border-y border-[#7D5D0D] -ml-[1px] relative shadow-xs"
+            className="h-[36px] sm:h-[38px] w-6 sm:w-7 flex items-center justify-evenly px-0.5 border-y border-[#B38F24] -ml-[1px] relative shadow-xs"
             style={{
               background: 'linear-gradient(180deg, #FFE58F 0%, #D4AF37 30%, #B38F24 70%, #7D5D0D 100%)',
-              boxShadow: 'inset 0 1px 2px rgba(255,255,255,0.5), inset 0 -1px 2px rgba(0,0,0,0.5)',
+              boxShadow: 'inset 0 1px 2px rgba(255,255,255,0.6), inset 0 -1px 2px rgba(0,0,0,0.3)',
             }}
             title="الحلقة المعدنية الذهبية المثبتة للممحاة"
           >
-            <div className="w-[1.5px] h-3/4 bg-[#4A380A]/60 rounded-full" />
-            <div className="w-[1.5px] h-3/4 bg-[#4A380A]/60 rounded-full" />
-            <div className="w-[1.5px] h-3/4 bg-[#4A380A]/60 rounded-full" />
+            <div className="w-[1.5px] h-3/4 bg-[#5A430A]/60 rounded-full" />
+            <div className="w-[1.5px] h-3/4 bg-[#5A430A]/60 rounded-full" />
+            <div className="w-[1.5px] h-3/4 bg-[#5A430A]/60 rounded-full" />
           </div>
         </div>
 
@@ -125,13 +125,13 @@ export function AnnouncementBar() {
             2. CENTER: 3D HEXAGONAL GREEN PENCIL SHAFT
             جسم قلم الرصاص الأخضر السداسي بأضلاعه الثلاثية الأبعاد والكتابة الذهبية
             ========================================================================= */}
-        <div className="flex-1 h-full flex flex-col justify-between relative overflow-hidden border-y border-[#04140B]">
+        <div className="flex-1 h-[36px] sm:h-[38px] flex flex-col justify-between relative overflow-hidden border-y border-[#0B331A] shadow-xs">
           
           {/* Top Hexagonal Highlight Facet (الضلع العلوي المجسم المنعكس للضوء) */}
           <div
-            className="w-full h-[8px] sm:h-[9px] border-b border-[#2C8552]/40"
+            className="w-full h-[7px] sm:h-[8px] border-b border-[#2C8552]/40"
             style={{
-              background: 'linear-gradient(180deg, #2A7B4D 0%, #1F613C 100%)',
+              background: 'linear-gradient(180deg, #2D8A53 0%, #1F693E 100%)',
             }}
           />
 
@@ -139,11 +139,11 @@ export function AnnouncementBar() {
           <div
             className="w-full flex-1 flex items-center justify-between px-2 sm:px-4 relative"
             style={{
-              background: 'linear-gradient(180deg, #15452A 0%, #0F3520 100%)',
+              background: 'linear-gradient(180deg, #185230 0%, #113F24 100%)',
             }}
           >
             {/* Grade Stamp on Left (الختم الذهبي المحفور على قلم الرصاص) */}
-            <div className="hidden md:flex items-center gap-1.5 px-2 py-0.5 rounded bg-black/40 border border-[#D4AF37]/50 shadow-inner shrink-0">
+            <div className="hidden md:flex items-center gap-1.5 px-2 py-0.5 rounded bg-[#092615]/80 border border-[#D4AF37]/50 shadow-inner shrink-0">
               <span className="w-1.5 h-1.5 rounded-full bg-[#FFD100] animate-pulse" />
               <span className="font-mono text-[10px] font-black text-[#FFD100] tracking-wider uppercase">
                 TECHNO · 2B
@@ -195,7 +195,7 @@ export function AnnouncementBar() {
                   <span>{active.cta}</span>
                 </a>
               ) : (
-                <span className="hidden sm:inline-block px-2 py-0.5 rounded bg-black/35 border border-white/10 text-[11px] font-bold text-[#FFD100]">
+                <span className="hidden sm:inline-block px-2 py-0.5 rounded bg-[#092615]/80 border border-white/10 text-[11px] font-bold text-[#FFD100]">
                   {active.cta}
                 </span>
               )}
@@ -224,9 +224,9 @@ export function AnnouncementBar() {
 
           {/* Lower Shadow Facet (الضلع السفلي في الظل الواقعي) */}
           <div
-            className="w-full h-[7px] sm:h-[8px] border-t border-[#092214]"
+            className="w-full h-[6px] sm:h-[7px] border-t border-[#0D2F1B]"
             style={{
-              background: 'linear-gradient(180deg, #0A2718 0%, #05150C 100%)',
+              background: 'linear-gradient(180deg, #0E351E 0%, #092615 100%)',
             }}
           />
         </div>
@@ -235,12 +235,13 @@ export function AnnouncementBar() {
             3. RIGHT END: SHARPENED CEDAR WOOD CONE & GRAPHITE LEAD POINT
             رأس قلم الرصاص المبري بخشب الأرز وسن الجرافيت الحاد المتجه لليمين نحو الخارج
             ========================================================================= */}
-        <div className="flex items-center shrink-0 pr-1 sm:pr-2">
+        <div className="flex items-center shrink-0 pr-1 sm:pr-2 -ml-[1px]">
           {/* Realistic Sharpened Tip Graphic (pointing OUTWARDS to the right) */}
           <div className="relative flex items-center shrink-0" title="رأس قلم الرصاص المبري وسن الجرافيت">
             <svg
-              className="h-[38px] sm:h-[40px] w-12 sm:w-16 select-none"
+              className="h-[36px] sm:h-[38px] w-12 sm:w-16 select-none"
               viewBox="0 0 60 40"
+              preserveAspectRatio="none"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
             >
@@ -272,7 +273,7 @@ export function AnnouncementBar() {
               {/* Scalloped sharpener blade cuts where green lacquer meets wood */}
               <path
                 d="M0,0 C6,7 8,14 0,20 C8,26 6,33 0,40"
-                stroke="#06190F"
+                stroke="#0B331A"
                 strokeWidth="1.5"
                 fill="none"
               />
