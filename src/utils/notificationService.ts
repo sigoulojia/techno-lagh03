@@ -550,29 +550,59 @@ export interface LoyaltyCardRequestNotificationData {
 }
 
 /**
- * Broadcasts a VIP Loyalty Card activation request to store owner's Telegram bots and ntfy
+ * Formats a safe Telegram notification for a loyalty card request.
+ * Phone number is masked to protect the bot and account against bans.
  */
-export async function sendLoyaltyCardRequestNotification(
-  data: LoyaltyCardRequestNotificationData
-): Promise<void> {
+export function buildLoyaltyCardTelegramMessage(
+  data: LoyaltyCardRequestNotificationData,
+  ntfyUrl: string
+): string {
   const purchaseStatusText = data.hasPurchased
     ? `اشترى سابقاً (${data.ordersCount} طلبات - بمجموع ${data.totalSpent.toLocaleString('ar-DZ')} دج)`
     : 'زبون جديد (لم يسجل طلبيات سابقة في المتجر)';
 
-  const messageText = `طلب جديد لإصدار بطاقة وفاء VIP — فرع تكنو الأغواط 03\n\n• الاسم الكامل: ${data.customerName}\n• رقم الهاتف: ${data.customerPhone}\n• سجل الشراء: ${purchaseStatusText}\n• رقم البطاقة المقترح: ${data.cardNumber}\n• الحالة: قيد الانتظار والمعالجة\n\nلوحة التحكم للاعتماد والتفعيل: https://techno-laghouat-backend.hotel-saharien.workers.dev/admin/orders`;
+  const safePhone = maskPhoneNumber(data.customerPhone);
 
-  const telegramUrl1 = `https://api.telegram.org/bot${DEFAULT_NOTIFICATION_CONFIG.telegramToken}/sendMessage`;
-  const telegramUrl2 = `https://api.telegram.org/bot${DEFAULT_NOTIFICATION_CONFIG.secondTelegramToken}/sendMessage`;
+  return `طلب جديد لإصدار بطاقة وفاء VIP — فرع تكنو الأغواط 03\n\n• الاسم الكامل: ${data.customerName}\n• رقم الهاتف: ${safePhone} (محمي لمنع الحظر)\n• سجل الشراء: ${purchaseStatusText}\n• رقم البطاقة: ${data.cardNumber}\n• الحالة: قيد الانتظار والمعالجة\n\nلرؤية رقم الهاتف الكامل وباقي البيانات غير المقنعة:\nقناة Ntfy المباشرة: ${ntfyUrl}\nلوحة التحكم للاعتماد: https://techno-laghouat-backend.hotel-saharien.workers.dev/admin/orders`;
+}
+
+/**
+ * Formats a full unmasked notification for Ntfy.
+ * Ntfy has zero restrictions, encrypted over HTTPS, and does not ban for phone numbers.
+ */
+export function buildLoyaltyCardNtfyMessage(
+  data: LoyaltyCardRequestNotificationData
+): string {
+  const purchaseStatusText = data.hasPurchased
+    ? `اشترى سابقاً (${data.ordersCount} طلبات - بمجموع ${data.totalSpent.toLocaleString('ar-DZ')} دج)`
+    : 'زبون جديد (لم يسجل طلبيات سابقة في المتجر)';
+
+  return `طلب بطاقة وفاء VIP جديدة — فرع تكنو الأغواط 03\n\n• الاسم الكامل: ${data.customerName}\n• رقم الهاتف الكامل: ${data.customerPhone}\n• سجل الشراء: ${purchaseStatusText}\n• رقم البطاقة: ${data.cardNumber}\n• الحالة: قيد الانتظار والمعالجة\n\nلوحة التحكم المباشرة للاعتماد:\nhttps://techno-laghouat-backend.hotel-saharien.workers.dev/admin/orders`;
+}
+
+/**
+ * Broadcasts a VIP Loyalty Card activation request to store owner.
+ * Sent ONCE to Telegram via ONLY bot technolagh03 (with phone masked to prevent bot ban)
+ * and ONCE to Ntfy (with full unmasked data).
+ */
+export async function sendLoyaltyCardRequestNotification(
+  data: LoyaltyCardRequestNotificationData
+): Promise<void> {
   const ntfyUrl = getNtfyTopicUrl();
+  const telegramMessage = buildLoyaltyCardTelegramMessage(data, ntfyUrl);
+  const ntfyMessage = buildLoyaltyCardNtfyMessage(data);
 
-  const sendTg = async (url: string) => {
+  // ONLY Bot 1 (technolagh03 / DEFAULT_NOTIFICATION_CONFIG.telegramToken) - sent ONCE
+  const telegramBot1Url = `https://api.telegram.org/bot${DEFAULT_NOTIFICATION_CONFIG.telegramToken}/sendMessage`;
+
+  const sendTg = async () => {
     try {
-      await fetch(url, {
+      await fetch(telegramBot1Url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           chat_id: DEFAULT_NOTIFICATION_CONFIG.telegramChatId,
-          text: messageText,
+          text: telegramMessage,
         }),
       });
     } catch {
@@ -580,6 +610,7 @@ export async function sendLoyaltyCardRequestNotification(
     }
   };
 
+  // Sent ONCE to Ntfy
   const sendNtfy = async () => {
     try {
       await fetch(ntfyUrl, {
@@ -588,13 +619,13 @@ export async function sendLoyaltyCardRequestNotification(
           Title: 'طلب بطاقة وفاء VIP جديدة — تكنو الأغواط',
           Priority: 'default',
         },
-        body: messageText,
+        body: ntfyMessage,
       });
     } catch {
       // silent catch
     }
   };
 
-  await Promise.allSettled([sendTg(telegramUrl1), sendTg(telegramUrl2), sendNtfy()]);
+  await Promise.allSettled([sendTg(), sendNtfy()]);
 }
 

@@ -321,24 +321,19 @@ export function saveLoyaltyCard(card: LoyaltyCardData): void {
 }
 
 /**
- * Retrieve or create loyalty card based on session and previous orders
+ * Retrieve or create default loyalty card state on page initialization.
+ * For privacy and security, when the page is reloaded, the card is NEVER automatically shown.
+ * All registered cards are securely stored in the registry (techno_laghouat_loyalty_registry_v2),
+ * and can be retrieved instantly using phone number + 6-digit PIN.
  */
-export function getOrCreateLoyaltyCard(savedOrders: SavedOrder[] = []): LoyaltyCardData {
-  const stored = getStoredLoyaltyCard();
-  if (stored) {
-    // If card is already active or in process, update points from orders
-    const orderPoints = calculatePointsFromOrders(savedOrders);
-    const totalPoints = Math.max(stored.points, WELCOME_BONUS_POINTS + orderPoints);
-    const updated: LoyaltyCardData = {
-      ...stored,
-      points: totalPoints,
-      tier: getTierFromPoints(totalPoints),
-    };
-    saveLoyaltyCard(updated);
-    return updated;
+export function getOrCreateLoyaltyCard(_savedOrders: SavedOrder[] = []): LoyaltyCardData {
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.removeItem(LOYALTY_STORAGE_KEY);
+    } catch {}
   }
 
-  // Fallback default state: unregistered preview
+  // Fallback secure default state: unregistered (no card revealed on reload)
   const defaultCard: LoyaltyCardData = {
     cardNumber: generateCardNumber(),
     customerName: 'عضو نادي الوفاء',

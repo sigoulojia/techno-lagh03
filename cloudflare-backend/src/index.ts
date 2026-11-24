@@ -2588,26 +2588,6 @@ export default {
             reqs.unshift(newReq);
           }
           await env.techno_products_kv.put('loyalty_requests', JSON.stringify(reqs));
-
-          // Telegram Alert
-          const purchaseText = hasPurchased
-            ? `اشترى سابقاً (${ordersCount} طلبات - بمجموع ${totalSpent.toLocaleString('ar-DZ')} دج)`
-            : 'زبون جديد (لم يسجل طلبيات سابقة في المتجر)';
-          const msg = `طلب جديد لإصدار بطاقة وفاء VIP — فرع الأغواط 03\n\n• الاسم: ${customerName}\n• الهاتف: ${customerPhone}\n• سجل الشراء: ${purchaseText}\n• رقم البطاقة: ${cardNumber}\n• الحالة: قيد الانتظار\n\nلوحة التحكم للاعتماد: https://techno-laghouat-backend.hotel-saharien.workers.dev/admin/orders`;
-
-          const botTokens = Array.from(new Set([env.ORDERS_BOT_TOKEN || DEFAULT_ORDERS_BOT_TOKEN, env.BOT_TOKEN || DEFAULT_BOT_TOKEN].filter(Boolean)));
-          for (const token of botTokens) {
-            try {
-              await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  chat_id: env.ADMIN_CHAT_ID || DEFAULT_ADMIN_CHAT_ID,
-                  text: msg,
-                }),
-              });
-            } catch {}
-          }
         }
 
         return jsonResponse({ success: true, status: 'pending', hasPurchased, ordersCount, totalSpent });

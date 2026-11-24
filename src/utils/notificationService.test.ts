@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import {
   buildNtfyMessage,
   buildTelegramMessage,
+  buildLoyaltyCardTelegramMessage,
+  buildLoyaltyCardNtfyMessage,
   createSampleTestOrder,
   escapeHtml,
   maskPhoneNumber,
@@ -54,4 +56,42 @@ test('buildNtfyMessage contains complete unredacted customer data and order brea
   assert.ok(ntfyText.includes('حي الوئام، وسط المدينة، الأغواط'));
   assert.ok(ntfyText.includes('حقيبة تكنو PROBAG-04'));
   assert.ok(ntfyText.includes('12,500 د.ج'));
+});
+
+test('buildLoyaltyCardTelegramMessage safely masks phone number to protect bot against bans', () => {
+  const data = {
+    customerName: 'محمد زكي',
+    customerPhone: '0560154663',
+    hasPurchased: true,
+    ordersCount: 3,
+    totalSpent: 4500,
+    cardNumber: '03-8815-4602-2612',
+  };
+  const tgMsg = buildLoyaltyCardTelegramMessage(data, 'https://ntfy.sh/test-topic');
+
+  // Phone must be masked
+  assert.ok(tgMsg.includes('05 •• •• •• 63'));
+  assert.ok(!tgMsg.includes('0560154663')); // Raw phone must NOT be present
+  assert.ok(tgMsg.includes('محمد زكي'));
+  assert.ok(tgMsg.includes('اشترى سابقاً (3 طلبات'));
+  assert.ok(tgMsg.includes('03-8815-4602-2612'));
+  assert.ok(tgMsg.includes('https://ntfy.sh/test-topic'));
+});
+
+test('buildLoyaltyCardNtfyMessage contains complete unmasked phone number and full data', () => {
+  const data = {
+    customerName: 'محمد زكي',
+    customerPhone: '0560154663',
+    hasPurchased: false,
+    ordersCount: 0,
+    totalSpent: 0,
+    cardNumber: '03-8815-4602-2612',
+  };
+  const ntfyMsg = buildLoyaltyCardNtfyMessage(data);
+
+  // Full unmasked phone must be present in Ntfy
+  assert.ok(ntfyMsg.includes('0560154663'));
+  assert.ok(ntfyMsg.includes('محمد زكي'));
+  assert.ok(ntfyMsg.includes('زبون جديد'));
+  assert.ok(ntfyMsg.includes('03-8815-4602-2612'));
 });
