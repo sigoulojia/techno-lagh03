@@ -190,6 +190,16 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
     setCard(activation.card);
     setSixDigitPin('');
     setSixDigitPinConfirm('');
+
+    // Sync PIN activation to backend so status becomes 'active' in KV
+    try {
+      fetch('https://techno-laghouat-backend.hotel-saharien.workers.dev/api/loyalty/pin-set', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: card.customerPhone }),
+      }).catch(() => {});
+    } catch {}
+
     setFeedback({
       type: 'success',
       message: 'تم تفعيل بطاقتك بنجاح! تم كشف البطاقة والباركود بالكامل، يمكنك الآن استخدامها وحفظ بياناتها.',
@@ -214,7 +224,7 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
   // ─────────────────────────────────────────────────────────────────────────
   // 4. Quick Retrieval Flow (استرجاع البطاقة برقم الهاتف ثم الرمز السري 6 أرقام)
   // ─────────────────────────────────────────────────────────────────────────
-  const handleCheckPhoneForRetrieval = (e: React.FormEvent) => {
+  const handleCheckPhoneForRetrieval = async (e: React.FormEvent) => {
     e.preventDefault();
     setFeedback(null);
 
@@ -227,7 +237,37 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
       return;
     }
 
+    // 1. Check local registry
     const res = retrieveCardByPhone(cleanPhone);
+
+    // 2. Also check real-time status from server
+    let serverStatus: string | null = null;
+    try {
+      const serverRes = await fetch(
+        `https://techno-laghouat-backend.hotel-saharien.workers.dev/api/loyalty/status?phone=${encodeURIComponent(cleanPhone)}`
+      );
+      if (serverRes.ok) {
+        const sData: any = await serverRes.json();
+        if (sData?.exists && sData.status) {
+          serverStatus = sData.status;
+        }
+      }
+    } catch {}
+
+    const effectiveStatus = serverStatus || res.card?.status;
+
+    // Handle disabled/suspended card by admin
+    if (effectiveStatus === 'disabled' || res.card?.status === 'disabled') {
+      if (res.card) {
+        res.card.status = 'disabled';
+      }
+      setFeedback({
+        type: 'error',
+        message: 'تم تعطيل / تعليق هذه البطاقة من طرف إدارة متجر تكنو الأغواط. يرجى مراجعة الفرع أو الإدارة للاستفسار.',
+      });
+      return;
+    }
+
     if (!res.exists || !res.card) {
       setFeedback({
         type: 'error',
@@ -236,8 +276,8 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
       return;
     }
 
-    if (res.card.status === 'pending') {
-      setCard(res.card);
+    if (effectiveStatus === 'pending' || res.card.status === 'pending') {
+      setCard({ ...res.card, status: 'pending' });
       setViewMode('main');
       setFeedback({
         type: 'info',
@@ -246,8 +286,8 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
       return;
     }
 
-    if (res.card.status === 'approved_pending_pin') {
-      setCard(res.card);
+    if (effectiveStatus === 'approved_pending_pin' || res.card.status === 'approved_pending_pin') {
+      setCard({ ...res.card, status: 'approved_pending_pin' });
       setViewMode('main');
       setFeedback({
         type: 'info',

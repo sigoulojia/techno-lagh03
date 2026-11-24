@@ -6,7 +6,8 @@ export type LoyaltyCardStatus =
   | 'unregistered'
   | 'pending'
   | 'approved_pending_pin'
-  | 'active';
+  | 'active'
+  | 'disabled';
 
 export interface LoyaltyTierInfo {
   id: LoyaltyTierId;
@@ -502,6 +503,15 @@ export function unlockCardWithPin(
   }
 
   const card = retrieval.card;
+
+  // If card is disabled by admin
+  if (card.status === 'disabled') {
+    return {
+      success: false,
+      card,
+      error: 'تم تعطيل / تعليق هذه البطاقة من طرف إدارة متجر تكنو الأغواط. يرجى مراجعة الفرع أو الإدارة للاستفسار.',
+    };
+  }
 
   // If card is still pending approval
   if (card.status === 'pending') {

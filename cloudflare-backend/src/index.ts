@@ -1938,7 +1938,57 @@ export default {
             }
             return new Response(null, {
               status: 302,
-              headers: { Location: basePath, ...responseHeaders },
+              headers: { Location: `${basePath}?tab=cards`, ...responseHeaders },
+            });
+          }
+        }
+
+        if (action === 'disable_loyalty') {
+          const targetPhone = url.searchParams.get('phone') || '';
+          if (targetPhone) {
+            const rawReqs = await env.techno_products_kv.get('loyalty_requests');
+            const reqs = rawReqs ? JSON.parse(rawReqs) : [];
+            const idx = reqs.findIndex((r: any) => r.customerPhone === targetPhone);
+            if (idx >= 0) {
+              reqs[idx].status = 'disabled';
+              reqs[idx].disabledAt = new Date().toISOString();
+              await env.techno_products_kv.put('loyalty_requests', JSON.stringify(reqs));
+            }
+            return new Response(null, {
+              status: 302,
+              headers: { Location: `${basePath}?tab=cards`, ...responseHeaders },
+            });
+          }
+        }
+
+        if (action === 'enable_loyalty') {
+          const targetPhone = url.searchParams.get('phone') || '';
+          if (targetPhone) {
+            const rawReqs = await env.techno_products_kv.get('loyalty_requests');
+            const reqs = rawReqs ? JSON.parse(rawReqs) : [];
+            const idx = reqs.findIndex((r: any) => r.customerPhone === targetPhone);
+            if (idx >= 0) {
+              reqs[idx].status = reqs[idx].hasPin ? 'active' : 'approved_pending_pin';
+              delete reqs[idx].disabledAt;
+              await env.techno_products_kv.put('loyalty_requests', JSON.stringify(reqs));
+            }
+            return new Response(null, {
+              status: 302,
+              headers: { Location: `${basePath}?tab=cards`, ...responseHeaders },
+            });
+          }
+        }
+
+        if (action === 'delete_loyalty') {
+          const targetPhone = url.searchParams.get('phone') || '';
+          if (targetPhone) {
+            const rawReqs = await env.techno_products_kv.get('loyalty_requests');
+            let reqs = rawReqs ? JSON.parse(rawReqs) : [];
+            reqs = reqs.filter((r: any) => r.customerPhone !== targetPhone);
+            await env.techno_products_kv.put('loyalty_requests', JSON.stringify(reqs));
+            return new Response(null, {
+              status: 302,
+              headers: { Location: `${basePath}?tab=cards`, ...responseHeaders },
             });
           }
         }
@@ -2264,46 +2314,129 @@ export default {
         }
       }
 
-      // Render Loyalty Card Requests Block (if any exist)
-      let loyaltyHtml = '';
+      // Tab handling: 'orders' or 'cards'
+      const currentTab = url.searchParams.get('tab') || 'orders';
+
+      // Read Loyalty Card Requests/Cards from KV
+      let reqs: any[] = [];
       if (env.techno_products_kv) {
         try {
           const rawReqs = await env.techno_products_kv.get('loyalty_requests');
-          const reqs = rawReqs ? JSON.parse(rawReqs) : [];
-          if (Array.isArray(reqs) && reqs.length > 0) {
-            loyaltyHtml = `
-            <div style="background:#FFFFFF; border-radius:18px; border:1px solid #E2E8F0; padding:18px; margin-bottom:20px; box-shadow:0 2px 8px rgba(0,0,0,0.02);">
-              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                <h2 style="font-size:15px; font-weight:700; color:#0F172A;">طلبات بطاقات الوفاء VIP (${reqs.length})</h2>
-                <span style="font-size:11.5px; color:#64748B;">اعتماد وتفعيل بطاقات الزبائن</span>
-              </div>
-              <div style="display:flex; flex-direction:column; gap:10px;">
-                ${reqs.map((r: any) => `
-                  <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; padding:12px 14px; background:#F8FAFC; border-radius:12px; border:1px solid #E2E8F0; font-size:13px;">
+          reqs = rawReqs ? JSON.parse(rawReqs) : [];
+        } catch {}
+      }
+      if (!Array.isArray(reqs)) reqs = [];
+
+      const pendingCardsCount = reqs.filter((r: any) => r.status === 'pending').length;
+      const activeCardsCount = reqs.filter((r: any) => r.status === 'active' || r.status === 'approved_pending_pin').length;
+      const disabledCardsCount = reqs.filter((r: any) => r.status === 'disabled').length;
+
+      // Cards View Content
+      let cardsContent = '';
+      if (reqs.length === 0) {
+        cardsContent = `
+          <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 18px; padding: 48px 20px; text-align: center;">
+            <div style="font-size: 40px; margin-bottom: 12px;">💳</div>
+            <h3 style="color: #1E293B; font-size: 17px; font-weight: bold; margin-bottom: 6px;">لا توجد أي بطاقات مسجلة حالياً</h3>
+            <p style="color: #64748B; font-size: 13.5px; max-width: 380px; margin: 0 auto; line-height: 1.6;">
+              عندما يطلب أي زبون بطاقة وفاء VIP من الموقع، سيظهر طلبه هنا فوراً مع سجل مشترياته لاعتمادها أو تفعيلها أو تعطيلها.
+            </p>
+          </div>`;
+      } else {
+        cardsContent = `
+          <div style="margin-bottom:16px; display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap:10px;">
+            <div style="background:#FFFFFF; border:1px solid #E2E8F0; border-radius:14px; padding:12px 14px; text-align:center;">
+              <div style="font-size:11px; color:#64748B; font-weight:600;">إجمالي البطاقات</div>
+              <div style="font-size:20px; font-weight:800; color:#0F172A; margin-top:2px;">${reqs.length}</div>
+            </div>
+            <div style="background:#FFFFFF; border:1px solid #E2E8F0; border-radius:14px; padding:12px 14px; text-align:center;">
+              <div style="font-size:11px; color:#047857; font-weight:600;">مفعلة ونشطة</div>
+              <div style="font-size:20px; font-weight:800; color:#047857; margin-top:2px;">${activeCardsCount}</div>
+            </div>
+            <div style="background:#FEF2F2; border:1px solid #FECACA; border-radius:14px; padding:12px 14px; text-align:center;">
+              <div style="font-size:11px; color:#DC2626; font-weight:600;">معطلة من الإدارة</div>
+              <div style="font-size:20px; font-weight:800; color:#DC2626; margin-top:2px;">${disabledCardsCount}</div>
+            </div>
+            <div style="background:#FFFBEB; border:1px solid #FDE68A; border-radius:14px; padding:12px 14px; text-align:center;">
+              <div style="font-size:11px; color:#B45309; font-weight:600;">بانتظار الموافقة</div>
+              <div style="font-size:20px; font-weight:800; color:#B45309; margin-top:2px;">${pendingCardsCount}</div>
+            </div>
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:12px;">
+            ${reqs.map((r: any) => {
+              const isPending = r.status === 'pending';
+              const isApprovedPendingPin = r.status === 'approved_pending_pin';
+              const isActive = r.status === 'active';
+              const isDisabled = r.status === 'disabled';
+
+              let statusBadge = '';
+              if (isDisabled) {
+                statusBadge = '<span style="background:#FEF2F2; color:#DC2626; border:1px solid #FECACA; padding:3px 10px; border-radius:20px; font-weight:700; font-size:12px;">🚫 معطلة من الإدارة</span>';
+              } else if (isActive) {
+                statusBadge = '<span style="background:#ECFDF5; color:#047857; border:1px solid #A7F3D0; padding:3px 10px; border-radius:20px; font-weight:700; font-size:12px;">✅ نشطة ومفعلة</span>';
+              } else if (isApprovedPendingPin) {
+                statusBadge = '<span style="background:#EFF6FF; color:#1D4ED8; border:1px solid #BFDBFE; padding:3px 10px; border-radius:20px; font-weight:700; font-size:12px;">🔑 معتمدة (بانتظار PIN)</span>';
+              } else {
+                statusBadge = '<span style="background:#FFFBEB; color:#B45309; border:1px solid #FDE68A; padding:3px 10px; border-radius:20px; font-weight:700; font-size:12px;">⏳ قيد الانتظار</span>';
+              }
+
+              return `
+                <div style="background:#FFFFFF; border-radius:18px; border:1px solid ${isDisabled ? '#FECACA' : '#E2E8F0'}; padding:16px 18px; box-shadow:0 2px 8px rgba(0,0,0,0.02);">
+                  <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px; margin-bottom:12px; border-bottom:1px solid #F1F5F9; padding-bottom:12px;">
                     <div>
-                      <span style="font-weight:700; color:#0F172A;">${escapeHtml(r.customerName)}</span> · 
-                      <span style="font-family:monospace; color:#334155;">${escapeHtml(r.customerPhone)}</span>
-                      <div style="display:flex; align-items:center; gap:8px; margin-top:4px; font-size:11px;">
-                        ${r.hasPurchased
-                          ? `<span style="background:#ECFDF5; color:#047857; border:1px solid #A7F3D0; padding:2px 8px; border-radius:6px; font-weight:700;">اشترى سابقاً (${r.ordersCount || 1} طلبات)</span>`
-                          : `<span style="background:#F1F5F9; color:#64748B; border:1px solid #CBD5E1; padding:2px 8px; border-radius:6px;">زبون جديد</span>`
-                        }
-                        <span style="color:#64748B;">الحالة: ${r.status === 'approved_pending_pin' || r.status === 'active' ? '<b style="color:#047857;">معتمدة (بانتظار PIN)</b>' : '<b style="color:#B45309;">قيد الانتظار</b>'}</span>
+                      <div style="font-size:16px; font-weight:700; color:#0F172A; display:flex; align-items:center; gap:8px;">
+                        <span>${escapeHtml(r.customerName)}</span>
+                        ${statusBadge}
+                      </div>
+                      <div style="margin-top:4px; font-size:13px; color:#475569; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                        <span>📞 <a href="tel:${escapeHtml(r.customerPhone)}" style="color:#0284C7; font-weight:600; text-decoration:none; font-family:monospace;">${escapeHtml(r.customerPhone)}</a></span>
+                        <span>·</span>
+                        <span style="font-family:monospace; color:#334155; font-weight:700;">💳 ${escapeHtml(r.cardNumber || 'لم يحدد بعد')}</span>
                       </div>
                     </div>
                     <div>
-                      ${r.status === 'pending'
-                        ? `<a href="${basePath}?action=approve_loyalty&phone=${encodeURIComponent(r.customerPhone)}" class="btn-action btn-confirm" style="font-size:12px; padding:6px 14px;">تفعيل البطاقة</a>`
-                        : `<span style="color:#047857; font-weight:700; font-size:12px;">تم التفعيل</span>`
+                      ${r.hasPurchased
+                        ? `<span style="background:#ECFDF5; color:#047857; border:1px solid #A7F3D0; padding:4px 10px; border-radius:8px; font-size:11.5px; font-weight:700;">اشترى سابقاً (${r.ordersCount || 1} طلبات - ${(r.totalSpent || 0).toLocaleString('ar-DZ')} دج)</span>`
+                        : `<span style="background:#F1F5F9; color:#64748B; border:1px solid #CBD5E1; padding:4px 10px; border-radius:8px; font-size:11.5px;">زبون جديد</span>`
                       }
                     </div>
                   </div>
-                `).join('')}
-              </div>
-            </div>
-            `;
-          }
-        } catch {}
+
+                  <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                    <div style="font-size:11.5px; color:#94A3B8;">
+                      ${r.requestedAt ? `تاريخ الطلب: ${new Date(r.requestedAt).toLocaleString('ar-DZ')}` : ''}
+                      ${r.disabledAt ? ` · <span style="color:#DC2626; font-weight:600;">تم التعطيل بواسطة الإدارة</span>` : ''}
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                      <a href="tel:${escapeHtml(r.customerPhone)}" style="background:#F1F5F9; color:#334155; text-decoration:none; padding:7px 12px; border-radius:10px; font-size:12px; font-weight:700;">📞 اتصال</a>
+
+                      ${isPending ? `
+                        <a href="${basePath}?action=approve_loyalty&phone=${encodeURIComponent(r.customerPhone)}" class="btn-action btn-confirm" style="font-size:12px; padding:7px 14px;">✅ تفعيل البطاقة</a>
+                      ` : ''}
+
+                      ${(isActive || isApprovedPendingPin) ? `
+                        <a href="${basePath}?action=disable_loyalty&phone=${encodeURIComponent(r.customerPhone)}" onclick="return confirm('⚠️ هل أنت متأكد من تعطيل بطاقة الزبون (${escapeHtml(r.customerName)})؟ سيتم إيقافها فوراً ولن يتمكن من استخدامها أو إظهارها حتى تعيد تفعيلها.')" style="background:#FEF2F2; color:#DC2626; border:1px solid #FECACA; text-decoration:none; padding:7px 14px; border-radius:10px; font-size:12px; font-weight:700;">
+                          🚫 تعطيل البطاقة
+                        </a>
+                      ` : ''}
+
+                      ${isDisabled ? `
+                        <a href="${basePath}?action=enable_loyalty&phone=${encodeURIComponent(r.customerPhone)}" style="background:#ECFDF5; color:#047857; border:1px solid #A7F3D0; text-decoration:none; padding:7px 14px; border-radius:10px; font-size:12px; font-weight:700;">
+                          🔄 إعادة تفعيل البطاقة
+                        </a>
+                      ` : ''}
+
+                      <a href="${basePath}?action=delete_loyalty&phone=${encodeURIComponent(r.customerPhone)}" onclick="return confirm('هل تريد حذف سجل هذه البطاقة نهائياً؟')" style="background:#F1F5F9; color:#94A3B8; text-decoration:none; padding:7px 12px; border-radius:10px; font-size:12px; font-weight:600;">
+                        🗑️
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `;
       }
 
       const html = `<!DOCTYPE html>
@@ -2515,12 +2648,12 @@ export default {
   <div class="container">
     <div class="top-bar">
       <div>
-        <h1 class="top-title">📋 إدارة طلبات متجر تكنو الأغواط</h1>
-        <div class="top-subtitle">الطلبات المسجلة: <b>${ordersList.length}</b> طلب</div>
+        <h1 class="top-title">${currentTab === 'cards' ? '💳 قسم بطاقات الوفاء VIP' : '📋 إدارة متجر تكنو الأغواط'}</h1>
+        <div class="top-subtitle">${currentTab === 'cards' ? `إجمالي البطاقات: <b>${reqs.length}</b> (${activeCardsCount} مفعلة · ${disabledCardsCount} معطلة)` : `الطلبات المسجلة: <b>${ordersList.length}</b> طلب`}</div>
       </div>
       <div class="top-actions">
         ${
-          ordersList.length > 0
+          currentTab === 'orders' && ordersList.length > 0
             ? `<a href="${basePath}?action=delete_all" onclick="return confirm('⚠️ هل أنت متأكد من حذف جميع الطلبات (${ordersList.length})؟ لا يمكن استرجاعها بعد الحذف.')" class="btn-delete-all">
                 🗑️ حذف كل الطلبات
               </a>`
@@ -2530,8 +2663,18 @@ export default {
       </div>
     </div>
 
-    ${loyaltyHtml}
-    ${mainContent}
+    <!-- Navigation Tabs between Orders and Cards -->
+    <div style="display:flex; gap:10px; margin-bottom:20px;">
+      <a href="${basePath}?tab=orders" style="flex:1; text-align:center; padding:12px; border-radius:14px; text-decoration:none; font-weight:700; font-size:14px; transition:all 0.2s; ${currentTab === 'orders' ? 'background:#0F172A; color:#FFFFFF; box-shadow:0 4px 12px rgba(15,23,42,0.15);' : 'background:#FFFFFF; color:#64748B; border:1px solid #E2E8F0;'}">
+        📦 الطلبات (${ordersList.length})
+      </a>
+      <a href="${basePath}?tab=cards" style="flex:1; text-align:center; padding:12px; border-radius:14px; text-decoration:none; font-weight:700; font-size:14px; transition:all 0.2s; ${currentTab === 'cards' ? 'background:#0F172A; color:#FFFFFF; box-shadow:0 4px 12px rgba(15,23,42,0.15);' : 'background:#FFFFFF; color:#64748B; border:1px solid #E2E8F0;'}">
+        💳 قسم البطاقات (${reqs.length})
+        ${pendingCardsCount > 0 ? `<span style="background:#EF4444; color:#fff; font-size:10.5px; padding:2px 7px; border-radius:10px; margin-right:4px;">${pendingCardsCount} بانتظار الاعتماد</span>` : ''}
+      </a>
+    </div>
+
+    ${currentTab === 'cards' ? cardsContent : mainContent}
   </div>
 </body>
 </html>`;
@@ -2606,7 +2749,52 @@ export default {
       const reqs = rawReqs ? JSON.parse(rawReqs) : [];
       const item = reqs.find((r: any) => r.customerPhone === phone);
       if (!item) return jsonResponse({ exists: false });
-      return jsonResponse({ exists: true, request: item });
+      return jsonResponse({ exists: true, status: item.status, request: item });
+    }
+
+    // 9a-loyalty. POST /api/loyalty/pin-set (Customer finished setting 6-digit PIN)
+    if (url.pathname === '/api/loyalty/pin-set' && request.method === 'POST') {
+      try {
+        const body: any = await request.json();
+        const phone = (body.phone || '').trim();
+        if (phone && env.techno_products_kv) {
+          const rawReqs = await env.techno_products_kv.get('loyalty_requests');
+          const reqs = rawReqs ? JSON.parse(rawReqs) : [];
+          const idx = reqs.findIndex((r: any) => r.customerPhone === phone);
+          if (idx >= 0) {
+            reqs[idx].status = 'active';
+            reqs[idx].hasPin = true;
+            reqs[idx].activatedAt = new Date().toISOString();
+            await env.techno_products_kv.put('loyalty_requests', JSON.stringify(reqs));
+            return jsonResponse({ success: true, status: 'active' });
+          }
+        }
+        return jsonResponse({ error: 'Card not found' }, 404);
+      } catch (err: any) {
+        return jsonResponse({ error: err?.message }, 500);
+      }
+    }
+
+    // 9a-loyalty. POST /api/loyalty/disable (Disable customer card)
+    if (url.pathname === '/api/loyalty/disable' && request.method === 'POST') {
+      try {
+        const body: any = await request.json();
+        const phone = (body.phone || '').trim();
+        if (phone && env.techno_products_kv) {
+          const rawReqs = await env.techno_products_kv.get('loyalty_requests');
+          const reqs = rawReqs ? JSON.parse(rawReqs) : [];
+          const idx = reqs.findIndex((r: any) => r.customerPhone === phone);
+          if (idx >= 0) {
+            reqs[idx].status = 'disabled';
+            reqs[idx].disabledAt = new Date().toISOString();
+            await env.techno_products_kv.put('loyalty_requests', JSON.stringify(reqs));
+            return jsonResponse({ success: true, status: 'disabled' });
+          }
+        }
+        return jsonResponse({ error: 'Card not found' }, 404);
+      } catch (err: any) {
+        return jsonResponse({ error: err?.message }, 500);
+      }
     }
 
     // 9a-loyalty. POST /api/loyalty/approve
