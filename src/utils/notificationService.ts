@@ -542,11 +542,17 @@ export function createSampleTestOrder(): SavedOrder {
 
 export interface LoyaltyCardRequestNotificationData {
   customerName: string;
+  firstName?: string;
+  lastName?: string;
   customerPhone: string;
+  customerAddress?: string;
+  customerEmail?: string;
+  customerProfession?: string;
+  customerBirthDate?: string;
   hasPurchased: boolean;
   ordersCount: number;
   totalSpent: number;
-  cardNumber: string;
+  cardNumber?: string;
 }
 
 /**
@@ -562,8 +568,23 @@ export function buildLoyaltyCardTelegramMessage(
     : 'زبون جديد (لم يسجل طلبيات سابقة في المتجر)';
 
   const safePhone = maskPhoneNumber(data.customerPhone);
+  const fullName = [data.firstName, data.lastName].filter(Boolean).join(' ') || data.customerName;
 
-  return `طلب جديد لإصدار بطاقة وفاء VIP — فرع تكنو الأغواط 03\n\n• الاسم الكامل: ${data.customerName}\n• رقم الهاتف: ${safePhone} (محمي لمنع الحظر)\n• سجل الشراء: ${purchaseStatusText}\n• رقم البطاقة: ${data.cardNumber}\n• الحالة: قيد الانتظار والمعالجة\n\nلرؤية رقم الهاتف الكامل وباقي البيانات غير المقنعة:\nقناة Ntfy المباشرة: ${ntfyUrl}\nلوحة التحكم للاعتماد: https://techno-laghouat.pages.dev/admin/orders`;
+  return [
+    `طلب جديد لإصدار بطاقة وفاء VIP — فرع تكنو الأغواط 03`,
+    `--------------------------------------`,
+    `• الاسم واللقب: ${fullName}`,
+    `• رقم الهاتف: ${safePhone} (محمي لمنع الحظر)`,
+    `• العنوان السكني: ${data.customerAddress || 'غير محدد'}`,
+    `• البريد الإلكتروني: ${data.customerEmail || 'غير محدد'}`,
+    `• المهنة / الوظيفة: ${data.customerProfession || 'غير محدد'}`,
+    `• تاريخ الميلاد: ${data.customerBirthDate || 'غير محدد'}`,
+    `• سجل الشراء بالمتجر: ${purchaseStatusText}`,
+    `--------------------------------------`,
+    `⚠️ تنبيه: رقم البطاقة يجب إدخاله يدوياً من طرف مالك المحل عند الموافقة.`,
+    `قناة Ntfy المباشرة (البيانات كاملة): ${ntfyUrl}`,
+    `لوحة التحكم للاعتماد وتعيين رقم البطاقة: https://techno-laghouat.pages.dev/admin/orders?tab=cards`,
+  ].join('\n');
 }
 
 /**
@@ -577,7 +598,23 @@ export function buildLoyaltyCardNtfyMessage(
     ? `اشترى سابقاً (${data.ordersCount} طلبات - بمجموع ${data.totalSpent.toLocaleString('ar-DZ')} دج)`
     : 'زبون جديد (لم يسجل طلبيات سابقة في المتجر)';
 
-  return `طلب بطاقة وفاء VIP جديدة — فرع تكنو الأغواط 03\n\n• الاسم الكامل: ${data.customerName}\n• رقم الهاتف الكامل: ${data.customerPhone}\n• سجل الشراء: ${purchaseStatusText}\n• رقم البطاقة: ${data.cardNumber}\n• الحالة: قيد الانتظار والمعالجة\n\nلوحة التحكم المباشرة للاعتماد:\nhttps://techno-laghouat.pages.dev/admin/orders`;
+  const fullName = [data.firstName, data.lastName].filter(Boolean).join(' ') || data.customerName;
+
+  return [
+    `طلب بطاقة وفاء VIP جديدة — فرع تكنو الأغواط 03`,
+    `--------------------------------------`,
+    `• الاسم واللقب: ${fullName}`,
+    `• رقم الهاتف المباشر: ${data.customerPhone}`,
+    `• العنوان السكني: ${data.customerAddress || 'غير محدد'}`,
+    `• البريد الإلكتروني: ${data.customerEmail || 'غير محدد'}`,
+    `• المهنة / الوظيفة: ${data.customerProfession || 'غير محدد'}`,
+    `• تاريخ الميلاد: ${data.customerBirthDate || 'غير محدد'}`,
+    `• سجل الشراء: ${purchaseStatusText}`,
+    `--------------------------------------`,
+    `⚠️ مطلوب: الدخول للوحة التحكم، كتابة رقم البطاقة يدوياً، والموافقة على الطلب.`,
+    `لوحة التحكم المباشرة للاعتماد:`,
+    `https://techno-laghouat.pages.dev/admin/orders?tab=cards`,
+  ].join('\n');
 }
 
 /**

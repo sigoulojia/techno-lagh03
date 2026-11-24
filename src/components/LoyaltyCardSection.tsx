@@ -46,9 +46,14 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
   // View Mode: 'main' (Card & details) or 'retrieve' (Phone & PIN unlock)
   const [viewMode, setViewMode] = useState<'main' | 'retrieve'>('main');
 
-  // Registration / Request inputs
-  const [requestName, setRequestName] = useState('');
-  const [requestPhone, setRequestPhone] = useState('');
+  // Registration / Request inputs (7 required fields)
+  const [reqFirstName, setReqFirstName] = useState('');
+  const [reqLastName, setReqLastName] = useState('');
+  const [reqPhone, setReqPhone] = useState('');
+  const [reqAddress, setReqAddress] = useState('');
+  const [reqEmail, setReqEmail] = useState('');
+  const [reqProfession, setReqProfession] = useState('');
+  const [reqBirthDate, setReqBirthDate] = useState('');
 
   // 6-Digit PIN setting inputs (for approved_pending_pin)
   const [sixDigitPin, setSixDigitPin] = useState('');
@@ -83,8 +88,15 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
         if (data?.exists && data.status === 'approved_pending_pin') {
           const approvedCard: LoyaltyCardData = {
             ...card,
+            cardNumber: data.request?.cardNumber || card.cardNumber,
             customerPhone: card.customerPhone,
             customerName: data.request?.customerName || card.customerName,
+            firstName: data.request?.firstName || card.firstName,
+            lastName: data.request?.lastName || card.lastName,
+            customerAddress: data.request?.customerAddress || card.customerAddress,
+            customerEmail: data.request?.customerEmail || card.customerEmail,
+            customerProfession: data.request?.customerProfession || card.customerProfession,
+            customerBirthDate: data.request?.customerBirthDate || card.customerBirthDate,
             status: 'approved_pending_pin',
             approvedAt: data.request?.approvedAt || new Date().toISOString(),
           };
@@ -92,7 +104,7 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
           setCard(approvedCard);
           setFeedback({
             type: 'success',
-            message: 'تمت موافقة الإدارة على تفعيل بطاقتك بنجاح! يرجى الآن تعيين رمزك السري (6 أرقام) لإظهارها كاملة.',
+            message: 'تمت موافقة الإدارة وتعيين رقم بطاقتك بنجاح! يرجى الآن تعيين رمزك السري (6 أرقام) لإظهارها كاملة.',
           });
         }
       } catch {}
@@ -142,20 +154,29 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
     viewMode !== 'retrieve';
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 1. Submit Card Activation Request (الاسم الكامل + رقم الهاتف)
+  // 1. Submit Card Activation Request (الاسم واللقب، الهاتف، العنوان، الإيميل، المهنة، تاريخ الميلاد)
   // ─────────────────────────────────────────────────────────────────────────
   const handleRequestActivation = async (e: React.FormEvent) => {
     e.preventDefault();
     setFeedback(null);
 
-    const cleanName = requestName.trim();
-    const cleanPhone = requestPhone.trim();
+    const cleanFirstName = reqFirstName.trim();
+    const cleanLastName = reqLastName.trim();
+    const cleanPhone = reqPhone.trim();
+    const cleanAddress = reqAddress.trim();
+    const cleanEmail = reqEmail.trim();
+    const cleanProfession = reqProfession.trim();
+    const cleanBirthDate = reqBirthDate.trim();
+    const cleanFullName = `${cleanFirstName} ${cleanLastName}`.trim();
 
-    if (!cleanName) {
-      setFeedback({ type: 'error', message: 'يرجى كتابة الاسم الكامل لصاحب البطاقة' });
+    if (!cleanFirstName) {
+      setFeedback({ type: 'error', message: 'يرجى كتابة الاسم الشخصي لصاحب البطاقة' });
       return;
     }
-
+    if (!cleanLastName) {
+      setFeedback({ type: 'error', message: 'يرجى كتابة اللقب العائلي' });
+      return;
+    }
     if (!/^(05|06|07)\d{8}$/.test(cleanPhone)) {
       setFeedback({
         type: 'error',
@@ -163,17 +184,51 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
       });
       return;
     }
+    if (!cleanAddress) {
+      setFeedback({ type: 'error', message: 'يرجى إدخال العنوان السكني الكامل (المدينة / الحي)' });
+      return;
+    }
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      setFeedback({ type: 'error', message: 'يرجى إدخال بريد إلكتروني صحيح ومفعل' });
+      return;
+    }
+    if (!cleanProfession) {
+      setFeedback({ type: 'error', message: 'يرجى كتابة المهنة أو الوظيفة' });
+      return;
+    }
+    if (!cleanBirthDate) {
+      setFeedback({ type: 'error', message: 'يرجى تحديد تاريخ الميلاد' });
+      return;
+    }
 
     setIsSubmitting(true);
     try {
       // Step A: Process activation request and check purchase history in orders
-      const result = requestCardActivation(cleanName, cleanPhone, savedOrders);
+      const result = requestCardActivation(
+        {
+          firstName: cleanFirstName,
+          lastName: cleanLastName,
+          phone: cleanPhone,
+          address: cleanAddress,
+          email: cleanEmail,
+          profession: cleanProfession,
+          birthDate: cleanBirthDate,
+          fullName: cleanFullName,
+        },
+        savedOrders
+      );
       setCard(result.card);
 
       // Step B: Send notification to store owner's Telegram bots and ntfy
       await sendLoyaltyCardRequestNotification({
-        customerName: cleanName,
+        customerName: cleanFullName,
+        firstName: cleanFirstName,
+        lastName: cleanLastName,
         customerPhone: cleanPhone,
+        customerAddress: cleanAddress,
+        customerEmail: cleanEmail,
+        customerProfession: cleanProfession,
+        customerBirthDate: cleanBirthDate,
         hasPurchased: result.hasPurchased,
         ordersCount: result.ordersCount,
         totalSpent: result.totalSpent,
@@ -186,12 +241,18 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            customerName: cleanName,
+            customerName: cleanFullName,
+            firstName: cleanFirstName,
+            lastName: cleanLastName,
             customerPhone: cleanPhone,
+            customerAddress: cleanAddress,
+            customerEmail: cleanEmail,
+            customerProfession: cleanProfession,
+            customerBirthDate: cleanBirthDate,
             hasPurchased: result.hasPurchased,
             ordersCount: result.ordersCount,
             totalSpent: result.totalSpent,
-            cardNumber: result.card.cardNumber,
+            cardNumber: '',
           }),
         });
       } catch {
@@ -201,10 +262,15 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
       setFeedback({
         type: 'success',
         message:
-          'تم استلام طلبك بنجاح! لقد دخلت في قائمة الانتظار والمعالجة. نتحقق حالياً من سجل مشترياتك في فرع الأغواط لتفعيل بطاقتك.',
+          'تم استلام طلبك بنجاح! تم إرسال معلوماتك إلى إدارة المتجر لمعالجة طلبك وإصدار بطاقتك وتعيين رقمها يدوياً.',
       });
-      setRequestName('');
-      setRequestPhone('');
+      setReqFirstName('');
+      setReqLastName('');
+      setReqPhone('');
+      setReqAddress('');
+      setReqEmail('');
+      setReqProfession('');
+      setReqBirthDate('');
     } catch (err: any) {
       setFeedback({ type: 'error', message: err?.message || 'حدث خطأ أثناء إرسال الطلب' });
     } finally {
@@ -302,8 +368,15 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
       if (data.status === 'approved_pending_pin') {
         const approvedCard: LoyaltyCardData = {
           ...card,
+          cardNumber: data.request?.cardNumber || card.cardNumber,
           customerPhone: cleanPhone,
           customerName: data.request?.customerName || card.customerName,
+          firstName: data.request?.firstName || card.firstName,
+          lastName: data.request?.lastName || card.lastName,
+          customerAddress: data.request?.customerAddress || card.customerAddress,
+          customerEmail: data.request?.customerEmail || card.customerEmail,
+          customerProfession: data.request?.customerProfession || card.customerProfession,
+          customerBirthDate: data.request?.customerBirthDate || card.customerBirthDate,
           status: 'approved_pending_pin',
           approvedAt: data.request?.approvedAt || new Date().toISOString(),
         };
@@ -311,7 +384,7 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
         setCard(approvedCard);
         setFeedback({
           type: 'success',
-          message: 'تمت موافقة الإدارة على تفعيل بطاقتك بنجاح! يرجى الآن تعيين رمزك السري (6 أرقام) لإظهارها كاملة.',
+          message: 'تمت موافقة الإدارة وتعيين رقم بطاقتك بنجاح! يرجى الآن تعيين رمزك السري (6 أرقام) لإظهارها كاملة.',
         });
         return;
       }
@@ -445,13 +518,25 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
     }
 
     if (effectiveStatus === 'approved_pending_pin') {
-      const approvedCard: LoyaltyCardData = { ...targetCard, status: 'approved_pending_pin' };
+      const approvedCard: LoyaltyCardData = {
+        ...targetCard,
+        cardNumber: serverRequestData?.cardNumber || targetCard.cardNumber,
+        customerName: serverRequestData?.customerName || targetCard.customerName,
+        firstName: serverRequestData?.firstName || targetCard.firstName,
+        lastName: serverRequestData?.lastName || targetCard.lastName,
+        customerAddress: serverRequestData?.customerAddress || targetCard.customerAddress,
+        customerEmail: serverRequestData?.customerEmail || targetCard.customerEmail,
+        customerProfession: serverRequestData?.customerProfession || targetCard.customerProfession,
+        customerBirthDate: serverRequestData?.customerBirthDate || targetCard.customerBirthDate,
+        status: 'approved_pending_pin',
+        approvedAt: serverRequestData?.approvedAt || targetCard.approvedAt || new Date().toISOString(),
+      };
       saveLoyaltyCard(approvedCard);
       setCard(approvedCard);
       setViewMode('main');
       setFeedback({
         type: 'success',
-        message: 'تمت موافقة الإدارة على تفعيل بطاقتك بنجاح! يرجى الآن تعيين رمزك السري (6 أرقام) لإظهارها كاملة.',
+        message: 'تمت موافقة الإدارة وتعيين رقم بطاقتك بنجاح! يرجى الآن تعيين رمزك السري (6 أرقام) لإظهارها كاملة.',
       });
       return;
     }
@@ -697,10 +782,10 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
                 <div className="flex items-center justify-between border-b border-stone-800 pb-4">
                   <div>
                     <h3 className="font-bold text-base text-stone-100">
-                      طلب إصدار وتفعيل بطاقة الوفاء VIP
+                      طلب إصدار بطاقة الوفاء VIP (ملء البيانات)
                     </h3>
                     <p className="text-xs text-stone-400 mt-0.5">
-                      سجل اسمك ورقم هاتفك للتحقق من مشترياتك في فرع الأغواط وتفعيل بطاقتك
+                      أدخل بياناتك الشخصية لإرسالها لإدارة المتجر لإصدار بطاقتك وتعيين رقمها
                     </p>
                   </div>
                   <div className="w-9 h-9 rounded-xl bg-stone-800/80 border border-stone-700/80 flex items-center justify-center text-[#D4AF37] shrink-0">
@@ -709,39 +794,116 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
                 </div>
 
                 <form onSubmit={handleRequestActivation} className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    {/* 1. First Name */}
                     <div>
                       <label className="block text-[11px] font-mono text-stone-400 mb-1.5">
-                        الاسم الكامل لصاحب البطاقة
+                        الاسم الشخصي *
                       </label>
                       <input
                         type="text"
                         required
-                        value={requestName}
-                        onChange={(e) => setRequestName(e.target.value)}
-                        placeholder="مثال: محمد زكي"
+                        value={reqFirstName}
+                        onChange={(e) => setReqFirstName(e.target.value)}
+                        placeholder="مثال: محمد"
                         className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-stone-100 text-xs font-medium focus:border-stone-600 focus:outline-none"
                       />
                     </div>
 
+                    {/* 2. Last Name */}
                     <div>
                       <label className="block text-[11px] font-mono text-stone-400 mb-1.5">
-                        رقم الهاتف (الجزائر)
+                        اللقب العائلي *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={reqLastName}
+                        onChange={(e) => setReqLastName(e.target.value)}
+                        placeholder="مثال: لعموري"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-stone-100 text-xs font-medium focus:border-stone-600 focus:outline-none"
+                      />
+                    </div>
+
+                    {/* 3. Phone */}
+                    <div>
+                      <label className="block text-[11px] font-mono text-stone-400 mb-1.5">
+                        رقم الهاتف (الجزائر) *
                       </label>
                       <input
                         type="tel"
                         dir="ltr"
                         required
-                        value={requestPhone}
-                        onChange={(e) => setRequestPhone(e.target.value)}
+                        value={reqPhone}
+                        onChange={(e) => setReqPhone(e.target.value)}
                         placeholder="0560154663"
                         className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-stone-100 text-xs font-mono focus:border-stone-600 focus:outline-none"
+                      />
+                    </div>
+
+                    {/* 4. Date of Birth */}
+                    <div>
+                      <label className="block text-[11px] font-mono text-stone-400 mb-1.5">
+                        تاريخ الميلاد *
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        value={reqBirthDate}
+                        onChange={(e) => setReqBirthDate(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-stone-100 text-xs font-mono focus:border-stone-600 focus:outline-none"
+                      />
+                    </div>
+
+                    {/* 5. Address */}
+                    <div className="sm:col-span-2">
+                      <label className="block text-[11px] font-mono text-stone-400 mb-1.5">
+                        العنوان السكني الكامل (المدينة / الحي) *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={reqAddress}
+                        onChange={(e) => setReqAddress(e.target.value)}
+                        placeholder="مثال: الأغواط - حي المحافير شارع القدس"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-stone-100 text-xs font-medium focus:border-stone-600 focus:outline-none"
+                      />
+                    </div>
+
+                    {/* 6. Email */}
+                    <div>
+                      <label className="block text-[11px] font-mono text-stone-400 mb-1.5">
+                        البريد الإلكتروني *
+                      </label>
+                      <input
+                        type="email"
+                        dir="ltr"
+                        required
+                        value={reqEmail}
+                        onChange={(e) => setReqEmail(e.target.value)}
+                        placeholder="name@example.com"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-stone-100 text-xs font-mono focus:border-stone-600 focus:outline-none"
+                      />
+                    </div>
+
+                    {/* 7. Profession */}
+                    <div>
+                      <label className="block text-[11px] font-mono text-stone-400 mb-1.5">
+                        المهنة / مجال العمل *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={reqProfession}
+                        onChange={(e) => setReqProfession(e.target.value)}
+                        placeholder="مثال: مهندس / أستاذ / تاجر / طالب"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-stone-100 text-xs font-medium focus:border-stone-600 focus:outline-none"
                       />
                     </div>
                   </div>
 
                   <div className="p-3.5 rounded-xl bg-stone-950/80 border border-stone-800/80 text-[11px] text-stone-400 leading-relaxed">
-                    بمجرد إدخال رقم هاتفك، سيتم مقارنته تلقائياً مع سجل المشتريات بالمتجر وإرسال طلبك للإدارة للموافقة، ثم سيطلب منك تعيين رمز سري من 6 أرقام لإظهار بطاقتك وحمايتها.
+                    يتم إرسال كافة البيانات مباشرة إلى إدارة متجر تكنو الأغواط لدراسة الطلب وتعيين رقم بطاقتك الخاصة يدوياً. بعد الموافقة، ستتمكن من تعيين رمز PIN من 6 أرقام لتفعيل البطاقة.
                   </div>
 
                   <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
@@ -750,7 +912,7 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
                       disabled={isSubmitting}
                       className="w-full sm:flex-1 py-3 rounded-xl bg-[#D4AF37] hover:bg-[#C29D26] text-stone-950 font-bold text-xs transition-colors cursor-pointer shadow-sm disabled:opacity-50"
                     >
-                      {isSubmitting ? 'جارٍ الإرسال والتحقق...' : 'إرسال طلب التفعيل'}
+                      {isSubmitting ? 'جارٍ إرسال البيانات للإدارة...' : 'إرسال طلب إصدار البطاقة'}
                     </button>
 
                     <button
@@ -810,6 +972,18 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
                         : 'زبون جديد (قيد التدقيق لدى الإدارة)'}
                     </span>
                   </div>
+                  {card.customerAddress && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-stone-400">العنوان:</span>
+                      <span className="text-stone-200">{card.customerAddress}</span>
+                    </div>
+                  )}
+                  {card.customerProfession && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-stone-400">المهنة:</span>
+                      <span className="text-stone-200">{card.customerProfession}</span>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between">
                     <span className="text-stone-400">الفرع المعتمد:</span>
                     <span className="font-mono text-stone-200">فرع الأغواط 03 (حي المقام)</span>

@@ -34,9 +34,15 @@ export interface LoyaltyTierInfo {
 }
 
 export interface LoyaltyCardData {
-  cardNumber: string; // Format: "03-XXXX-XXXX-YYYY"
+  cardNumber: string; // Format: "03-XXXX-XXXX-YYYY" or manual owner-assigned number
   customerName: string;
+  firstName?: string;
+  lastName?: string;
   customerPhone: string;
+  customerAddress?: string;
+  customerEmail?: string;
+  customerProfession?: string;
+  customerBirthDate?: string;
   status: LoyaltyCardStatus;
   pinHash?: string;
   plainPinBackup?: string; // Stored securely for the session to download credentials pass
@@ -378,6 +384,17 @@ export function getOrCreateLoyaltyCard(_savedOrders: SavedOrder[] = []): Loyalty
 // CARD REQUEST, APPROVAL & ACTIVATION WORKFLOW (Exact User Requirements)
 // ─────────────────────────────────────────────────────────────────────────────
 
+export interface CustomerLoyaltyRegistrationInput {
+  firstName: string;
+  lastName: string;
+  phone: string;
+  address?: string;
+  email?: string;
+  profession?: string;
+  birthDate?: string;
+  fullName?: string;
+}
+
 export interface RequestActivationResult {
   card: LoyaltyCardData;
   hasPurchased: boolean;
@@ -386,14 +403,43 @@ export interface RequestActivationResult {
 }
 
 /**
- * Step 1: Customer submits full name and phone number to request card activation.
+ * Step 1: Customer submits loyalty card application (Nom, Prénom, Tél, Adresse, Email, Profession, Date de Naissance).
  * Automatically checks purchase history in store orders.
  */
 export function requestCardActivation(
-  fullName: string,
-  phone: string,
-  savedOrders: SavedOrder[] = []
+  inputOrFullName: string | CustomerLoyaltyRegistrationInput,
+  maybePhoneOrOrders?: string | SavedOrder[],
+  maybeOrders: SavedOrder[] = []
 ): RequestActivationResult {
+  let firstName = '';
+  let lastName = '';
+  let fullName = '';
+  let phone = '';
+  let address = '';
+  let email = '';
+  let profession = '';
+  let birthDate = '';
+  let savedOrders: SavedOrder[] = [];
+
+  if (typeof inputOrFullName === 'object' && inputOrFullName !== null) {
+    firstName = (inputOrFullName.firstName || '').trim();
+    lastName = (inputOrFullName.lastName || '').trim();
+    phone = (inputOrFullName.phone || '').trim();
+    address = (inputOrFullName.address || '').trim();
+    email = (inputOrFullName.email || '').trim();
+    profession = (inputOrFullName.profession || '').trim();
+    birthDate = (inputOrFullName.birthDate || '').trim();
+    fullName = inputOrFullName.fullName?.trim() || `${firstName} ${lastName}`.trim();
+    savedOrders = Array.isArray(maybePhoneOrOrders) ? maybePhoneOrOrders : maybeOrders;
+  } else {
+    fullName = String(inputOrFullName || '').trim();
+    phone = typeof maybePhoneOrOrders === 'string' ? maybePhoneOrOrders.trim() : '';
+    savedOrders = Array.isArray(maybeOrders) ? maybeOrders : [];
+    const parts = fullName.split(' ');
+    firstName = parts[0] || fullName;
+    lastName = parts.slice(1).join(' ');
+  }
+
   const cleanPhone = phone.trim();
   const cleanName = fullName.trim();
 
@@ -413,7 +459,13 @@ export function requestCardActivation(
   const newCard: LoyaltyCardData = {
     cardNumber: generateCardNumber(cleanPhone || cleanName),
     customerName: cleanName,
+    firstName: firstName || undefined,
+    lastName: lastName || undefined,
     customerPhone: cleanPhone,
+    customerAddress: address || undefined,
+    customerEmail: email || undefined,
+    customerProfession: profession || undefined,
+    customerBirthDate: birthDate || undefined,
     status: 'pending', // Enters processing / waiting list
     points,
     tier: getTierFromPoints(points),
@@ -437,10 +489,11 @@ export function requestCardActivation(
 }
 
 /**
- * Step 2: Store Owner / Admin approves the card in the dashboard or via verification.
- * Transitions to 'approved_pending_pin' where card is partially displayed and requires a 6-digit PIN.
+ * Step 2: Store Owner / Admin approves the card in the dashboard.
+ * Requires store owner to manually assign the customer's card number.
+ * Transitions to 'approved_pending_pin' where card is displayed with the assigned number and requires a 6-digit PIN.
  */
-export function approveCardRequest(phone: string): LoyaltyCardData | null {
+export function approveCardRequest(phone: string, manualCardNumber?: string): LoyaltyCardData | null {
   const cleanPhone = phone.trim();
   const registry = getAllRegisteredCards();
   const targetCard = registry[cleanPhone] || getStoredLoyaltyCard();
@@ -450,6 +503,7 @@ export function approveCardRequest(phone: string): LoyaltyCardData | null {
   const approvedCard: LoyaltyCardData = {
     ...targetCard,
     status: 'approved_pending_pin',
+    cardNumber: manualCardNumber ? manualCardNumber.trim() : targetCard.cardNumber,
     approvedAt: new Date().toISOString(),
   };
 
@@ -601,7 +655,6 @@ export function generateCredentialsPassText(
 • تاريخ بداية العضوية: ${card.memberSince}
 • تاريخ الصلاحية: ${card.validThru}
 • الفرع المعتمد: مكتبة تكنو فرع الأغواط 03 — حي المقام (قرب مقر الولاية القديم)
-• الأبعاد الفيزيائية الرسمية: 85.60 mm × 53.98 mm (المعيار الدولي ID-1)
 
 -------------------------------------------------------------------
 إرشادات أمان واستخدام البطاقة:

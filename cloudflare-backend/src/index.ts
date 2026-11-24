@@ -1947,6 +1947,7 @@ export default {
 
         if (action === 'approve_loyalty') {
           const targetPhone = url.searchParams.get('phone') || '';
+          const manualCardNumber = (url.searchParams.get('card_number') || '').trim();
           if (targetPhone) {
             const rawReqs = await env.techno_products_kv.get('loyalty_requests');
             const reqs = rawReqs ? JSON.parse(rawReqs) : [];
@@ -1954,6 +1955,27 @@ export default {
             if (idx >= 0) {
               reqs[idx].status = 'approved_pending_pin';
               reqs[idx].approvedAt = new Date().toISOString();
+              if (manualCardNumber) {
+                reqs[idx].cardNumber = manualCardNumber;
+              }
+              await env.techno_products_kv.put('loyalty_requests', JSON.stringify(reqs));
+            }
+            return new Response(null, {
+              status: 302,
+              headers: { Location: `${basePath}?tab=cards`, ...responseHeaders },
+            });
+          }
+        }
+
+        if (action === 'update_card_number') {
+          const targetPhone = url.searchParams.get('phone') || '';
+          const manualCardNumber = (url.searchParams.get('card_number') || '').trim();
+          if (targetPhone && manualCardNumber) {
+            const rawReqs = await env.techno_products_kv.get('loyalty_requests');
+            const reqs = rawReqs ? JSON.parse(rawReqs) : [];
+            const idx = reqs.findIndex((r: any) => r.customerPhone === targetPhone);
+            if (idx >= 0) {
+              reqs[idx].cardNumber = manualCardNumber;
               await env.techno_products_kv.put('loyalty_requests', JSON.stringify(reqs));
             }
             return new Response(null, {
@@ -2414,7 +2436,7 @@ export default {
                       <div style="margin-top:4px; font-size:13px; color:#475569; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
                         <span>📞 <a href="tel:${escapeHtml(r.customerPhone)}" style="color:#0284C7; font-weight:600; text-decoration:none; font-family:monospace;">${escapeHtml(r.customerPhone)}</a></span>
                         <span>·</span>
-                        <span style="font-family:monospace; color:#334155; font-weight:700;">💳 ${escapeHtml(r.cardNumber || 'لم يحدد بعد')}</span>
+                        <span style="font-family:monospace; color:#334155; font-weight:700;">💳 ${escapeHtml(r.cardNumber || 'بانتظار تعيين الرقم يدوياً')}</span>
                       </div>
                     </div>
                     <div>
@@ -2425,17 +2447,57 @@ export default {
                     </div>
                   </div>
 
+                  <!-- Customer Full Coordinates (Coordonnées) -->
+                  <div style="background:#F8FAFC; border:1px solid #E2E8F0; border-radius:12px; padding:12px 14px; margin-bottom:12px; display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:8px; font-size:12.5px;">
+                    <div><span style="color:#64748B;">👤 الاسم:</span> <strong style="color:#0F172A;">${escapeHtml(r.firstName || 'غير محدد')}</strong></div>
+                    <div><span style="color:#64748B;">👥 اللقب:</span> <strong style="color:#0F172A;">${escapeHtml(r.lastName || 'غير محدد')}</strong></div>
+                    <div><span style="color:#64748B;">📞 الهاتف:</span> <strong style="color:#0F172A; font-family:monospace;">${escapeHtml(r.customerPhone)}</strong></div>
+                    <div><span style="color:#64748B;">🎂 تاريخ الميلاد:</span> <strong style="color:#0F172A; font-family:monospace;">${escapeHtml(r.customerBirthDate || 'غير محدد')}</strong></div>
+                    <div><span style="color:#64748B;">💼 المهنة:</span> <strong style="color:#0F172A;">${escapeHtml(r.customerProfession || 'غير محدد')}</strong></div>
+                    <div><span style="color:#64748B;">✉️ البريد:</span> <strong style="color:#0F172A; font-family:monospace;">${escapeHtml(r.customerEmail || 'غير محدد')}</strong></div>
+                    <div style="grid-column: 1 / -1;"><span style="color:#64748B;">📍 العنوان الكامل:</span> <strong style="color:#0F172A;">${escapeHtml(r.customerAddress || 'غير محدد')}</strong></div>
+                  </div>
+
+                  ${isPending ? `
+                    <!-- Manual Card Number Assignment Form by Store Owner -->
+                    <form method="GET" action="${basePath}" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:12px; background:#F0FDF4; border:1.5px dashed #059669; padding:12px 14px; border-radius:12px;">
+                      <input type="hidden" name="tab" value="cards" />
+                      <input type="hidden" name="action" value="approve_loyalty" />
+                      <input type="hidden" name="phone" value="${escapeHtml(r.customerPhone)}" />
+                      <div style="display:flex; flex-direction:column; gap:4px; flex:1; min-width:240px;">
+                        <label style="font-size:12px; font-weight:700; color:#065F46;">
+                          🔢 رقم بطاقة الزبون (إدخال يدوي من مالك المحل للموافقة):
+                        </label>
+                        <input type="text" name="card_number" required placeholder="أدخل رقم البطاقة هنا (مثال: 03-8542-1092-7741)" style="padding:8px 12px; border:1.5px solid #059669; border-radius:8px; font-size:13px; font-family:monospace; font-weight:700; color:#0F172A; background:#FFFFFF;" />
+                      </div>
+                      <button type="submit" class="btn-action btn-confirm" style="font-size:12.5px; padding:10px 18px; font-weight:700; height:fit-content; cursor:pointer;">
+                        ✅ موافقة وتعيين رقم البطاقة
+                      </button>
+                    </form>
+                  ` : `
+                    <!-- Display Assigned Card Number & Quick Update Option -->
+                    <div style="margin-bottom:12px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; background:#F8FAFC; border:1px solid #E2E8F0; padding:10px 14px; border-radius:10px;">
+                      <div style="font-size:13px; color:#334155;">
+                        💳 <strong>رقم البطاقة المعتمد:</strong> <span style="font-family:monospace; font-weight:800; font-size:14px; color:#047857; background:#ECFDF5; padding:2px 8px; border-radius:6px; border:1px solid #A7F3D0;">${escapeHtml(r.cardNumber || 'لم يحدد بعد')}</span>
+                      </div>
+                      <form method="GET" action="${basePath}" style="display:inline-flex; align-items:center; gap:6px;">
+                        <input type="hidden" name="tab" value="cards" />
+                        <input type="hidden" name="action" value="update_card_number" />
+                        <input type="hidden" name="phone" value="${escapeHtml(r.customerPhone)}" />
+                        <input type="text" name="card_number" placeholder="تعديل رقم البطاقة..." style="padding:5px 8px; border:1px solid #CBD5E1; border-radius:6px; font-size:11.5px; font-family:monospace; width:150px;" />
+                        <button type="submit" style="background:#F1F5F9; border:1px solid #CBD5E1; color:#334155; padding:5px 10px; border-radius:6px; font-size:11.5px; font-weight:700; cursor:pointer;">تعديل الرقم</button>
+                      </form>
+                    </div>
+                  `}
+
                   <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
                     <div style="font-size:11.5px; color:#94A3B8;">
                       ${r.requestedAt ? `تاريخ الطلب: ${new Date(r.requestedAt).toLocaleString('ar-DZ')}` : ''}
+                      ${r.approvedAt ? ` · <span style="color:#047857; font-weight:600;">تم الاعتماد: ${new Date(r.approvedAt).toLocaleDateString('ar-DZ')}</span>` : ''}
                       ${r.disabledAt ? ` · <span style="color:#DC2626; font-weight:600;">تم التعطيل بواسطة الإدارة</span>` : ''}
                     </div>
                     <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
                       <a href="tel:${escapeHtml(r.customerPhone)}" style="background:#F1F5F9; color:#334155; text-decoration:none; padding:7px 12px; border-radius:10px; font-size:12px; font-weight:700;">📞 اتصال</a>
-
-                      ${isPending ? `
-                        <a href="${basePath}?action=approve_loyalty&phone=${encodeURIComponent(r.customerPhone)}" class="btn-action btn-confirm" style="font-size:12px; padding:7px 14px;">✅ تفعيل البطاقة</a>
-                      ` : ''}
 
                       ${(isActive || isApprovedPendingPin) ? `
                         <a href="${basePath}?action=disable_loyalty&phone=${encodeURIComponent(r.customerPhone)}" onclick="return confirm('⚠️ هل أنت متأكد من تعطيل بطاقة الزبون (${escapeHtml(r.customerName)})؟ سيتم إيقافها فوراً ولن يتمكن من استخدامها أو إظهارها حتى تعيد تفعيلها.')" style="background:#FEF2F2; color:#DC2626; border:1px solid #FECACA; text-decoration:none; padding:7px 14px; border-radius:10px; font-size:12px; font-weight:700;">
@@ -2710,8 +2772,14 @@ export default {
     if (url.pathname === '/api/loyalty/request' && request.method === 'POST') {
       try {
         const body: any = await request.json();
-        const customerName = (body.customerName || '').trim();
+        const firstName = (body.firstName || '').trim();
+        const lastName = (body.lastName || '').trim();
+        const customerName = (body.customerName || `${firstName} ${lastName}`).trim();
         const customerPhone = (body.customerPhone || '').trim();
+        const customerAddress = (body.customerAddress || '').trim();
+        const customerEmail = (body.customerEmail || '').trim();
+        const customerProfession = (body.customerProfession || '').trim();
+        const customerBirthDate = (body.customerBirthDate || '').trim();
         let hasPurchased = !!body.hasPurchased;
         let ordersCount = Number(body.ordersCount) || 0;
         let totalSpent = Number(body.totalSpent) || 0;
@@ -2738,12 +2806,18 @@ export default {
           const reqs = rawReqs ? JSON.parse(rawReqs) : [];
           const existingIdx = reqs.findIndex((r: any) => r.customerPhone === customerPhone);
           const newReq = {
+            firstName,
+            lastName,
             customerName,
             customerPhone,
+            customerAddress,
+            customerEmail,
+            customerProfession,
+            customerBirthDate,
             hasPurchased,
             ordersCount,
             totalSpent,
-            cardNumber,
+            cardNumber: cardNumber || (existingIdx >= 0 && reqs[existingIdx].cardNumber ? reqs[existingIdx].cardNumber : ''),
             status: 'pending',
             requestedAt: new Date().toISOString(),
           };
@@ -2831,6 +2905,7 @@ export default {
       try {
         const body: any = await request.json();
         const phone = (body.phone || '').trim();
+        const manualCardNumber = (body.cardNumber || body.card_number || '').trim();
         if (phone && env.techno_products_kv) {
           const rawReqs = await env.techno_products_kv.get('loyalty_requests');
           const reqs = rawReqs ? JSON.parse(rawReqs) : [];
@@ -2838,8 +2913,11 @@ export default {
           if (idx >= 0) {
             reqs[idx].status = 'approved_pending_pin';
             reqs[idx].approvedAt = new Date().toISOString();
+            if (manualCardNumber) {
+              reqs[idx].cardNumber = manualCardNumber;
+            }
             await env.techno_products_kv.put('loyalty_requests', JSON.stringify(reqs));
-            return jsonResponse({ success: true, status: 'approved_pending_pin' });
+            return jsonResponse({ success: true, status: 'approved_pending_pin', cardNumber: reqs[idx].cardNumber });
           }
         }
         return jsonResponse({ error: 'Request not found' }, 404);
