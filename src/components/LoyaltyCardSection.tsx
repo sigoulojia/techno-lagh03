@@ -22,6 +22,8 @@ import {
   getOrCreateLoyaltyCard,
   generateCardNumber,
   formatCardDate,
+  calculatePointsFromOrders,
+  getTierFromPoints,
   requestCardActivation,
   approveCardRequest,
   activateCardWithSixDigitPin,
@@ -65,13 +67,34 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
 
-  // Sync points when saved orders change
+  // Sync points when saved orders change for currently active card
   useEffect(() => {
-    if (card.status === 'active') {
-      const updated = getOrCreateLoyaltyCard(savedOrders);
-      setCard(updated);
+    if (card.status === 'active' && card.customerPhone) {
+      const cleanPhone = card.customerPhone.trim();
+      const matchingOrders = savedOrders.filter(
+        (o) => o.customer?.phone?.trim() === cleanPhone
+      );
+      if (matchingOrders.length > 0) {
+        const calculatedPoints = WELCOME_BONUS_POINTS + calculatePointsFromOrders(matchingOrders);
+        if (calculatedPoints !== card.points) {
+          setCard((prev) => {
+            if (prev.status !== 'active') return prev;
+            return {
+              ...prev,
+              points: calculatedPoints,
+              tier: getTierFromPoints(calculatedPoints),
+              ordersCount: matchingOrders.length,
+              totalSpent: matchingOrders.reduce(
+                (sum, o) => sum + (o.totals?.grandTotalDzd || 0),
+                0
+              ),
+              hasPurchased: true,
+            };
+          });
+        }
+      }
     }
-  }, [savedOrders, card.status]);
+  }, [savedOrders, card.customerPhone, card.status, card.points]);
 
   const currentTier = LOYALTY_TIERS[card.tier];
   const nextTierPoints = currentTier.nextTierPoints;
@@ -326,14 +349,18 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
       return;
     }
 
-    setCard(unlock.card);
+    const activeUnlockedCard: LoyaltyCardData = {
+      ...unlock.card,
+      status: 'active',
+    };
+    setCard(activeUnlockedCard);
     setViewMode('main');
     setRetrievalPromptPin(false);
     setRetrievalPhone('');
     setRetrievalPin('');
     setFeedback({
       type: 'success',
-      message: `مرحباً بك مجدداً ${unlock.card.customerName}! تم إلغاء القفل وإظهار بطاقتك كاملة بنجاح.`,
+      message: `مرحباً بك مجدداً ${activeUnlockedCard.customerName}! تم إلغاء القفل وإظهار بطاقتك كاملة بنجاح.`,
     });
   };
 

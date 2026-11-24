@@ -264,13 +264,41 @@ export function generateBarcodeBars(code: string): number[] {
 // REGISTRY & PERSISTENCE HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
 
+const memoryStore: Record<string, string> = {};
+
+function safeGetItem(key: string): string | null {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      return localStorage.getItem(key);
+    } catch {}
+  }
+  return memoryStore[key] ?? null;
+}
+
+function safeSetItem(key: string, value: string): void {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      localStorage.setItem(key, value);
+    } catch {}
+  }
+  memoryStore[key] = value;
+}
+
+function safeRemoveItem(key: string): void {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      localStorage.removeItem(key);
+    } catch {}
+  }
+  delete memoryStore[key];
+}
+
 /**
  * Get all registered cards dictionary (keyed by phone number)
  */
 export function getAllRegisteredCards(): Record<string, LoyaltyCardData> {
-  if (typeof window === 'undefined') return {};
   try {
-    const raw = localStorage.getItem(LOYALTY_REGISTRY_KEY);
+    const raw = safeGetItem(LOYALTY_REGISTRY_KEY);
     return raw ? JSON.parse(raw) : {};
   } catch {
     return {};
@@ -281,9 +309,8 @@ export function getAllRegisteredCards(): Record<string, LoyaltyCardData> {
  * Save all registered cards dictionary
  */
 export function saveAllRegisteredCards(cards: Record<string, LoyaltyCardData>): void {
-  if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem(LOYALTY_REGISTRY_KEY, JSON.stringify(cards));
+    safeSetItem(LOYALTY_REGISTRY_KEY, JSON.stringify(cards));
   } catch (e) {
     console.error('Failed to save loyalty registry:', e);
   }
@@ -293,9 +320,8 @@ export function saveAllRegisteredCards(cards: Record<string, LoyaltyCardData>): 
  * Retrieve active customer card from localStorage
  */
 export function getStoredLoyaltyCard(): LoyaltyCardData | null {
-  if (typeof window === 'undefined') return null;
   try {
-    const raw = localStorage.getItem(LOYALTY_STORAGE_KEY);
+    const raw = safeGetItem(LOYALTY_STORAGE_KEY);
     if (!raw) return null;
     return JSON.parse(raw) as LoyaltyCardData;
   } catch {
@@ -307,9 +333,8 @@ export function getStoredLoyaltyCard(): LoyaltyCardData | null {
  * Save active customer card to localStorage
  */
 export function saveLoyaltyCard(card: LoyaltyCardData): void {
-  if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem(LOYALTY_STORAGE_KEY, JSON.stringify(card));
+    safeSetItem(LOYALTY_STORAGE_KEY, JSON.stringify(card));
     // Also sync to global registry if phone exists
     if (card.customerPhone) {
       const registry = getAllRegisteredCards();
@@ -328,11 +353,7 @@ export function saveLoyaltyCard(card: LoyaltyCardData): void {
  * and can be retrieved instantly using phone number + 6-digit PIN.
  */
 export function getOrCreateLoyaltyCard(_savedOrders: SavedOrder[] = []): LoyaltyCardData {
-  if (typeof window !== 'undefined') {
-    try {
-      localStorage.removeItem(LOYALTY_STORAGE_KEY);
-    } catch {}
-  }
+  safeRemoveItem(LOYALTY_STORAGE_KEY);
 
   // Fallback secure default state: unregistered (no card revealed on reload)
   const defaultCard: LoyaltyCardData = {
@@ -542,6 +563,7 @@ export function unlockCardWithPin(
   // Save as current active card
   const unlockedCard: LoyaltyCardData = {
     ...card,
+    status: 'active',
     plainPinBackup: pin.trim(), // Restored for download pass
   };
   saveLoyaltyCard(unlockedCard);

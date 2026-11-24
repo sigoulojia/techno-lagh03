@@ -12,6 +12,7 @@ import {
   isValidSixDigitPin,
   requestCardActivation,
   activateCardWithSixDigitPin,
+  unlockCardWithPin,
 } from './loyaltyLogic';
 import { type SavedOrder } from './storeLogic';
 
@@ -129,6 +130,15 @@ test('isValidSixDigitPin and 6-digit PIN activation flow', () => {
   assert.equal(activationSuccess.success, true);
   assert.equal(activationSuccess.card?.status, 'active');
   assert.equal(activationSuccess.card?.isPinProtected, true);
+
+  // Test unlock flow with PIN
+  const unlockFail = unlockCardWithPin('0661234567', '000000');
+  assert.equal(unlockFail.success, false);
+
+  const unlockSuccess = unlockCardWithPin('0661234567', '654321');
+  assert.equal(unlockSuccess.success, true);
+  assert.equal(unlockSuccess.card?.status, 'active');
+  assert.equal(unlockSuccess.card?.customerName, 'أحمد زكي');
 });
 
 
