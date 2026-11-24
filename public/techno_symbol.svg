@@ -1,7 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="Techno symbol">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="شعار تكنو الرسمي TECHNO">
   <rect width="1024" height="1024" fill="#F00008"/>
   <g fill="#FFFFFF">
-    <path d="M287 169 H487 L220 861 H160 L406 221 H263 Z"/>
-    <path d="M527 169 H877 L857 220 H705 L447 860 H261 Z"/>
+    <path d="M287 171 H485 L212 853 H160 L409 222 H260 Z"/>
+    <path d="M525 171 H874 L860 222 H703 L444 853 H263 L505 222 Z"/>
   </g>
 </svg>
