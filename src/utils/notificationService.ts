@@ -3,6 +3,7 @@ import { formatDzd, type SavedOrder } from './storeLogic';
 
 export interface NotificationConfig {
   telegramToken: string;
+  secondTelegramToken?: string;
   telegramChatId: string;
   telegramSafeMode: boolean;
   ntfyTopic: string;
@@ -23,11 +24,14 @@ export interface OrderNotificationResponse {
   error?: string;
 }
 
-// Fallback credentials provided by store owner
+// Fallback credentials provided by store owner (Both Bot 1 and Bot 2)
 export const DEFAULT_NOTIFICATION_CONFIG: NotificationConfig = {
   telegramToken:
     (typeof import.meta !== 'undefined' && import.meta.env?.VITE_TELEGRAM_BOT_TOKEN) ||
     '8712010200:AAHc0FJjY2MpFbFPt20i2UZ7J2YgLnN3bA8',
+  secondTelegramToken:
+    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_ITEMS_BOT_TOKEN) ||
+    '9152103628:AAGioopVyeNlPd2Nf-NQr2_1MYWVxv2Yf30',
   telegramChatId:
     (typeof import.meta !== 'undefined' && import.meta.env?.VITE_TELEGRAM_CHAT_ID) ||
     '-1004434185578',
@@ -221,7 +225,6 @@ export async function sendTelegramNotification(
     ntfyUrl,
   });
 
-  const url = `https://api.telegram.org/bot${cfg.telegramToken}/sendMessage`;
   const cleanPhone = (order.customer.phone || '').replace(/[^\d+]/g, '');
 
   const inlineKeyboard: any[][] = [];
@@ -241,8 +244,13 @@ export async function sendTelegramNotification(
   ]);
 
   const targetChats = Array.from(new Set([cfg.telegramChatId, '8805828834']));
+  // Broadcast concurrently to BOTH Bot 1 (@techno03bot) and Bot 2 (@items03bot)
+  const botTokens = Array.from(
+    new Set([cfg.telegramToken, cfg.secondTelegramToken].filter(Boolean)),
+  ) as string[];
 
-  const sendToTarget = async (chatId: string): Promise<NotificationResult> => {
+  const sendToTarget = async (chatId: string, token: string): Promise<NotificationResult> => {
+    const botUrl = `https://api.telegram.org/bot${token}/sendMessage`;
     const payload = {
       chat_id: chatId,
       text: messageText,
@@ -254,7 +262,7 @@ export async function sendTelegramNotification(
     };
 
     try {
-      const res = await fetch(url, {
+      const res = await fetch(botUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -264,7 +272,7 @@ export async function sendTelegramNotification(
       if (!res.ok || !data.ok) {
         if (data.parameters?.migrate_to_chat_id) {
           const migratedChatId = String(data.parameters.migrate_to_chat_id);
-          const retryRes = await fetch(url, {
+          const retryRes = await fetch(botUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ...payload, chat_id: migratedChatId }),
@@ -299,7 +307,15 @@ export async function sendTelegramNotification(
     }
   };
 
-  const results = await Promise.allSettled(targetChats.map((c) => sendToTarget(c)));
+  // Dispatch to all (chatId, botToken) combinations in parallel
+  const sendTasks: Promise<NotificationResult>[] = [];
+  for (const token of botTokens) {
+    for (const chatId of targetChats) {
+      sendTasks.push(sendToTarget(chatId, token));
+    }
+  }
+
+  const results = await Promise.allSettled(sendTasks);
   const successful = results.find(
     (r): r is PromiseFulfilledResult<NotificationResult> => r.status === 'fulfilled' && r.value.success,
   );

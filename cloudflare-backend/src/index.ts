@@ -558,40 +558,35 @@ async function sendOrderAlertToTelegram(
         },
       };
 
-      // 1. First attempt via ordersBotToken (@techno03bot)
-      try {
-        const res = await fetch(`https://api.telegram.org/bot${ordersBotToken}/sendMessage`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          signal: AbortSignal.timeout(4000),
-          body: JSON.stringify(payload),
-        });
+      // Broadcast order alert concurrently to BOTH Bot 1 (@techno03bot) and Bot 2 (@items03bot)
+      const botTokensToSend = Array.from(new Set([ordersBotToken, itemsBotToken].filter(Boolean))) as string[];
 
-        const data = (await res.json()) as any;
-        if (res.ok && data.ok) {
-          return { success: true, messageId: data.result?.message_id, botUsed: 'ordersBot' };
-        }
-      } catch (ordersBotErr) {
-        console.warn(`Primary ordersBot delivery to ${targetId} failed, trying itemsBot:`, ordersBotErr);
-      }
-
-      // 2. Automatic fallback to itemsBotToken (@items03bot)
-      if (itemsBotToken && itemsBotToken !== ordersBotToken) {
+      const sendPromises = botTokensToSend.map(async (token) => {
         try {
-          const fallbackRes = await fetch(`https://api.telegram.org/bot${itemsBotToken}/sendMessage`, {
+          const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            signal: AbortSignal.timeout(4000),
+            signal: AbortSignal.timeout(5000),
             body: JSON.stringify(payload),
           });
 
-          const fallbackData = (await fallbackRes.json()) as any;
-          if (fallbackRes.ok && fallbackData.ok) {
-            return { success: true, messageId: fallbackData.result?.message_id, botUsed: 'itemsBotFallback' };
+          const data = (await res.json()) as any;
+          if (res.ok && data.ok) {
+            return { success: true, messageId: data.result?.message_id, botUsed: token === ordersBotToken ? 'ordersBot' : 'itemsBot' };
           }
-        } catch (fallbackErr: any) {
-          return { success: false, error: fallbackErr?.message || String(fallbackErr) };
+          return { success: false, error: data?.description || `HTTP ${res.status}` };
+        } catch (botErr: any) {
+          return { success: false, error: botErr?.message || String(botErr) };
         }
+      });
+
+      const sendResults = await Promise.allSettled(sendPromises);
+      const successfulResult = sendResults.find(
+        (r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled' && r.value.success,
+      );
+
+      if (successfulResult) {
+        return successfulResult.value;
       }
 
       return { success: false, error: 'Both ordersBot and itemsBot failed to dispatch alert' };

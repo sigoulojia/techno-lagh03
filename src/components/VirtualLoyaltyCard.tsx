@@ -374,39 +374,39 @@ export function VirtualLoyaltyCard({
       </div>
 
       {/* Card Action Controls */}
-      <div className="mt-4 flex flex-wrap items-center justify-center gap-2.5">
+      <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
         <button
           type="button"
           onClick={toggleFlip}
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white hover:bg-stone-100 text-[#18181B] text-xs font-black border border-stone-200 shadow-xs transition-all cursor-pointer active:scale-95"
+          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-stone-900/90 hover:bg-stone-800 text-stone-200 text-xs font-medium border border-stone-800 hover:border-stone-700 shadow-2xs transition-all cursor-pointer active:scale-95"
         >
-          <RotateCcw className="w-3.5 h-3.5 text-[#E30613]" />
-          <span>{isFlipped ? 'معاينة الوجه الأمامي' : 'اقلب البطاقة (الباركود والخلف)'}</span>
+          <RotateCcw className="w-3.5 h-3.5 text-stone-400" />
+          <span>{isFlipped ? 'معاينة الواجهة الأمامية' : 'معاينة الباركود والخلف'}</span>
         </button>
 
         <button
           type="button"
           onClick={handleDownloadCard}
           disabled={isDownloading}
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#18181B] hover:bg-[#E30613] text-white text-xs font-black shadow-xs transition-all cursor-pointer disabled:opacity-50 active:scale-95"
+          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-stone-900/90 hover:bg-stone-800 text-[#D4AF37] text-xs font-medium border border-[#D4AF37]/40 hover:border-[#D4AF37] shadow-2xs transition-all cursor-pointer disabled:opacity-50 active:scale-95"
         >
           {downloadSuccess ? (
             <>
               <Check className="w-3.5 h-3.5 text-emerald-400" />
-              <span>تم حفظ البطاقة بنجاح</span>
+              <span>تم حفظ صورة البطاقة</span>
             </>
           ) : (
             <>
-              <Download className="w-3.5 h-3.5 text-[#FFD100]" />
-              <span>{isDownloading ? 'جارٍ الحفظ...' : 'حفظ البطاقة في هاتفي'}</span>
+              <Download className="w-3.5 h-3.5 text-[#D4AF37]" />
+              <span>{isDownloading ? 'جارٍ التصدير...' : 'حفظ في الهاتف (PNG)'}</span>
             </>
           )}
         </button>
       </div>
 
-      {/* Interactive Theme Switcher (معاينة بطاقات الفئات المختلفة) */}
-      <div className="mt-4 flex items-center gap-1.5 p-1 rounded-xl bg-stone-100/80 border border-stone-200">
-        <span className="text-[10px] font-bold text-stone-500 px-2">
+      {/* Interactive Theme Switcher */}
+      <div className="mt-3.5 flex items-center gap-1 p-1 rounded-xl bg-stone-950/80 border border-stone-800/90">
+        <span className="text-[10px] font-mono text-stone-400 px-2">
           طراز البطاقة:
         </span>
         {(Object.keys(LOYALTY_TIERS) as LoyaltyTierId[]).map((tId) => {
@@ -417,10 +417,10 @@ export function VirtualLoyaltyCard({
               key={tId}
               type="button"
               onClick={() => onThemeChange && onThemeChange(tId)}
-              className={`px-2.5 py-1 rounded-lg text-[10px] font-black transition-all cursor-pointer ${
+              className={`px-2.5 py-1 rounded-lg text-[10px] font-mono transition-all cursor-pointer ${
                 isSelected
-                  ? 'bg-[#18181B] text-white shadow-xs'
-                  : 'text-stone-600 hover:text-[#18181B]'
+                  ? 'bg-stone-800 text-[#D4AF37] font-bold border border-stone-700 shadow-xs'
+                  : 'text-stone-400 hover:text-stone-200'
               }`}
             >
               {t.badge.split(' ')[0]}

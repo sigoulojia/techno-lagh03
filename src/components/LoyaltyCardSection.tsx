@@ -3,18 +3,12 @@ import {
   ShieldCheck,
   Sparkles,
   Lock,
-  Unlock,
   KeyRound,
   UserCheck,
-  Gift,
-  Truck,
-  ArrowRight,
-  CheckCircle2,
-  AlertCircle,
-  HelpCircle,
+  Check,
   QrCode,
-  Tag,
-  Phone,
+  CreditCard,
+  ChevronLeft,
 } from 'lucide-react';
 import {
   type LoyaltyCardData,
@@ -78,7 +72,7 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
     if (cleanPhone && !/^(05|06|07)\d{8}$/.test(cleanPhone)) {
       setFormFeedback({
         type: 'error',
-        message: 'يرجى إدخال رقم هاتف جزائري صحيح يبدأ بـ 05 أو 06 أو 07 ويتكون من 10 أرقام',
+        message: 'يرجى إدخال رقم هاتف جزائري صحيح يتكون من 10 أرقام (05 أو 06 أو 07)',
       });
       return;
     }
@@ -88,11 +82,11 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
 
     if (pinInput) {
       if (!/^\d{4}$/.test(pinInput)) {
-        setFormFeedback({ type: 'error', message: 'رمز الأمان PIN يجب أن يتكون من 4 أرقام بالضبط (مثال: 4821)' });
+        setFormFeedback({ type: 'error', message: 'رمز الأمان PIN يتكون من 4 أرقام عددية' });
         return;
       }
       if (pinInput !== pinConfirmInput) {
-        setFormFeedback({ type: 'error', message: 'تأكيد الرمز السري غير متطابق مع الرمز المدخل' });
+        setFormFeedback({ type: 'error', message: 'تأكيد الرمز السري غير متطابق' });
         return;
       }
       newPinHash = hashPin(pinInput);
@@ -114,10 +108,10 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
     setFormFeedback({
       type: 'success',
       message: isProtected
-        ? 'تم تخصيص البطاقة وحمايتها بنجاح برمز الأمان السري PIN الخاص بك!'
-        : 'تم حفظ وتخصيص بيانات البطاقة بنجاح!',
+        ? 'تم تحديث بيانات العضوية وتأمينها برمز الحماية السري بنجاح.'
+        : 'تم حفظ وتخصيص بيانات البطاقة بنجاح.',
     });
-    setTimeout(() => setActiveTab('perks'), 2500);
+    setTimeout(() => setActiveTab('perks'), 2200);
   };
 
   // Handle Card Retrieval with Phone & PIN
@@ -137,13 +131,13 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
         if (!verifyPin(retrievePin, card.pinHash)) {
           setFormFeedback({
             type: 'error',
-            message: 'رمز الأمان السري PIN غير صحيح! لا يمكن فتح أو استخدام البطاقة بدون الرمز الخاص بصاحبها.',
+            message: 'رمز الأمان السري PIN غير مطابق. يرجى التأكد من الرمز والمحاولة مجدداً.',
           });
           return;
         }
       }
-      setFormFeedback({ type: 'success', message: 'تم التحقق من هويتك واسترجاع بطاقتك ونقاطك بنجاح!' });
-      setTimeout(() => setActiveTab('perks'), 2000);
+      setFormFeedback({ type: 'success', message: 'تم التحقق من بياناتك واسترجاع بطاقتك بنجاح.' });
+      setTimeout(() => setActiveTab('perks'), 1800);
       return;
     }
 
@@ -165,13 +159,13 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
       saveLoyaltyCard(newCardData);
       setFormFeedback({
         type: 'success',
-        message: `مرحباً بك مجدداً ${matchedOrders[0].customer.fullName}! تم استرجاع بطاقتك ورصيدك (${totalPoints} نقطة).`,
+        message: `أهلاً بك مجدداً ${matchedOrders[0].customer.fullName}. تم استرجاع بطاقتك ورصيدك (${totalPoints} نقطة).`,
       });
-      setTimeout(() => setActiveTab('perks'), 2500);
+      setTimeout(() => setActiveTab('perks'), 2000);
     } else {
       setFormFeedback({
         type: 'error',
-        message: 'لم يتم العثور على بطاقة سابقة مرتبطة بهذا الرقم. يمكنك تخصيص بطاقتك الحالية برقم هاتفك الآن.',
+        message: 'لم يتم العثور على عضوية مسجلة بهذا الرقم. يمكنك ربط بطاقتك الحالية برقم هاتفك الآن.',
       });
     }
   };
@@ -179,45 +173,41 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
   return (
     <section
       id="vip-card"
-      className="relative py-16 lg:py-24 bg-[#080E1A] text-white border-y-2 border-[#D4AF37]/40 overflow-hidden"
+      className="relative py-20 lg:py-28 bg-[#0B0F17] text-white border-y border-stone-800/90 overflow-hidden"
     >
-      {/* Algerian Zellige Ceramic Texture Overlay */}
+      {/* Subtle Algerian Zellige Texture Overlay */}
       <div
-        className="absolute inset-0 pointer-events-none opacity-20 select-none mix-blend-screen"
+        className="absolute inset-0 pointer-events-none opacity-[0.07] select-none mix-blend-screen"
         style={{
           backgroundImage: "url('/assets/algerian-zellige-jersey.webp')",
-          backgroundSize: '320px 320px',
+          backgroundSize: '280px 280px',
           backgroundRepeat: 'repeat',
           backgroundPosition: 'center',
         }}
       />
 
-      {/* Atmospheric Ambient Light Glows */}
-      <div className="absolute top-1/4 -right-20 w-96 h-96 bg-[#00A896]/20 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-1/4 -left-20 w-96 h-96 bg-[#FFD100]/15 rounded-full blur-3xl pointer-events-none" />
-
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
-        {/* Section Header */}
-        <div className="text-center max-w-3xl mx-auto space-y-3">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-gradient-to-r from-[#FFD100]/20 via-[#D4AF37]/30 to-[#FFD100]/20 border border-[#FFD100]/50 shadow-inner">
-            <Sparkles className="w-4 h-4 text-[#FFD100]" />
-            <span className="text-xs sm:text-sm font-black text-[#FFD100] tracking-wide">
-              نادي تكنو الأغواط الحصري · TECHNO VIP PASS
+        {/* Refined Classic Section Header */}
+        <div className="text-center max-w-3xl mx-auto space-y-3.5">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-stone-900/90 border border-stone-700/80 shadow-2xs">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#D4AF37]" />
+            <span className="text-[11px] font-mono tracking-widest text-[#D4AF37] uppercase">
+              MEMBRE PRIVILÈGE · نـادي الـوفـاء
             </span>
           </div>
 
-          <h2 className="font-display text-2xl sm:text-4xl lg:text-5xl font-black text-white leading-tight">
-            بطاقتك الرقمية الخاصة <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#FFD100] via-[#FDE047] to-[#D4AF37]">— رصيدك وامتيازاتك في جيبك</span>
+          <h2 className="font-display text-2xl sm:text-3xl lg:text-4xl font-black text-stone-100 tracking-tight leading-snug">
+            بطاقة العضوية الخاصة بك لدى تكنو الأغواط
           </h2>
 
-          <p className="text-xs sm:text-sm text-stone-300 font-medium leading-relaxed max-w-2xl mx-auto">
-            لكل زبون بطاقة وفاء افتراضية فريدة من نوعها برقم عضويتها وباركودها الخاص، تمنحك خصومات مباشرة بالفرع الميداني في الأغواط وتراكم نقاط المشتريات تلقائياً.
+          <p className="text-xs sm:text-sm text-stone-400 font-normal leading-relaxed max-w-2xl mx-auto">
+            بطاقة وفاء رقمية فريدة تمنح كل زبون امتيازات حصرية وتخفيضات فورية بالفرع الميداني، مع تراكم نقاط المشتريات تلقائياً.
           </p>
         </div>
 
         {/* Main 2-Column Content Layout */}
-        <div className="mt-12 lg:mt-16 grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center">
+        <div className="mt-14 lg:mt-20 grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-14 items-center">
           
           {/* Column 1: The Interactive 3D Virtual Card (5 cols) */}
           <div className="lg:col-span-5 flex flex-col items-center justify-center">
@@ -227,154 +217,151 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
               onThemeChange={setSelectedTheme}
             />
 
-            <p className="mt-4 text-[11px] text-stone-400 font-medium text-center flex items-center gap-1.5">
-              <span>💡</span>
-              <span>حرك الماوس أو المس الشاشة لإمالة البطاقة، وانقر عليها لقلبها نحو الباركود.</span>
+            <p className="mt-3.5 text-[11px] font-mono text-stone-400 text-center tracking-wide">
+              اسحب أو أمل الشاشة لتدوير البطاقة · انقر لمعاينة الباركود
             </p>
           </div>
 
-          {/* Column 2: Dashboard, Points Progress & Security Controls (7 cols) */}
-          <div className="lg:col-span-7 space-y-6">
+          {/* Column 2: Classic Prestige Dashboard & Controls (7 cols) */}
+          <div className="lg:col-span-7 space-y-5">
             
-            {/* Points & Tier Progress Card */}
-            <div className="p-5 sm:p-6 rounded-3xl bg-white/5 border border-white/10 backdrop-blur-md shadow-xl relative overflow-hidden">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
+            {/* Elegant Points & Tier Summary Card */}
+            <div className="p-6 sm:p-7 rounded-2xl bg-stone-900/60 border border-stone-800 shadow-xl backdrop-blur-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5 pb-5 border-b border-stone-800">
                 <div>
-                  <span className="text-[11px] font-mono font-bold text-[#FFD100] uppercase tracking-wider block">
-                    رصيدك الحالي من نقاط الوفاء
+                  <span className="text-[11px] font-mono tracking-wider text-stone-400 block">
+                    رصيد نقاط الوفاء المتاح
                   </span>
-                  <div className="flex items-baseline gap-2 mt-1">
-                    <span className="font-mono text-3xl sm:text-4xl font-black text-white tabular-nums">
+                  <div className="flex items-baseline gap-2.5 mt-1">
+                    <span className="font-mono text-3xl sm:text-4xl font-bold text-stone-100 tabular-nums">
                       {card.points}
                     </span>
-                    <span className="text-sm font-bold text-stone-300">نقطة وفاء</span>
+                    <span className="text-xs text-stone-400 font-medium">نقطة معتمدة</span>
                   </div>
                 </div>
 
-                {/* Tier Badge & In-Store Discount Rate */}
+                {/* Classic Tier & Discount Badges */}
                 <div className="flex items-center gap-3">
-                  <div className="px-3.5 py-1.5 rounded-2xl bg-[#D4AF37]/20 border border-[#D4AF37]/50 text-right">
-                    <span className="block text-[10px] text-stone-300 font-mono">الخصم المباشر بالفرع</span>
-                    <span className="font-black text-sm text-[#FFD100]">{currentTier.discountLabel}</span>
+                  <div className="px-3.5 py-1.5 rounded-xl bg-stone-950/80 border border-stone-800 text-right">
+                    <span className="block text-[10px] font-mono text-stone-400">التخفيض بالفرع</span>
+                    <span className="font-bold text-xs text-[#D4AF37]">{currentTier.discountLabel}</span>
                   </div>
-                  <div className="px-3.5 py-1.5 rounded-2xl bg-white/10 border border-white/15 text-right">
-                    <span className="block text-[10px] text-stone-300 font-mono">مستوى البطاقة</span>
-                    <span className="font-black text-sm text-white">{currentTier.badge}</span>
+                  <div className="px-3.5 py-1.5 rounded-xl bg-stone-950/80 border border-stone-800 text-right">
+                    <span className="block text-[10px] font-mono text-stone-400">فئة العضوية</span>
+                    <span className="font-bold text-xs text-stone-200">{currentTier.badge}</span>
                   </div>
                 </div>
               </div>
 
               {/* Progress to Next Tier */}
               {nextTierPoints ? (
-                <div className="mt-4 space-y-2">
-                  <div className="flex items-center justify-between text-xs font-mono font-semibold">
-                    <span className="text-stone-300">
-                      متبقي <strong className="text-[#FFD100]">{nextTierPoints - card.points} نقطة</strong> للترقية للمستوى التالي
+                <div className="mt-5 space-y-2">
+                  <div className="flex items-center justify-between text-xs font-mono text-stone-400">
+                    <span>
+                      متبقي <strong className="text-stone-200 font-bold">{nextTierPoints - card.points} نقطة</strong> للترقية للمستوى التالي
                     </span>
-                    <span className="text-stone-400">{progressPercent}%</span>
+                    <span>{progressPercent}%</span>
                   </div>
-                  <div className="w-full h-2 rounded-full bg-black/40 overflow-hidden border border-white/10">
+                  <div className="w-full h-1.5 rounded-full bg-stone-950 overflow-hidden border border-stone-800/80">
                     <div
-                      className="h-full rounded-full bg-gradient-to-r from-[#D4AF37] to-[#FFD100] transition-all duration-700"
+                      className="h-full rounded-full bg-[#D4AF37] transition-all duration-700"
                       style={{ width: `${progressPercent}%` }}
                     />
                   </div>
                 </div>
               ) : (
-                <div className="mt-4 flex items-center gap-2 text-xs font-bold text-[#FFD100]">
-                  <Sparkles className="w-4 h-4" />
-                  <span>تهانينا! أنت في أعلى مستوى لعضوية النخبة (Obsidian Titanium)</span>
+                <div className="mt-5 flex items-center gap-2 text-xs text-[#D4AF37] font-medium">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>عضوية النخبة الكاملة (Obsidian Titanium)</span>
                 </div>
               )}
             </div>
 
-            {/* Interactive Control Tabs: (المزايا | تخصيص البطاقة | استرجاع البطاقة) */}
-            <div className="p-5 sm:p-6 rounded-3xl bg-white/5 border border-white/10 backdrop-blur-md shadow-xl">
-              <div className="flex items-center gap-2 border-b border-white/10 pb-3 mb-5 overflow-x-auto">
+            {/* Classic Tabbed Management Card */}
+            <div className="p-6 sm:p-7 rounded-2xl bg-stone-900/60 border border-stone-800 shadow-xl backdrop-blur-xs">
+              
+              {/* Refined Tabs Navigation */}
+              <div className="flex items-center gap-1 border-b border-stone-800 pb-3 mb-6 overflow-x-auto">
                 <button
                   type="button"
                   onClick={() => { setActiveTab('perks'); setFormFeedback(null); }}
-                  className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer whitespace-nowrap ${
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
                     activeTab === 'perks'
-                      ? 'bg-[#E30613] text-white shadow-md'
-                      : 'text-stone-300 hover:text-white hover:bg-white/5'
+                      ? 'bg-stone-800 text-stone-100 shadow-xs'
+                      : 'text-stone-400 hover:text-stone-200 hover:bg-stone-800/40'
                   }`}
                 >
-                  امتيازات بطاقتك
+                  مزايا العضوية
                 </button>
                 <button
                   type="button"
                   onClick={() => { setActiveTab('customize'); setFormFeedback(null); }}
-                  className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
                     activeTab === 'customize'
-                      ? 'bg-[#E30613] text-white shadow-md'
-                      : 'text-stone-300 hover:text-white hover:bg-white/5'
+                      ? 'bg-stone-800 text-stone-100 shadow-xs'
+                      : 'text-stone-400 hover:text-stone-200 hover:bg-stone-800/40'
                   }`}
                 >
-                  <UserCheck className="w-3.5 h-3.5" />
-                  <span>تخصيص وحماية البطاقة (PIN)</span>
+                  <UserCheck className="w-3.5 h-3.5 text-[#D4AF37]" />
+                  <span>تخصيص وحماية البطاقة</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => { setActiveTab('retrieve'); setFormFeedback(null); }}
-                  className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
                     activeTab === 'retrieve'
-                      ? 'bg-[#E30613] text-white shadow-md'
-                      : 'text-stone-300 hover:text-white hover:bg-white/5'
+                      ? 'bg-stone-800 text-stone-100 shadow-xs'
+                      : 'text-stone-400 hover:text-stone-200 hover:bg-stone-800/40'
                   }`}
                 >
-                  <KeyRound className="w-3.5 h-3.5" />
+                  <KeyRound className="w-3.5 h-3.5 text-stone-400" />
                   <span>استرجاع بطاقة سابقة</span>
                 </button>
               </div>
 
-              {/* Feedback Alert */}
+              {/* Refined Feedback Alert */}
               {formFeedback && (
                 <div
-                  className={`mb-4 p-3.5 rounded-xl border text-xs font-bold flex items-center gap-2.5 ${
+                  className={`mb-5 p-3 rounded-xl border text-xs font-medium flex items-center gap-2.5 ${
                     formFeedback.type === 'success'
-                      ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-200'
-                      : 'bg-rose-500/15 border-rose-500/40 text-rose-200'
+                      ? 'bg-stone-950 border-emerald-500/30 text-emerald-300'
+                      : 'bg-stone-950 border-stone-700 text-rose-300'
                   }`}
                 >
-                  {formFeedback.type === 'success' ? (
-                    <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
-                  ) : (
-                    <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
-                  )}
+                  <span className="w-1.5 h-1.5 rounded-full bg-current shrink-0" />
                   <span>{formFeedback.message}</span>
                 </div>
               )}
 
               {/* TAB 1: PERKS LIST */}
               {activeTab === 'perks' && (
-                <div className="space-y-3.5">
+                <div className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {currentTier.perks.map((perk, idx) => (
                       <div
                         key={idx}
-                        className="p-3 rounded-2xl bg-white/5 border border-white/5 flex items-start gap-2.5"
+                        className="p-3.5 rounded-xl bg-stone-950/60 border border-stone-800/80 flex items-start gap-2.5"
                       >
-                        <CheckCircle2 className="w-4 h-4 text-[#FFD100] shrink-0 mt-0.5" />
-                        <span className="text-xs text-stone-200 font-semibold leading-relaxed">
+                        <Check className="w-3.5 h-3.5 text-[#D4AF37] shrink-0 mt-0.5" />
+                        <span className="text-xs text-stone-300 font-normal leading-relaxed">
                           {perk}
                         </span>
                       </div>
                     ))}
                   </div>
 
-                  {/* Physical In-Store Guidance */}
-                  <div className="mt-4 p-3.5 rounded-2xl bg-[#D4AF37]/10 border border-[#D4AF37]/30 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 rounded-xl bg-[#D4AF37]/20 flex items-center justify-center shrink-0">
-                        <QrCode className="w-5 h-5 text-[#FFD100]" />
+                  {/* Refined In-Store Notice */}
+                  <div className="p-4 rounded-xl bg-stone-950/80 border border-stone-800 flex items-center justify-between gap-4 mt-2">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-stone-900 border border-stone-800 flex items-center justify-center shrink-0">
+                        <QrCode className="w-4 h-4 text-[#D4AF37]" />
                       </div>
                       <div>
-                        <p className="text-xs font-black text-white">
-                          كيف تستفيد منها بفرع تكنو الأغواط؟
+                        <p className="text-xs font-bold text-stone-200">
+                          الاستخدام بالفرع الميداني (الأغواط)
                         </p>
-                        <p className="text-[11px] text-stone-300 font-medium">
-                          أظهر البطاقة من هاتفك أو صورتها المحفوظة للبائع لمسح الباركود عند الدفع.
+                        <p className="text-[11px] text-stone-400 font-normal">
+                          أبرز الباركود الموجود خلف البطاقة عند صندوق الدفع للاستفادة من التخفيض المباشر.
                         </p>
                       </div>
                     </div>
@@ -382,9 +369,9 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
                     <button
                       type="button"
                       onClick={() => setActiveTab('customize')}
-                      className="px-3 py-1.5 rounded-xl bg-white text-[#0F172A] text-xs font-black shrink-0 hover:bg-[#FFD100] transition-colors cursor-pointer"
+                      className="px-3 py-1.5 rounded-lg bg-stone-800 hover:bg-stone-700 text-stone-200 text-xs font-bold border border-stone-700 shrink-0 transition-colors cursor-pointer"
                     >
-                      تعديل بياناتي
+                      تعديل البيانات
                     </button>
                   </div>
                 </div>
@@ -393,27 +380,27 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
               {/* TAB 2: CUSTOMIZE & PIN PROTECTION */}
               {activeTab === 'customize' && (
                 <form onSubmit={handleSavePersonalization} className="space-y-4">
-                  <p className="text-xs text-stone-300 font-medium leading-relaxed">
-                    احفر اسمك ورقم هاتفك على البطاقة، وقم بتعيين رمز أمان PIN سري لحماية رصيد نقاطك من استخدام أي شخص آخر.
+                  <p className="text-xs text-stone-400 leading-relaxed">
+                    قم بإدراج اسمك ورقم هاتفك، وتعيين رمز حماية سري (PIN) لحماية رصيد نقاطك من الاستخدام غير المصرح به.
                   </p>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                     <div>
-                      <label className="block text-[11px] font-bold text-stone-300 mb-1">
-                        اسم صاحب البطاقة (الظاهر على الواجهة)
+                      <label className="block text-[11px] font-mono text-stone-400 mb-1">
+                        الاسم الكامل (الظاهر على البطاقة)
                       </label>
                       <input
                         type="text"
                         value={nameInput}
                         onChange={(e) => setNameInput(e.target.value)}
                         placeholder="مثال: أحمد بوزيد"
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/20 text-white text-xs font-bold focus:border-[#FFD100] focus:outline-none"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-stone-100 text-xs font-medium focus:border-stone-600 focus:outline-none"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-bold text-stone-300 mb-1">
-                        رقم الهاتف (لربط النقاط والطلبات)
+                      <label className="block text-[11px] font-mono text-stone-400 mb-1">
+                        رقم الهاتف
                       </label>
                       <input
                         type="tel"
@@ -421,27 +408,27 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
                         value={phoneInput}
                         onChange={(e) => setPhoneInput(e.target.value)}
                         placeholder="0560154663"
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/20 text-white text-xs font-mono font-bold focus:border-[#FFD100] focus:outline-none"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-stone-100 text-xs font-mono focus:border-stone-600 focus:outline-none"
                       />
                     </div>
                   </div>
 
                   {/* 4-Digit Security PIN Section */}
-                  <div className="p-3.5 rounded-2xl bg-black/30 border border-white/10 space-y-3">
+                  <div className="p-4 rounded-xl bg-stone-950 border border-stone-800 space-y-2.5">
                     <div className="flex items-center gap-2">
-                      <Lock className="w-4 h-4 text-[#FFD100]" />
-                      <span className="text-xs font-black text-white">
-                        حماية البطاقة برمز أمان PIN سري (اختياري لكن يُنصح به بشدة)
+                      <Lock className="w-3.5 h-3.5 text-[#D4AF37]" />
+                      <span className="text-xs font-bold text-stone-200">
+                        رمز الأمان السري PIN (مكوّن من 4 أرقام)
                       </span>
                     </div>
-                    <p className="text-[11px] text-stone-400">
-                      يمنع أي شخص غريب من استرجاع بطاقتك أو استعمال نقاطك دون إدخال هذا الرمز المكون من 4 أرقام.
+                    <p className="text-[11px] text-stone-400 leading-relaxed">
+                      يضمن عدم قدرة أي طرف آخر على استرجاع البطاقة أو استخدام رصيد نقاطك دون هذا الرمز.
                     </p>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                       <div>
-                        <label className="block text-[10px] font-bold text-stone-400 mb-1">
-                          رمز الأمان PIN (4 أرقام)
+                        <label className="block text-[10px] font-mono text-stone-500 mb-1">
+                          رمز PIN
                         </label>
                         <input
                           type="password"
@@ -449,11 +436,11 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
                           value={pinInput}
                           onChange={(e) => setPinInput(e.target.value)}
                           placeholder="••••"
-                          className="w-full px-3 py-2 rounded-xl bg-black/60 border border-white/20 text-white text-center font-mono text-sm tracking-widest focus:border-[#FFD100] focus:outline-none"
+                          className="w-full px-3 py-2 rounded-lg bg-stone-900 border border-stone-800 text-stone-100 text-center font-mono text-sm tracking-widest focus:border-stone-600 focus:outline-none"
                         />
                       </div>
                       <div>
-                        <label className="block text-[10px] font-bold text-stone-400 mb-1">
+                        <label className="block text-[10px] font-mono text-stone-500 mb-1">
                           تأكيد رمز PIN
                         </label>
                         <input
@@ -462,25 +449,25 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
                           value={pinConfirmInput}
                           onChange={(e) => setPinConfirmInput(e.target.value)}
                           placeholder="••••"
-                          className="w-full px-3 py-2 rounded-xl bg-black/60 border border-white/20 text-white text-center font-mono text-sm tracking-widest focus:border-[#FFD100] focus:outline-none"
+                          className="w-full px-3 py-2 rounded-lg bg-stone-900 border border-stone-800 text-stone-100 text-center font-mono text-sm tracking-widest focus:border-stone-600 focus:outline-none"
                         />
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-end gap-2 pt-2">
+                  <div className="flex items-center justify-end gap-2.5 pt-2">
                     <button
                       type="button"
                       onClick={() => setActiveTab('perks')}
-                      className="px-4 py-2.5 rounded-xl bg-white/10 text-stone-300 text-xs font-bold hover:bg-white/15 transition-colors cursor-pointer"
+                      className="px-4 py-2 rounded-lg bg-stone-800 text-stone-300 text-xs font-bold hover:bg-stone-700 transition-colors cursor-pointer"
                     >
                       إلغاء
                     </button>
                     <button
                       type="submit"
-                      className="px-5 py-2.5 rounded-xl bg-[#E30613] hover:bg-[#C4000F] text-white text-xs font-black shadow-md transition-all cursor-pointer"
+                      className="px-5 py-2 rounded-lg bg-stone-100 hover:bg-white text-stone-950 text-xs font-bold transition-all cursor-pointer shadow-xs"
                     >
-                      حفظ وتحديث البطاقة
+                      حفظ وتأكيد العضوية
                     </button>
                   </div>
                 </form>
@@ -489,14 +476,14 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
               {/* TAB 3: RETRIEVE PREVIOUS CARD WITH PIN */}
               {activeTab === 'retrieve' && (
                 <form onSubmit={handleRetrieveCard} className="space-y-4">
-                  <p className="text-xs text-stone-300 font-medium leading-relaxed">
-                    إذا قمت بتغيير هاتفك أو دخلت من جهاز كمبيوتر آخر، يمكنك استرجاع بطاقتك ونقاطك بإدخال رقم هاتفك ورمز الأمان PIN الخاص بك.
+                  <p className="text-xs text-stone-400 leading-relaxed">
+                    عند التصفح من جهاز آخر، يمكنك استرجاع بطاقتك ورصيد نقاطك بإدخال رقم الهاتف المسجل ورمز الحماية السري (PIN).
                   </p>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                     <div>
-                      <label className="block text-[11px] font-bold text-stone-300 mb-1">
-                        رقم الهاتف المسجل سابقاً
+                      <label className="block text-[11px] font-mono text-stone-400 mb-1">
+                        رقم الهاتف المسجل
                       </label>
                       <input
                         type="tel"
@@ -505,12 +492,12 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
                         value={retrievePhone}
                         onChange={(e) => setRetrievePhone(e.target.value)}
                         placeholder="0560154663"
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/20 text-white text-xs font-mono font-bold focus:border-[#FFD100] focus:outline-none"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-stone-100 text-xs font-mono focus:border-stone-600 focus:outline-none"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-bold text-stone-300 mb-1">
+                      <label className="block text-[11px] font-mono text-stone-400 mb-1">
                         رمز الأمان PIN (4 أرقام)
                       </label>
                       <input
@@ -519,32 +506,32 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
                         value={retrievePin}
                         onChange={(e) => setRetrievePin(e.target.value)}
                         placeholder="••••"
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/20 text-white text-center font-mono text-xs tracking-widest focus:border-[#FFD100] focus:outline-none"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-stone-100 text-center font-mono text-xs tracking-widest focus:border-stone-600 focus:outline-none"
                       />
                     </div>
                   </div>
 
-                  <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-200 flex items-start gap-2">
-                    <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                    <span>
-                      لحماية خصوصية الزبائن ونقاطهم، لا يمكن فتح البطاقة إلا بمعرفة الرمز السري المسجل لصاحب الرقم.
+                  <div className="p-3.5 rounded-xl bg-stone-950 border border-stone-800 text-xs text-stone-400 flex items-start gap-2.5">
+                    <ShieldCheck className="w-4 h-4 text-[#D4AF37] shrink-0 mt-0.5" />
+                    <span className="leading-relaxed">
+                      لحماية خصوصية الزبائن، لن يتم تفعيل العضوية أو عرض الرصيد إلا بعد مطابقة الرمز السري الخاص بصاحب الرقم.
                     </span>
                   </div>
 
-                  <div className="flex items-center justify-end gap-2 pt-2">
+                  <div className="flex items-center justify-end gap-2.5 pt-2">
                     <button
                       type="button"
                       onClick={() => setActiveTab('perks')}
-                      className="px-4 py-2.5 rounded-xl bg-white/10 text-stone-300 text-xs font-bold hover:bg-white/15 transition-colors cursor-pointer"
+                      className="px-4 py-2 rounded-lg bg-stone-800 text-stone-300 text-xs font-bold hover:bg-stone-700 transition-colors cursor-pointer"
                     >
                       إلغاء
                     </button>
                     <button
                       type="submit"
-                      className="px-5 py-2.5 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white text-xs font-black shadow-md transition-all cursor-pointer flex items-center gap-1.5"
+                      className="px-5 py-2 rounded-lg bg-stone-100 hover:bg-white text-stone-950 text-xs font-bold transition-all cursor-pointer shadow-xs flex items-center gap-1.5"
                     >
                       <KeyRound className="w-3.5 h-3.5" />
-                      <span>استرجاع بطاقتي ونقاطي</span>
+                      <span>استرجاع العضوية</span>
                     </button>
                   </div>
                 </form>
