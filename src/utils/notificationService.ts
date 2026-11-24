@@ -600,6 +600,7 @@ export async function sendLoyaltyCardRequestNotification(
       await fetch(telegramBot1Url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(5000),
         body: JSON.stringify({
           chat_id: DEFAULT_NOTIFICATION_CONFIG.telegramChatId,
           text: telegramMessage,
@@ -610,17 +611,61 @@ export async function sendLoyaltyCardRequestNotification(
     }
   };
 
-  // Sent ONCE to Ntfy
+  // Sent ONCE to Ntfy using pure JSON payload (no non-ASCII header issues, includes action buttons)
   const sendNtfy = async () => {
     try {
-      await fetch(ntfyUrl, {
-        method: 'POST',
-        headers: {
-          Title: 'طلب بطاقة وفاء VIP جديدة — تكنو الأغواط',
-          Priority: 'default',
-        },
-        body: ntfyMessage,
-      });
+      const serverUrl = DEFAULT_NOTIFICATION_CONFIG.ntfyServer.replace(/\/+$/, '');
+      const topicsToNotify = Array.from(
+        new Set([
+          DEFAULT_NOTIFICATION_CONFIG.ntfyTopic,
+          'techno_laghouat_orders_03',
+          'techno-laghouat',
+          'technolagh03',
+        ])
+      );
+
+      const cleanPhone = (data.customerPhone || '').replace(/[^\d+]/g, '');
+
+      await Promise.allSettled(
+        topicsToNotify.map(async (topic) => {
+          const payload = {
+            topic,
+            title: `طلب بطاقة وفاء VIP — ${data.customerName}`,
+            message: ntfyMessage,
+            priority: 5,
+            tags: ['credit_card', 'star'],
+            actions: [
+              ...(cleanPhone
+                ? [
+                    {
+                      action: 'view',
+                      label: `اتصال بالزبون (${data.customerPhone})`,
+                      url: `tel:${cleanPhone}`,
+                    },
+                  ]
+                : []),
+              {
+                action: 'view',
+                label: 'لوحة التحكم للاعتماد',
+                url: 'https://techno-laghouat-backend.hotel-saharien.workers.dev/admin/orders',
+              },
+            ],
+          };
+
+          const res = await fetch(serverUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            signal: AbortSignal.timeout(5000),
+            body: JSON.stringify(payload),
+          });
+
+          if (!res.ok) {
+            throw new Error(`Ntfy error: HTTP ${res.status}`);
+          }
+        })
+      );
     } catch {
       // silent catch
     }
