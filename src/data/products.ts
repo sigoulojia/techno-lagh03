@@ -109,7 +109,7 @@ export const DELIVERY_METHODS: DeliveryMethod[] = [
     id: 'city_delivery',
     title: 'توصيل للمنزل داخل مدينة الأغواط',
     subtitle: 'توصيل مباشر لباب منزلك في كافة أحياء وتجمعات مدينة الأغواط (100 دج فقط)',
-    eta: 'في نفس اليوم · خلال ساعات',
+    eta: 'في نفس اليوم',
     baseFeeDzd: 100,
     requiresAddress: true,
     requiresWilaya: false,

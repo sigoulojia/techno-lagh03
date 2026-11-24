@@ -1050,6 +1050,18 @@ async function callTelegram(
   return res.json();
 }
 
+// Helper: Select the optimal lightweight web photo from Telegram's photo sizes array
+// (Picks ~600-800px width/height, reducing file size by 75-85% while keeping retina clarity)
+function selectOptimalWebPhoto(photos: any[]) {
+  if (!Array.isArray(photos) || photos.length === 0) return null;
+  if (photos.length <= 2) return photos[photos.length - 1];
+  const balanced = photos.find(
+    (p) => (p.width >= 600 && p.width <= 900) || (p.height >= 600 && p.height <= 900),
+  );
+  if (balanced) return balanced;
+  return photos[photos.length - 2];
+}
+
 // Helper: Download Telegram photo and store in KV
 async function downloadTelegramPhoto(
   env: Env,
@@ -3877,7 +3889,7 @@ async function handleTelegramUpdate(
   if (session) {
     // 1. Handling photos during wizard
     if (msg.photo && msg.photo.length > 0) {
-      const bestPhoto = msg.photo[msg.photo.length - 1];
+      const bestPhoto = selectOptimalWebPhoto(msg.photo) || msg.photo[msg.photo.length - 1];
       const imageUrl = await downloadTelegramPhoto(env, botToken, bestPhoto.file_id, origin);
 
       if (session.step === 'prod_photos') {
@@ -4313,7 +4325,7 @@ async function handleTelegramUpdate(
 
   // 1. Direct Photo with caption (Quick Mode when not in wizard)
   if (msg.photo && msg.photo.length > 0) {
-    const bestPhoto = msg.photo[msg.photo.length - 1];
+    const bestPhoto = selectOptimalWebPhoto(msg.photo) || msg.photo[msg.photo.length - 1];
     const details = parseProductDetails(caption || 'منتج جديد من تكنو الأغواط\n1500');
 
     await callTelegram(botToken, 'sendMessage', {

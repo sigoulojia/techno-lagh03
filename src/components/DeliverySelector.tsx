@@ -188,45 +188,6 @@ export function DeliverySelector({
                 {errors.address}
               </p>
             ) : null}
-
-            {/* Quick-choice neighborhood badges */}
-            <div className="mt-2.5">
-              <span className="block text-[11px] font-bold text-stone-500 mb-1.5">
-                أو اختر حيك السكني بنقرة واحدة:
-              </span>
-              <div className="flex flex-wrap gap-1.5">
-                {[
-                  'حي المقام',
-                  'حي الواحات',
-                  'حي 5 جويلية',
-                  'حي المعمورة',
-                  'حي الصادقية',
-                  'حي شطيط',
-                  'حي المحافير',
-                  'حي سيدي ياني',
-                  'حي الوئام',
-                  'حي 800 مسكن',
-                  'حي البناء الذاتي',
-                  'حي قصر البزائم',
-                ].map((quarter) => (
-                  <button
-                    key={quarter}
-                    type="button"
-                    onClick={() => {
-                      onChangeForm((prev) => ({ ...prev, address: quarter }));
-                      onClearErrors(['address']);
-                    }}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
-                      form.address === quarter
-                        ? 'bg-[#18181B] text-[#FFD100] border-[#18181B]'
-                        : 'bg-white text-stone-700 border-stone-300 hover:border-[#18181B] hover:bg-stone-50'
-                    }`}
-                  >
-                    {quarter}
-                  </button>
-                ))}
-              </div>
-            </div>
           </div>
         </div>
       ) : form.deliveryMethod === 'pickup' ? (
