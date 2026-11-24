@@ -302,7 +302,7 @@ export function BranchSection({ savedOrders }: BranchSectionProps) {
                           <Search className="w-3.5 h-3.5 text-stone-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                           <input
                             type="search"
-                            placeholder="ابحث في بلديات الأغواط (مثال: آفلو، عين ماضي، قصر الحيران...)"
+                            placeholder="ابحث في بلديات الأغواط..."
                             value={communeSearch}
                             onChange={(e) => setCommuneSearch(e.target.value)}
                             className="w-full pr-8 pl-3 py-2 rounded-xl border border-stone-200 text-xs bg-white focus:outline-none focus:border-[#E30613]"

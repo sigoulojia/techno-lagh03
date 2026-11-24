@@ -171,7 +171,7 @@ export function DeliverySelector({
               type="text"
               id={`${idPrefix}-city-neighborhood`}
               data-testid={`${idPrefix}-city-neighborhood-input`}
-              placeholder="اكتب اسم الحي السكني (مثال: حي المقام، حي الواحات، حي 5 جويلية، حي المعمورة...)"
+              placeholder="اكتب اسم الحي السكني هنا..."
               value={form.address}
               onChange={(e) => {
                 onChangeForm((prev) => ({ ...prev, address: e.target.value }));

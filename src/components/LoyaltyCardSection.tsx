@@ -291,7 +291,7 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
     if (!/^\d{6}$/.test(pin)) {
       setFeedback({
         type: 'error',
-        message: 'الرمز السري يجب أن يتكون من 6 أرقام عددية بالضبط (مثال: 582103)',
+        message: 'الرمز السري يجب أن يتكون من 6 أرقام عددية بالضبط',
       });
       return;
     }
@@ -717,7 +717,7 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
                         required
                         value={retrievalPhone}
                         onChange={(e) => setRetrievalPhone(e.target.value)}
-                        placeholder="0560154663"
+                        placeholder="رقم الهاتف"
                         className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-stone-100 text-xs font-mono focus:border-stone-600 focus:outline-none"
                       />
                     </div>
@@ -805,7 +805,7 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
                         required
                         value={reqFirstName}
                         onChange={(e) => setReqFirstName(e.target.value)}
-                        placeholder="مثال: محمد"
+                        placeholder="الاسم الشخصي"
                         className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-stone-100 text-xs font-medium focus:border-stone-600 focus:outline-none"
                       />
                     </div>
@@ -820,7 +820,7 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
                         required
                         value={reqLastName}
                         onChange={(e) => setReqLastName(e.target.value)}
-                        placeholder="مثال: لعموري"
+                        placeholder="اللقب العائلي"
                         className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-stone-100 text-xs font-medium focus:border-stone-600 focus:outline-none"
                       />
                     </div>
@@ -836,7 +836,7 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
                         required
                         value={reqPhone}
                         onChange={(e) => setReqPhone(e.target.value)}
-                        placeholder="0560154663"
+                        placeholder="رقم الهاتف (10 أرقام)"
                         className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-stone-100 text-xs font-mono focus:border-stone-600 focus:outline-none"
                       />
                     </div>
@@ -865,7 +865,7 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
                         required
                         value={reqAddress}
                         onChange={(e) => setReqAddress(e.target.value)}
-                        placeholder="مثال: الأغواط - حي المحافير شارع القدس"
+                        placeholder="العنوان السكني الكامل"
                         className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-stone-100 text-xs font-medium focus:border-stone-600 focus:outline-none"
                       />
                     </div>
@@ -881,7 +881,7 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
                         required
                         value={reqEmail}
                         onChange={(e) => setReqEmail(e.target.value)}
-                        placeholder="name@example.com"
+                        placeholder="البريد الإلكتروني"
                         className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-stone-100 text-xs font-mono focus:border-stone-600 focus:outline-none"
                       />
                     </div>
@@ -896,7 +896,7 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
                         required
                         value={reqProfession}
                         onChange={(e) => setReqProfession(e.target.value)}
-                        placeholder="مثال: مهندس / أستاذ / تاجر / طالب"
+                        placeholder="المهنة أو الوظيفة"
                         className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-stone-100 text-xs font-medium focus:border-stone-600 focus:outline-none"
                       />
                     </div>
@@ -963,35 +963,8 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
                   </span>
                 </div>
 
-                <div className="p-4 rounded-xl bg-stone-950 border border-stone-800 space-y-2 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-stone-400">حالة سجل الشراء بالمتجر:</span>
-                    <span className={`font-bold ${card.hasPurchased ? 'text-emerald-400' : 'text-stone-300'}`}>
-                      {card.hasPurchased
-                        ? `اشترى سابقاً (${card.ordersCount} طلبات · ${card.totalSpent?.toLocaleString('ar-DZ')} دج)`
-                        : 'زبون جديد (قيد التدقيق لدى الإدارة)'}
-                    </span>
-                  </div>
-                  {card.customerAddress && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-stone-400">العنوان:</span>
-                      <span className="text-stone-200">{card.customerAddress}</span>
-                    </div>
-                  )}
-                  {card.customerProfession && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-stone-400">المهنة:</span>
-                      <span className="text-stone-200">{card.customerProfession}</span>
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between">
-                    <span className="text-stone-400">الفرع المعتمد:</span>
-                    <span className="font-mono text-stone-200">فرع الأغواط 03 (حي المقام)</span>
-                  </div>
-                </div>
-
                 <p className="text-xs text-stone-300 leading-relaxed">
-                  لقد استلمنا طلبك، ويجري التحقق من سجل مشترياتك في فرع تكنو الأغواط لاعتماد بطاقتك. فور موافقة الإدارة ستظهر لك شاشة تعيين رمزك السري المكون من 6 أرقام.
+                  لقد استلمنا طلبك، ويجري التحقق من سجل مشترياتك في فرع تكنو الأغواط لاعتماد بطاقتك وتعيين رقمها. فور موافقة الإدارة ستظهر لك شاشة تعيين رمزك السري المكون من 6 أرقام.
                 </p>
 
                 <div className="flex flex-wrap items-center gap-2.5 pt-2 border-t border-stone-800">

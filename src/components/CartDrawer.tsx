@@ -375,7 +375,7 @@ export function CartDrawer({
                   data-testid="checkout-name-input"
                   type="text"
                   autoComplete="name"
-                  placeholder="اكتب اسمك الكامل هنا..."
+                  placeholder="الاسم الكامل"
                   value={form.fullName}
                   onChange={(e) => {
                     setForm((prev) => ({ ...prev, fullName: e.target.value }));
@@ -408,7 +408,7 @@ export function CartDrawer({
                   type="tel"
                   dir="ltr"
                   autoComplete="tel"
-                  placeholder="ادخل رقم هاتفك"
+                  placeholder="رقم الهاتف"
                   value={form.phone}
                   onChange={(e) => {
                     setForm((prev) => ({ ...prev, phone: e.target.value }));

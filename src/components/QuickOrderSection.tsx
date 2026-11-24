@@ -339,7 +339,7 @@ export function QuickOrderSection({ products, onOrderCompleted }: QuickOrderSect
                         id="quick-product-search"
                         type="text"
                         autoFocus={isSearchActive}
-                        placeholder="اكتب رمز المنتج (مثال: 71638) أو رابطه أو اسمه..."
+                        placeholder="اكتب رمز المنتج أو رابطه أو اسمه..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="w-full pr-11 pl-10 py-3 min-h-[50px] rounded-2xl border-2 border-[#18181B] bg-white text-[#18181B] text-sm font-bold shadow-[3px_3px_0px_#18181B] focus:bg-[#FFD100]/10 focus:outline-none transition-all"
@@ -507,7 +507,7 @@ export function QuickOrderSection({ products, onOrderCompleted }: QuickOrderSect
                     id="quick-phone"
                     type="tel"
                     dir="ltr"
-                    placeholder="0560 15 46 63"
+                    placeholder="رقم الهاتف"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     className={`w-full px-4 py-3 min-h-[48px] rounded-xl border-2 bg-white text-[#18181B] font-mono text-right text-sm font-bold shadow-[2px_2px_0px_#18181B] focus:outline-none transition-colors ${
