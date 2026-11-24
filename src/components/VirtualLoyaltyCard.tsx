@@ -3,13 +3,11 @@ import { motion, useMotionValue, useSpring, useTransform } from 'motion/react';
 import {
   RotateCcw,
   Download,
-  ShieldCheck,
-  Sparkles,
-  QrCode,
   Lock,
   Wifi,
   Check,
   FileText,
+  QrCode,
 } from 'lucide-react';
 import {
   type LoyaltyCardData,
@@ -22,15 +20,11 @@ import {
 
 export interface VirtualLoyaltyCardProps {
   card: LoyaltyCardData;
-  activeTheme?: LoyaltyTierId;
-  onThemeChange?: (theme: LoyaltyTierId) => void;
   onFlip?: (isFlipped: boolean) => void;
 }
 
 export function VirtualLoyaltyCard({
   card,
-  activeTheme,
-  onThemeChange,
   onFlip,
 }: VirtualLoyaltyCardProps) {
   const [isFlipped, setIsFlipped] = useState(false);
@@ -39,8 +33,8 @@ export function VirtualLoyaltyCard({
   const [passDownloaded, setPassDownloaded] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
-  // Current theme fallback to card's tier
-  const currentTierId: LoyaltyTierId = activeTheme || card.themePreference || card.tier || 'classic';
+  // Current tier from card data
+  const currentTierId: LoyaltyTierId = card.tier || 'classic';
   const tierInfo = LOYALTY_TIERS[currentTierId];
 
   // Whether card is locked or pending PIN creation ("غير كاملة")
@@ -159,7 +153,7 @@ export function VirtualLoyaltyCard({
           >
             {/* Dynamic Iridescent Light Sheen / Holographic Glare on Hover */}
             <motion.div
-              className="absolute inset-0 pointer-events-none opacity-30 mix-blend-color-dodge"
+              className="absolute inset-0 pointer-events-none opacity-25 mix-blend-color-dodge"
               style={{
                 background: `radial-gradient(circle at 50% 50%, ${tierInfo.theme.foilHighlight} 0%, transparent 65%)`,
                 left: glareX,
@@ -169,38 +163,6 @@ export function VirtualLoyaltyCard({
                 height: '180%',
               }}
             />
-
-            {/* Top-Right: VIP Tier Badge over the Algerian Zellige pattern */}
-            <div className="absolute top-2.5 right-2.5 sm:top-3.5 sm:right-3.5 z-10">
-              <div
-                className="px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[8.5px] sm:text-[9.5px] font-black tracking-wider border backdrop-blur-md flex items-center gap-1.5 shadow-md uppercase"
-                style={{
-                  backgroundColor: 'rgba(8, 20, 48, 0.9)',
-                  color: tierInfo.theme.badgeText,
-                  borderColor: tierInfo.theme.borderAccent,
-                }}
-              >
-                <Sparkles className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-[#FFD100]" />
-                <span>{tierInfo.badge}</span>
-                <span className="text-[7px] sm:text-[8px] text-stone-300 font-mono">03</span>
-              </div>
-            </div>
-
-            {/* Hologram Authenticity Seal near chevron dividing line */}
-            <div className="absolute top-[32%] right-[32%] sm:right-[34%] z-10">
-              <div
-                className="w-6 h-6 sm:w-7 sm:h-7 rounded-full border border-white/40 flex flex-col items-center justify-center text-center p-0.5 shadow-inner backdrop-blur-xs"
-                style={{
-                  background: 'linear-gradient(135deg, rgba(255,255,255,0.25) 0%, rgba(212,175,55,0.35) 50%, rgba(0,255,255,0.15) 100%)',
-                }}
-                title="ختم الأصالة المعتمد — تكنو 03 الأغواط"
-              >
-                <ShieldCheck className="w-3 h-3 text-[#FFD100]" />
-                <span className="text-[4.5px] sm:text-[5px] font-black uppercase tracking-tighter text-white">
-                  ORIGINAL
-                </span>
-              </div>
-            </div>
 
             {/* Middle Navy Blue Section (Between Top Logo and Bottom CARTE FIDÉLITÉ) */}
             <div
@@ -287,7 +249,7 @@ export function VirtualLoyaltyCard({
                 </p>
                 <p className="text-[10px] text-stone-300 mt-1 max-w-[260px] leading-relaxed">
                   {card.status === 'approved_pending_pin'
-                    ? 'يرجى إدخال رقمك السري (6 أرقام) أدناه لإظهار البطاقة والباركود بالكامل'
+                    ? 'يرجى إدخال رقمك السري (6 أرقام) لإظهار البطاقة والباركود بالكامل'
                     : 'طلبك قيد المعالجة في قائمة الانتظار للتحقق من مشترياتك'}
                 </p>
               </div>
@@ -440,33 +402,6 @@ export function VirtualLoyaltyCard({
         <span className="text-stone-600">·</span>
         <span>المعيار العالمي ID-1</span>
       </div>
-
-      {/* Interactive Tier Switcher */}
-      <div className="mt-3 flex items-center gap-1 p-1 rounded-xl bg-stone-950/80 border border-stone-800/90">
-        <span className="text-[10px] font-mono text-stone-400 px-2">
-          طراز العضوية:
-        </span>
-        {(Object.keys(LOYALTY_TIERS) as LoyaltyTierId[]).map((tId) => {
-          const t = LOYALTY_TIERS[tId];
-          const isSelected = currentTierId === tId;
-          return (
-            <button
-              key={tId}
-              type="button"
-              onClick={() => onThemeChange && onThemeChange(tId)}
-              className={`px-2.5 py-1 rounded-lg text-[10px] font-mono transition-all cursor-pointer ${
-                isSelected
-                  ? 'bg-stone-800 text-[#D4AF37] font-bold border border-stone-700 shadow-xs'
-                  : 'text-stone-400 hover:text-stone-200'
-              }`}
-            >
-              {t.badge.split(' ')[0]}
-            </button>
-          );
-        })}
-      </div>
     </div>
   );
 }
-
-

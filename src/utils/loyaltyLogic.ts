@@ -654,36 +654,7 @@ export async function exportCardToPng(
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
     if (face === 'front') {
-      // 1. VIP Tier Badge on top-right over Zellige
-      ctx.save();
-      const badgeText = LOYALTY_TIERS[tierId].badge + ' 03';
-      ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-      const textWidth = ctx.measureText(badgeText).width;
-      const padX = 18;
-      const pillW = textWidth + padX * 2;
-      const pillH = 36;
-      const pillX = canvas.width - pillW - 28;
-      const pillY = 24;
-
-      ctx.fillStyle = 'rgba(8, 20, 48, 0.92)';
-      ctx.strokeStyle = '#D4AF37';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      if (typeof ctx.roundRect === 'function') {
-        ctx.roundRect(pillX, pillY, pillW, pillH, 18);
-      } else {
-        ctx.rect(pillX, pillY, pillW, pillH);
-      }
-      ctx.fill();
-      ctx.stroke();
-
-      ctx.fillStyle = '#FFD100';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(badgeText, pillX + pillW / 2, pillY + pillH / 2);
-      ctx.restore();
-
-      // 2. Golden EMV Microchip
+      // 1. Golden EMV Microchip
       ctx.save();
       const chipX = 64;
       const chipY = 182;
