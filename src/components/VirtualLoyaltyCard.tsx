@@ -60,13 +60,19 @@ export function VirtualLoyaltyCard({
   const mouseXSpring = useSpring(x, { stiffness: 260, damping: 24 });
   const mouseYSpring = useSpring(y, { stiffness: 260, damping: 24 });
 
-  // Range of tilt: +/- 14 degrees
-  const rotateX = useTransform(mouseYSpring, [-0.5, 0.5], ['14deg', '-14deg']);
-  const rotateY = useTransform(mouseXSpring, [-0.5, 0.5], ['-16deg', '16deg']);
+  // Front face tilt (+/- 14deg X, +/- 16deg Y)
+  const rotateXFront = useTransform(mouseYSpring, [-0.5, 0.5], ['14deg', '-14deg']);
+  const rotateYFront = useTransform(mouseXSpring, [-0.5, 0.5], ['-16deg', '16deg']);
 
-  // Dynamic Holographic Foil Glare coordinates
+  // Back face tilt: maintains natural directional tilt when viewed from the back (180deg flip)
+  const rotateXBack = useTransform(mouseYSpring, [-0.5, 0.5], ['-14deg', '14deg']);
+  const rotateYBack = useTransform(mouseXSpring, [-0.5, 0.5], ['196deg', '164deg']);
+
+  // Dynamic Holographic Foil Glare coordinates for front and back
   const glareX = useTransform(mouseXSpring, [-0.5, 0.5], ['15%', '85%']);
   const glareY = useTransform(mouseYSpring, [-0.5, 0.5], ['15%', '85%']);
+  const glareXBack = useTransform(mouseXSpring, [-0.5, 0.5], ['85%', '15%']);
+  const glareYBack = useTransform(mouseYSpring, [-0.5, 0.5], ['15%', '85%']);
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
@@ -80,6 +86,25 @@ export function VirtualLoyaltyCard({
   );
 
   const handleMouseLeave = useCallback(() => {
+    x.set(0);
+    y.set(0);
+  }, [x, y]);
+
+  const handleTouchMove = useCallback(
+    (e: React.TouchEvent<HTMLDivElement>) => {
+      if (e.touches.length > 0) {
+        const touch = e.touches[0];
+        const rect = e.currentTarget.getBoundingClientRect();
+        const touchX = (touch.clientX - rect.left) / rect.width - 0.5;
+        const touchY = (touch.clientY - rect.top) / rect.height - 0.5;
+        x.set(Math.max(-0.5, Math.min(0.5, touchX)));
+        y.set(Math.max(-0.5, Math.min(0.5, touchY)));
+      }
+    },
+    [x, y]
+  );
+
+  const handleTouchEnd = useCallback(() => {
     x.set(0);
     y.set(0);
   }, [x, y]);
@@ -165,6 +190,8 @@ export function VirtualLoyaltyCard({
         }}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
         onClick={toggleFlip}
         title="انقر لقلب البطاقة ومعاينة الوجه الآخر"
       >
@@ -174,8 +201,8 @@ export function VirtualLoyaltyCard({
             width: '100%',
             height: '100%',
             aspectRatio: '85.60 / 53.98',
-            rotateX: isFlipped ? 0 : rotateX,
-            rotateY: isFlipped ? 180 : rotateY,
+            rotateX: isFlipped ? rotateXBack : rotateXFront,
+            rotateY: isFlipped ? rotateYBack : rotateYFront,
             transformStyle: 'preserve-3d',
           }}
           transition={{ duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
@@ -387,6 +414,20 @@ export function VirtualLoyaltyCard({
                   : tierInfo.theme.cardShadow,
             }}
           >
+            {/* Dynamic Iridescent Light Sheen / Holographic Glare on Hover for Back Face */}
+            <motion.div
+              className="absolute inset-0 pointer-events-none opacity-25 mix-blend-color-dodge z-1"
+              style={{
+                background: `radial-gradient(circle at 50% 50%, ${
+                  activeDesign === 'standard' ? '#FFD100' : tierInfo.theme.foilHighlight
+                } 0%, transparent 65%)`,
+                left: glareXBack,
+                top: glareYBack,
+                transform: 'translate(-50%, -50%)',
+                width: '180%',
+                height: '180%',
+              }}
+            />
             {activeDesign === 'standard' ? (
               /* Standard Back Face (Barcode on top, info text below) */
               <div className="relative w-full h-full flex flex-col justify-between p-3">
