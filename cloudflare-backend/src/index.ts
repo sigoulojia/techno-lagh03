@@ -1764,12 +1764,16 @@ export default {
         const activeBotToken = botParam === 'orders' ? ordersBotToken : itemsBotToken;
 
         if (env.techno_products_kv) {
-          await env.techno_products_kv.put(
-            'debug:last_update',
-            JSON.stringify({ receivedAt: new Date().toISOString(), bot: botParam, update }),
+          ctx.waitUntil(
+            env.techno_products_kv
+              .put(
+                'debug:last_update',
+                JSON.stringify({ receivedAt: new Date().toISOString(), bot: botParam, update }),
+              )
+              .catch(() => {}),
           );
         }
-        await handleTelegramUpdate(update, env, activeBotToken, url.origin);
+        await handleTelegramUpdate(update, env, activeBotToken, url.origin, ctx);
         return new Response('OK', { status: 200 });
       } catch (err: any) {
         console.error('Webhook error:', err);
@@ -3342,6 +3346,7 @@ async function handleTelegramUpdate(
   env: Env,
   botToken: string,
   origin: string,
+  ctx?: ExecutionContext,
 ): Promise<void> {
   // A. Callback Queries (Inline button clicks)
   if (update.callback_query) {
@@ -3349,6 +3354,12 @@ async function handleTelegramUpdate(
     const data = cq.data as string;
     const chatId = cq.message?.chat?.id;
     const messageId = cq.message?.message_id;
+
+    // Immediately acknowledge callback query so the loading spinner on the button vanishes instantly!
+    callTelegram(botToken, 'answerCallbackQuery', {
+      callback_query_id: cq.id,
+      text: data.startsWith('cat:del_do:') ? 'تم حذف القسم بنجاح!' : undefined,
+    }).catch(() => {});
 
     if (data === 'menu:home' || data === 'wiz:cancel') {
       await clearSession(env, chatId);
@@ -3784,6 +3795,15 @@ async function handleTelegramUpdate(
   if (!update.message) return;
   const msg = update.message;
   const chatId = msg.chat?.id;
+
+  // Provide immediate typing/action feedback to Telegram user
+  if (chatId) {
+    callTelegram(botToken, 'sendChatAction', {
+      chat_id: chatId,
+      action: msg.photo && msg.photo.length > 0 ? 'upload_photo' : 'typing',
+    }).catch(() => {});
+  }
+
   const rawText = (msg.text || '').trim();
   const rawCaption = (msg.caption || '').trim();
   const text = rawText.replace(/@(items03bot|techno03bot|technolagh03)/gi, '').trim();
