@@ -396,12 +396,7 @@ export function VirtualLoyaltyCard({
         )}
       </div>
 
-      {/* Exact Physical Dimensions Pill */}
-      <div className="mt-2.5 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-stone-950/80 border border-stone-800 text-[10px] font-mono text-stone-400">
-        <span className="text-[#D4AF37] font-bold">85.60 mm × 53.98 mm</span>
-        <span className="text-stone-600">·</span>
-        <span>المعيار العالمي ID-1</span>
-      </div>
+
     </div>
   );
 }

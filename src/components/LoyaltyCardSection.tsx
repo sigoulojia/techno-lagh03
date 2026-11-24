@@ -763,8 +763,8 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
                   </div>
                 </form>
 
-                {/* 3 Prestige Pillars */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-stone-800/80">
+                {/* 2 Prestige Pillars */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t border-stone-800/80">
                   <div className="p-3 rounded-xl bg-stone-950/50 border border-stone-800/70 text-right">
                     <ShieldCheck className="w-4 h-4 text-[#D4AF37] mb-1.5" />
                     <h4 className="text-[11px] font-bold text-stone-200">حماية برمز PIN</h4>
@@ -775,12 +775,6 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
                     <Sparkles className="w-4 h-4 text-[#D4AF37] mb-1.5" />
                     <h4 className="text-[11px] font-bold text-stone-200">تخفيض فوري بالفرع</h4>
                     <p className="text-[10px] text-stone-400 mt-0.5">خصم مباشر عند الدفع في كاسة فرع تكنو الأغواط</p>
-                  </div>
-
-                  <div className="p-3 rounded-xl bg-stone-950/50 border border-stone-800/70 text-right">
-                    <QrCode className="w-4 h-4 text-[#D4AF37] mb-1.5" />
-                    <h4 className="text-[11px] font-bold text-stone-200">معيار ID-1 العالمي</h4>
-                    <p className="text-[10px] text-stone-400 mt-0.5">أبعاد 85.60 × 53.98 مم مع باركود رسمي مشفر</p>
                   </div>
                 </div>
               </div>
