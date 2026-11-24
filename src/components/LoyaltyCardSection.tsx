@@ -75,7 +75,7 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
     const intervalId = setInterval(async () => {
       try {
         const res = await fetch(
-          `https://techno-laghouat-backend.hotel-saharien.workers.dev/api/loyalty/status?phone=${encodeURIComponent(card.customerPhone)}&_t=${Date.now()}`,
+          `https://techno-laghouat.pages.dev/api/loyalty/status?phone=${encodeURIComponent(card.customerPhone)}&_t=${Date.now()}`,
           { cache: 'no-store' }
         );
         if (!res.ok) return;
@@ -182,7 +182,7 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
 
       // Step C: Also post to cloudflare backend endpoint if reachable
       try {
-        await fetch('https://techno-laghouat-backend.hotel-saharien.workers.dev/api/loyalty/request', {
+        await fetch('https://techno-laghouat.pages.dev/api/loyalty/request', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -250,7 +250,7 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
 
     // Sync PIN activation to backend so status becomes 'active' in KV
     try {
-      fetch('https://techno-laghouat-backend.hotel-saharien.workers.dev/api/loyalty/pin-set', {
+      fetch('https://techno-laghouat.pages.dev/api/loyalty/pin-set', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone: card.customerPhone }),
@@ -279,7 +279,7 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
     setIsRefreshingStatus(true);
     try {
       const res = await fetch(
-        `https://techno-laghouat-backend.hotel-saharien.workers.dev/api/loyalty/status?phone=${encodeURIComponent(cleanPhone)}&_t=${Date.now()}`,
+        `https://techno-laghouat.pages.dev/api/loyalty/status?phone=${encodeURIComponent(cleanPhone)}&_t=${Date.now()}`,
         { cache: 'no-store' }
       );
       if (!res.ok) {
@@ -380,7 +380,7 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
     let serverRequestData: any = null;
     try {
       const serverRes = await fetch(
-        `https://techno-laghouat-backend.hotel-saharien.workers.dev/api/loyalty/status?phone=${encodeURIComponent(cleanPhone)}&_t=${Date.now()}`,
+        `https://techno-laghouat.pages.dev/api/loyalty/status?phone=${encodeURIComponent(cleanPhone)}&_t=${Date.now()}`,
         { cache: 'no-store' }
       );
       if (serverRes.ok) {
@@ -851,7 +851,13 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
             
             {/* Column 1: The Interactive 3D Virtual Card (5 cols) */}
             <div className="lg:col-span-5 flex flex-col items-center justify-center">
-              <VirtualLoyaltyCard card={card} />
+              <VirtualLoyaltyCard
+                card={card}
+                design={card.cardDesign || 'default'}
+                onDesignChange={(newDesign) =>
+                  setCard((prev) => ({ ...prev, cardDesign: newDesign }))
+                }
+              />
 
               <p className="mt-3.5 text-[11px] font-mono text-stone-400 text-center tracking-wide">
                 حرّك الفأرة أو أمل الهاتف لمعاينة البطاقة بالأبعاد الثلاثية · انقر لقلبها

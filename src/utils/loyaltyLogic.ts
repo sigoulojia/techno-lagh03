@@ -2,6 +2,8 @@ import { type SavedOrder } from './storeLogic';
 
 export type LoyaltyTierId = 'classic' | 'silver' | 'gold' | 'black_vip';
 
+export type LoyaltyCardDesign = 'default' | 'standard';
+
 export type LoyaltyCardStatus =
   | 'unregistered'
   | 'pending'
@@ -44,6 +46,7 @@ export interface LoyaltyCardData {
   validThru: string; // Format: "MM/YY"
   isPinProtected: boolean;
   themePreference?: LoyaltyTierId;
+  cardDesign?: LoyaltyCardDesign;
   hasPurchased?: boolean;
   ordersCount?: number;
   totalSpent?: number;
@@ -645,7 +648,8 @@ export function downloadCardCredentialsDocument(
 export async function exportCardToPng(
   card: LoyaltyCardData,
   face: 'front' | 'back' = 'front',
-  tierId: LoyaltyTierId = 'classic'
+  tierId: LoyaltyTierId = 'classic',
+  design: LoyaltyCardDesign = 'default'
 ): Promise<boolean> {
   if (typeof window === 'undefined') return false;
 
@@ -658,11 +662,11 @@ export async function exportCardToPng(
     const ctx = canvas.getContext('2d');
     if (!ctx) return false;
 
-    // Load background image
+    // Load background image based on selected design
     const bgUrl =
-      face === 'back'
-        ? '/assets/techno-vip-back.webp'
-        : '/assets/techno-vip-front.webp';
+      design === 'standard'
+        ? (face === 'back' ? '/assets/techno-standard-back.jpg' : '/assets/techno-standard-front.jpg')
+        : (face === 'back' ? '/assets/techno-vip-back.webp' : '/assets/techno-vip-front.webp');
 
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -680,133 +684,172 @@ export async function exportCardToPng(
     // Draw background template
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-    if (face === 'front') {
-      // 1. Golden EMV Microchip
-      ctx.save();
-      const chipX = 64;
-      const chipY = 182;
-      const chipW = 94;
-      const chipH = 64;
-      const grad = ctx.createLinearGradient(chipX, chipY, chipX + chipW, chipY + chipH);
-      grad.addColorStop(0, '#FFE58F');
-      grad.addColorStop(0.35, '#D4AF37');
-      grad.addColorStop(0.7, '#B38F24');
-      grad.addColorStop(1, '#8C680E');
-      ctx.fillStyle = grad;
-      ctx.strokeStyle = '#B38F24';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      if (typeof ctx.roundRect === 'function') {
-        ctx.roundRect(chipX, chipY, chipW, chipH, 8);
+    const displayedNumber =
+      card.status === 'approved_pending_pin'
+        ? `03-••••-••••-${card.cardNumber.slice(-4)}`
+        : card.cardNumber;
+
+    if (design === 'standard') {
+      if (face === 'front') {
+        // Front of standard card: show cardholder name, card number, and expiry
+        ctx.save();
+        ctx.font = 'bold 36px monospace';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.95)';
+        ctx.shadowOffsetY = 3;
+        ctx.shadowOffsetX = 1;
+        ctx.shadowBlur = 4;
+        ctx.textAlign = 'center';
+        ctx.fillText(displayedNumber, canvas.width / 2, 490);
+        ctx.restore();
+
+        ctx.save();
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+        ctx.shadowOffsetY = 2;
+        ctx.textAlign = 'right';
+        ctx.fillText(card.customerName || 'عضو نادي الوفاء', canvas.width - 50, 535);
+
+        ctx.font = 'bold 18px monospace';
+        ctx.textAlign = 'left';
+        ctx.fillText('VAL: ' + card.validThru, 50, 535);
+        ctx.restore();
       } else {
-        ctx.rect(chipX, chipY, chipW, chipH);
+        // Back of standard card: card number under the top barcode
+        ctx.save();
+        ctx.font = 'bold 22px monospace';
+        ctx.fillStyle = '#E30613';
+        ctx.textAlign = 'center';
+        ctx.fillText('* ' + card.cardNumber + ' *', canvas.width / 2, 215);
+        ctx.restore();
       }
-      ctx.fill();
-      ctx.stroke();
-
-      // Chip internal contact etched lines
-      ctx.strokeStyle = 'rgba(92, 67, 7, 0.7)';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(chipX, chipY + 21); ctx.lineTo(chipX + chipW, chipY + 21);
-      ctx.moveTo(chipX, chipY + chipH - 21); ctx.lineTo(chipX + chipW, chipY + chipH - 21);
-      ctx.moveTo(chipX + 28, chipY); ctx.lineTo(chipX + 28, chipY + chipH);
-      ctx.moveTo(chipX + chipW - 28, chipY); ctx.lineTo(chipX + chipW - 28, chipY + chipH);
-      ctx.stroke();
-      ctx.restore();
-
-      // 3. Contactless NFC Waves
-      ctx.save();
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      const waveX = chipX + chipW + 28;
-      const waveY = chipY + 32;
-      ctx.arc(waveX, waveY, 10, -Math.PI / 4, Math.PI / 4);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.arc(waveX, waveY, 18, -Math.PI / 4, Math.PI / 4);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.arc(waveX, waveY, 26, -Math.PI / 4, Math.PI / 4);
-      ctx.stroke();
-      ctx.restore();
-
-      // 4. Embossed VIP Card Number
-      ctx.save();
-      ctx.font = 'bold 36px monospace';
-      ctx.fillStyle = '#FFFFFF';
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.95)';
-      ctx.shadowOffsetY = 3;
-      ctx.shadowOffsetX = 1;
-      ctx.shadowBlur = 4;
-      const displayedNumber =
-        card.status === 'approved_pending_pin'
-          ? `03-••••-••••-${card.cardNumber.slice(-4)}`
-          : card.cardNumber;
-      ctx.fillText(displayedNumber, 64, 290);
-      ctx.restore();
-
-      // 5. Cardholder Name & Expiry
-      ctx.save();
-      ctx.fillStyle = 'rgba(203, 213, 225, 0.9)';
-      ctx.font = '14px monospace';
-      ctx.fillText('صاحب البطاقة / CARDHOLDER', 64, 345);
-
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = 'bold 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
-      ctx.shadowOffsetY = 2;
-      ctx.fillText(card.customerName || 'عضو نادي الوفاء', 64, 375);
-
-      ctx.fillStyle = 'rgba(203, 213, 225, 0.9)';
-      ctx.font = '14px monospace';
-      ctx.fillText('VAL: ' + card.validThru, 410, 375);
-      ctx.restore();
     } else {
-      // BACK FACE: Dynamic Barcode inside white container
-      ctx.save();
-      const boxX = Math.round(canvas.width * 0.26);
-      const boxY = Math.round(canvas.height * 0.52);
-      const boxW = Math.round(canvas.width * 0.48);
-      const boxH = Math.round(canvas.height * 0.36);
-
-      // Draw pure white box over sample
-      ctx.fillStyle = '#FFFFFF';
-      ctx.beginPath();
-      if (typeof ctx.roundRect === 'function') {
-        ctx.roundRect(boxX, boxY, boxW, boxH, 16);
-      } else {
-        ctx.rect(boxX, boxY, boxW, boxH);
-      }
-      ctx.fill();
-
-      // Barcode bars
-      const bars = generateBarcodeBars(card.cardNumber);
-      const barPadding = 24;
-      const barAreaW = boxW - barPadding * 2;
-      const barAreaH = boxH - 52;
-      const totalUnits = bars.reduce((a, b) => a + b, 0);
-      const unitW = barAreaW / totalUnits;
-
-      let currentX = boxX + barPadding;
-      const barTop = boxY + 14;
-
-      ctx.fillStyle = '#0F172A';
-      bars.forEach((w, idx) => {
-        const thisW = w * unitW;
-        if (idx % 2 === 0) {
-          ctx.fillRect(currentX, barTop, thisW, barAreaH);
+      // Default design (VIP Blue and Gold)
+      if (face === 'front') {
+        // 1. Golden EMV Microchip
+        ctx.save();
+        const chipX = 64;
+        const chipY = 182;
+        const chipW = 94;
+        const chipH = 64;
+        const grad = ctx.createLinearGradient(chipX, chipY, chipX + chipW, chipY + chipH);
+        grad.addColorStop(0, '#FFE58F');
+        grad.addColorStop(0.35, '#D4AF37');
+        grad.addColorStop(0.7, '#B38F24');
+        grad.addColorStop(1, '#8C680E');
+        ctx.fillStyle = grad;
+        ctx.strokeStyle = '#B38F24';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        if (typeof ctx.roundRect === 'function') {
+          ctx.roundRect(chipX, chipY, chipW, chipH, 8);
+        } else {
+          ctx.rect(chipX, chipY, chipW, chipH);
         }
-        currentX += thisW;
-      });
+        ctx.fill();
+        ctx.stroke();
 
-      // Card number below barcode
-      ctx.font = 'bold 18px monospace';
-      ctx.textAlign = 'center';
-      ctx.fillStyle = '#0F172A';
-      ctx.fillText('* ' + card.cardNumber + ' *', boxX + boxW / 2, boxY + boxH - 14);
-      ctx.restore();
+        // Chip internal contact etched lines
+        ctx.strokeStyle = 'rgba(92, 67, 7, 0.7)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(chipX, chipY + 21); ctx.lineTo(chipX + chipW, chipY + 21);
+        ctx.moveTo(chipX, chipY + chipH - 21); ctx.lineTo(chipX + chipW, chipY + chipH - 21);
+        ctx.moveTo(chipX + 28, chipY); ctx.lineTo(chipX + 28, chipY + chipH);
+        ctx.moveTo(chipX + chipW - 28, chipY); ctx.lineTo(chipX + chipW - 28, chipY + chipH);
+        ctx.stroke();
+        ctx.restore();
+
+        // 3. Contactless NFC Waves
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        const waveX = chipX + chipW + 28;
+        const waveY = chipY + 32;
+        ctx.arc(waveX, waveY, 10, -Math.PI / 4, Math.PI / 4);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(waveX, waveY, 18, -Math.PI / 4, Math.PI / 4);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(waveX, waveY, 26, -Math.PI / 4, Math.PI / 4);
+        ctx.stroke();
+        ctx.restore();
+
+        // 4. Embossed VIP Card Number
+        ctx.save();
+        ctx.font = 'bold 36px monospace';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.95)';
+        ctx.shadowOffsetY = 3;
+        ctx.shadowOffsetX = 1;
+        ctx.shadowBlur = 4;
+        ctx.fillText(displayedNumber, 64, 290);
+        ctx.restore();
+
+        // 5. Cardholder Name & Expiry
+        ctx.save();
+        ctx.fillStyle = 'rgba(203, 213, 225, 0.9)';
+        ctx.font = '14px monospace';
+        ctx.fillText('صاحب البطاقة / CARDHOLDER', 64, 345);
+
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+        ctx.shadowOffsetY = 2;
+        ctx.fillText(card.customerName || 'عضو نادي الوفاء', 64, 375);
+
+        ctx.fillStyle = 'rgba(203, 213, 225, 0.9)';
+        ctx.font = '14px monospace';
+        ctx.fillText('VAL: ' + card.validThru, 410, 375);
+        ctx.restore();
+      } else {
+        // BACK FACE: Dynamic Barcode inside white container
+        ctx.save();
+        const boxX = Math.round(canvas.width * 0.26);
+        const boxY = Math.round(canvas.height * 0.52);
+        const boxW = Math.round(canvas.width * 0.48);
+        const boxH = Math.round(canvas.height * 0.36);
+
+        // Draw pure white box over sample
+        ctx.fillStyle = '#FFFFFF';
+        ctx.beginPath();
+        if (typeof ctx.roundRect === 'function') {
+          ctx.roundRect(boxX, boxY, boxW, boxH, 16);
+        } else {
+          ctx.rect(boxX, boxY, boxW, boxH);
+        }
+        ctx.fill();
+
+        // Barcode bars
+        const bars = generateBarcodeBars(card.cardNumber);
+        const barPadding = 24;
+        const barAreaW = boxW - barPadding * 2;
+        const barAreaH = boxH - 52;
+        const totalUnits = bars.reduce((a, b) => a + b, 0);
+        const unitW = barAreaW / totalUnits;
+
+        let currentX = boxX + barPadding;
+        const barTop = boxY + 14;
+
+        ctx.fillStyle = '#0F172A';
+        bars.forEach((w, idx) => {
+          const thisW = w * unitW;
+          if (idx % 2 === 0) {
+            ctx.fillRect(currentX, barTop, thisW, barAreaH);
+          }
+          currentX += thisW;
+        });
+
+        // Card number below barcode
+        ctx.font = 'bold 18px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#0F172A';
+        ctx.fillText('* ' + card.cardNumber + ' *', boxX + boxW / 2, boxY + boxH - 14);
+        ctx.restore();
+      }
     }
 
     // Convert to Blob and trigger download / share

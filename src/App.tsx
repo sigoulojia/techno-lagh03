@@ -55,7 +55,7 @@ const CATEGORIES_CACHE_KEY = 'techno_laghouat_categories_cache_v1';
 const PACKS_CACHE_KEY = 'techno_laghouat_packs_cache_v1';
 const BACKEND_URL =
   (typeof import.meta !== 'undefined' && import.meta.env?.VITE_BACKEND_URL) ||
-  'https://techno-laghouat-backend.hotel-saharien.workers.dev';
+  'https://techno-laghouat.pages.dev';
 
 const DEFAULT_FILTERS: ProductFilterState = {
   series: 'all',

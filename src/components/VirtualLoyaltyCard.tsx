@@ -12,6 +12,7 @@ import {
 import {
   type LoyaltyCardData,
   type LoyaltyTierId,
+  type LoyaltyCardDesign,
   LOYALTY_TIERS,
   generateBarcodeBars,
   exportCardToPng,
@@ -21,17 +22,29 @@ import {
 export interface VirtualLoyaltyCardProps {
   card: LoyaltyCardData;
   onFlip?: (isFlipped: boolean) => void;
+  design?: LoyaltyCardDesign;
+  onDesignChange?: (design: LoyaltyCardDesign) => void;
 }
 
 export function VirtualLoyaltyCard({
   card,
   onFlip,
+  design,
+  onDesignChange,
 }: VirtualLoyaltyCardProps) {
+  const [activeDesign, setActiveDesign] = useState<LoyaltyCardDesign>(
+    design || card.cardDesign || 'default'
+  );
   const [isFlipped, setIsFlipped] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadSuccess, setDownloadSuccess] = useState(false);
   const [passDownloaded, setPassDownloaded] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
+
+  const handleSwitchDesign = (newDesign: LoyaltyCardDesign) => {
+    setActiveDesign(newDesign);
+    if (onDesignChange) onDesignChange(newDesign);
+  };
 
   // Current tier from card data
   const currentTierId: LoyaltyTierId = card.tier || 'classic';
@@ -83,7 +96,7 @@ export function VirtualLoyaltyCard({
     setIsDownloading(true);
     try {
       const face = isFlipped ? 'back' : 'front';
-      const success = await exportCardToPng(card, face, currentTierId);
+      const success = await exportCardToPng(card, face, currentTierId, activeDesign);
       if (success) {
         setDownloadSuccess(true);
         setTimeout(() => setDownloadSuccess(false), 3000);
@@ -111,6 +124,38 @@ export function VirtualLoyaltyCard({
 
   return (
     <div className="flex flex-col items-center select-none w-full">
+      {/* Design Switcher: الافتراضية (VIP) vs القياسية (Standard) */}
+      <div className="mb-3.5 inline-flex items-center gap-1.5 p-1 rounded-xl bg-stone-900/90 border border-stone-800 shadow-sm text-xs">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleSwitchDesign('default');
+          }}
+          className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
+            activeDesign === 'default'
+              ? 'bg-[#D4AF37] text-stone-950 font-bold shadow-xs'
+              : 'text-stone-400 hover:text-white'
+          }`}
+        >
+          الافتراضية (VIP)
+        </button>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleSwitchDesign('standard');
+          }}
+          className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
+            activeDesign === 'standard'
+              ? 'bg-[#E30613] text-white font-bold shadow-xs'
+              : 'text-stone-400 hover:text-white'
+          }`}
+        >
+          القياسية (Standard)
+        </button>
+      </div>
+
       {/* 3D Card Perspective Wrapper - Strict ISO/IEC 7810 ID-1 standard dimensions: 85.60 mm x 53.98 mm */}
       <div
         className="w-full max-w-[390px] sm:max-w-[440px] relative cursor-pointer"
@@ -138,24 +183,31 @@ export function VirtualLoyaltyCard({
         >
           {/* =========================================================================
               FRONT FACE OF VIRTUAL CARD
-              الصورة الرسمية: تكنو + الزليج الجزائري + أبعاد ID-1 المعتمدة (85.60mm x 53.98mm)
               ========================================================================= */}
           <div
             className="absolute inset-0 rounded-2xl sm:rounded-3xl overflow-hidden"
             style={{
               backfaceVisibility: 'hidden',
-              backgroundImage: "url('/assets/techno-vip-front.webp')",
+              backgroundImage:
+                activeDesign === 'standard'
+                  ? "url('/assets/techno-standard-front.jpg')"
+                  : "url('/assets/techno-vip-front.webp')",
               backgroundSize: '100% 100%',
               backgroundPosition: 'center',
               backgroundRepeat: 'no-repeat',
-              boxShadow: tierInfo.theme.cardShadow,
+              boxShadow:
+                activeDesign === 'standard'
+                  ? '0 20px 40px -15px rgba(227, 6, 19, 0.35)'
+                  : tierInfo.theme.cardShadow,
             }}
           >
             {/* Dynamic Iridescent Light Sheen / Holographic Glare on Hover */}
             <motion.div
               className="absolute inset-0 pointer-events-none opacity-25 mix-blend-color-dodge"
               style={{
-                background: `radial-gradient(circle at 50% 50%, ${tierInfo.theme.foilHighlight} 0%, transparent 65%)`,
+                background: `radial-gradient(circle at 50% 50%, ${
+                  activeDesign === 'standard' ? '#FFD100' : tierInfo.theme.foilHighlight
+                } 0%, transparent 65%)`,
                 left: glareX,
                 top: glareY,
                 transform: 'translate(-50%, -50%)',
@@ -164,79 +216,137 @@ export function VirtualLoyaltyCard({
               }}
             />
 
-            {/* Middle Navy Blue Section (Between Top Logo and Bottom CARTE FIDÉLITÉ) */}
-            <div
-              className="absolute left-[5.5%] z-10 flex flex-col justify-between"
-              style={{
-                top: '28%',
-                bottom: '36%',
-                width: '58%',
-              }}
-            >
-              {/* Row 1: EMV Brass Chip + Contactless Wifi */}
-              <div className="flex items-center gap-2 sm:gap-2.5">
-                <div
-                  className="w-8 h-5.5 sm:w-10 sm:h-7 rounded relative overflow-hidden border border-[#B38F24] shadow-sm flex items-center justify-center shrink-0"
-                  style={{
-                    background: 'linear-gradient(135deg, #FFE58F 0%, #D4AF37 35%, #B38F24 70%, #8C680E 100%)',
-                  }}
-                  title="شريحة أمان EMV الذكية"
-                >
-                  <div className="w-full h-[1px] bg-[#5C4307]/70 absolute top-1.5 sm:top-2" />
-                  <div className="w-full h-[1px] bg-[#5C4307]/70 absolute bottom-1.5 sm:bottom-2" />
-                  <div className="w-[1px] h-full bg-[#5C4307]/70 absolute left-2 sm:left-2.5" />
-                  <div className="w-[1px] h-full bg-[#5C4307]/70 absolute right-2 sm:right-2.5" />
-                  <div className="w-2 h-1 sm:w-2.5 sm:h-1.5 rounded border border-[#5C4307]/80 bg-[#FFE58F]/60" />
+            {activeDesign === 'standard' ? (
+              /* Standard Front Card Layout (Red background with Techno mascot) */
+              <div className="absolute inset-0 z-10 flex flex-col justify-end p-4 pb-3">
+                {/* Chip & Contactless on upper left */}
+                <div className="absolute top-[28%] left-[6%] flex items-center gap-2">
+                  <div
+                    className="w-7 h-5 sm:w-8 sm:h-6 rounded relative overflow-hidden border border-[#B38F24] shadow-sm flex items-center justify-center shrink-0"
+                    style={{
+                      background:
+                        'linear-gradient(135deg, #FFE58F 0%, #D4AF37 35%, #B38F24 70%, #8C680E 100%)',
+                    }}
+                  >
+                    <div className="w-full h-[1px] bg-[#5C4307]/70 absolute top-1.5" />
+                    <div className="w-full h-[1px] bg-[#5C4307]/70 absolute bottom-1.5" />
+                    <div className="w-2 h-1 rounded border border-[#5C4307]/80 bg-[#FFE58F]/60" />
+                  </div>
+                  <Wifi className="w-3.5 h-3.5 text-white/80 rotate-90" />
                 </div>
 
-                <div className="text-white/80" title="Contactless NFC">
-                  <Wifi className="w-3.5 h-3.5 sm:w-4 sm:h-4 rotate-90" />
+                {/* Card Number on lower half */}
+                <p
+                  dir="ltr"
+                  className="font-mono text-xs sm:text-sm md:text-base font-black tracking-[0.14em] text-white text-center drop-shadow-md mb-2"
+                  style={{
+                    textShadow:
+                      '0 2px 4px rgba(0,0,0,0.9), 0 -1px 2px rgba(0,0,0,0.8)',
+                  }}
+                >
+                  {displayedCardNumber}
+                </p>
+
+                {/* Cardholder name & validity */}
+                <div className="flex items-center justify-between px-2.5 py-1 rounded-lg bg-black/50 backdrop-blur-xs border border-white/10">
+                  <span className="font-display text-[9.5px] sm:text-[11px] font-black text-white truncate drop-shadow-sm">
+                    {card.customerName || 'عضو نادي الوفاء'}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <span
+                      dir="ltr"
+                      className="font-mono text-[8.5px] sm:text-[9.5px] font-bold text-white drop-shadow-sm"
+                    >
+                      VAL {card.validThru}
+                    </span>
+                    {card.isPinProtected && (
+                      <div className="p-0.5 rounded-full bg-emerald-500/30 border border-emerald-400/60 text-emerald-300">
+                        <Lock className="w-2 h-2" />
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-
-              {/* Row 2: Embossed VIP Card Number (Masked if partially incomplete) */}
-              <p
-                dir="ltr"
-                className="font-mono text-xs sm:text-sm md:text-base font-black tracking-[0.14em] sm:tracking-[0.18em] text-white"
+            ) : (
+              /* Default VIP Front Card Layout (Blue Zellige) */
+              <div
+                className="absolute left-[5.5%] z-10 flex flex-col justify-between"
                 style={{
-                  textShadow: '0 1px 1px rgba(255,255,255,0.45), 0 -1px 2px rgba(0,0,0,0.9), 0 2px 4px rgba(0,0,0,0.85)',
+                  top: '28%',
+                  bottom: '36%',
+                  width: '58%',
                 }}
               >
-                {displayedCardNumber}
-              </p>
-
-              {/* Row 3: Cardholder Name & Validity (Sitting cleanly above CARTE FIDÉLITÉ) */}
-              <div className="flex items-end justify-between pr-2">
-                <div className="max-w-[70%]">
-                  <span className="block text-[6.5px] sm:text-[7.5px] uppercase tracking-wider text-stone-300/90 font-mono leading-none">
-                    صاحب البطاقة / CARDHOLDER
-                  </span>
-                  <p className="font-display text-[9.5px] sm:text-[11px] font-black text-white tracking-wide truncate drop-shadow-sm mt-0.5">
-                    {card.customerName || 'عضو نادي الوفاء'}
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-1.5">
-                  <div className="text-left">
-                    <span className="block text-[6.5px] sm:text-[7.5px] uppercase tracking-wider text-stone-300/90 font-mono leading-none">
-                      VAL
-                    </span>
-                    <span dir="ltr" className="font-mono text-[8.5px] sm:text-[9.5px] font-bold text-white drop-shadow-sm mt-0.5 block">
-                      {card.validThru}
-                    </span>
+                {/* Row 1: EMV Brass Chip + Contactless Wifi */}
+                <div className="flex items-center gap-2 sm:gap-2.5">
+                  <div
+                    className="w-8 h-5.5 sm:w-10 sm:h-7 rounded relative overflow-hidden border border-[#B38F24] shadow-sm flex items-center justify-center shrink-0"
+                    style={{
+                      background:
+                        'linear-gradient(135deg, #FFE58F 0%, #D4AF37 35%, #B38F24 70%, #8C680E 100%)',
+                    }}
+                    title="شريحة أمان EMV الذكية"
+                  >
+                    <div className="w-full h-[1px] bg-[#5C4307]/70 absolute top-1.5 sm:top-2" />
+                    <div className="w-full h-[1px] bg-[#5C4307]/70 absolute bottom-1.5 sm:bottom-2" />
+                    <div className="w-[1px] h-full bg-[#5C4307]/70 absolute left-2 sm:left-2.5" />
+                    <div className="w-[1px] h-full bg-[#5C4307]/70 absolute right-2 sm:right-2.5" />
+                    <div className="w-2 h-1 sm:w-2.5 sm:h-1.5 rounded border border-[#5C4307]/80 bg-[#FFE58F]/60" />
                   </div>
 
-                  {card.isPinProtected && (
-                    <div
-                      className="p-0.5 sm:p-1 rounded-full bg-emerald-500/30 border border-emerald-400/60 text-emerald-300 shadow-xs"
-                      title="محمية برمز أمان PIN سري"
-                    >
-                      <Lock className="w-2 h-2 sm:w-2.5 sm:h-2.5" />
+                  <div className="text-white/80" title="Contactless NFC">
+                    <Wifi className="w-3.5 h-3.5 sm:w-4 sm:h-4 rotate-90" />
+                  </div>
+                </div>
+
+                {/* Row 2: Embossed VIP Card Number (Masked if partially incomplete) */}
+                <p
+                  dir="ltr"
+                  className="font-mono text-xs sm:text-sm md:text-base font-black tracking-[0.14em] sm:tracking-[0.18em] text-white"
+                  style={{
+                    textShadow:
+                      '0 1px 1px rgba(255,255,255,0.45), 0 -1px 2px rgba(0,0,0,0.9), 0 2px 4px rgba(0,0,0,0.85)',
+                  }}
+                >
+                  {displayedCardNumber}
+                </p>
+
+                {/* Row 3: Cardholder Name & Validity */}
+                <div className="flex items-end justify-between pr-2">
+                  <div className="max-w-[70%]">
+                    <span className="block text-[6.5px] sm:text-[7.5px] uppercase tracking-wider text-stone-300/90 font-mono leading-none">
+                      صاحب البطاقة / CARDHOLDER
+                    </span>
+                    <p className="font-display text-[9.5px] sm:text-[11px] font-black text-white tracking-wide truncate drop-shadow-sm mt-0.5">
+                      {card.customerName || 'عضو نادي الوفاء'}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <div className="text-left">
+                      <span className="block text-[6.5px] sm:text-[7.5px] uppercase tracking-wider text-stone-300/90 font-mono leading-none">
+                        VAL
+                      </span>
+                      <span
+                        dir="ltr"
+                        className="font-mono text-[8.5px] sm:text-[9.5px] font-bold text-white drop-shadow-sm mt-0.5 block"
+                      >
+                        {card.validThru}
+                      </span>
                     </div>
-                  )}
+
+                    {card.isPinProtected && (
+                      <div
+                        className="p-0.5 sm:p-1 rounded-full bg-emerald-500/30 border border-emerald-400/60 text-emerald-300 shadow-xs"
+                        title="محمية برمز أمان PIN سري"
+                      >
+                        <Lock className="w-2 h-2 sm:w-2.5 sm:h-2.5" />
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
             {/* Incomplete / Pending PIN Frosted Overlay if partially approved */}
             {isPartiallyMasked && (
@@ -258,79 +368,116 @@ export function VirtualLoyaltyCard({
 
           {/* =========================================================================
               BACK FACE OF VIRTUAL CARD
-              الوجه الخلفي الرسمي: زليج علوي، شعار تكنو، باركود ديناميكي مشفر داخل الحاوية البيضاء
               ========================================================================= */}
           <div
             className="absolute inset-0 rounded-2xl sm:rounded-3xl flex flex-col justify-between overflow-hidden shadow-2xl"
             style={{
               backfaceVisibility: 'hidden',
               transform: 'rotateY(180deg)',
-              backgroundImage: "url('/assets/techno-vip-back.webp')",
+              backgroundImage:
+                activeDesign === 'standard'
+                  ? "url('/assets/techno-standard-back.jpg')"
+                  : "url('/assets/techno-vip-back.webp')",
               backgroundSize: '100% 100%',
               backgroundPosition: 'center',
               backgroundRepeat: 'no-repeat',
-              boxShadow: tierInfo.theme.cardShadow,
+              boxShadow:
+                activeDesign === 'standard'
+                  ? '0 20px 40px -15px rgba(227, 6, 19, 0.35)'
+                  : tierInfo.theme.cardShadow,
             }}
           >
-            {/* Top Details (Right under Zellige border band) */}
-            <div className="relative z-10 px-4 pt-3 flex items-center justify-between text-[7px] sm:text-[8px] font-mono text-stone-300/80">
-              <span className="tracking-wider">TECHNO LAGHOUAT 03 · MAQAM</span>
-              <div className="flex items-center gap-1.5">
-                <span className="text-[#FFD100] font-bold">
-                  {card.isPinProtected ? 'PIN SECURED' : 'CVV 030'}
-                </span>
-                <QrCode className="w-2.5 h-2.5 text-stone-300" />
-              </div>
-            </div>
-
-            {/* Dynamic Customer Barcode Container
-                Overlaid exactly inside the bottom white rounded box of techno-vip-back.webp */}
-            <div
-              className="absolute rounded-xl sm:rounded-2xl bg-white shadow-md flex flex-col items-center justify-between px-2.5 py-1.5 sm:py-2"
-              style={{
-                left: '26%',
-                right: '26%',
-                top: '52%',
-                bottom: '12%',
-              }}
-            >
-              {isPartiallyMasked ? (
-                <div className="w-full h-full flex flex-col items-center justify-center text-center p-1">
-                  <Lock className="w-4 h-4 text-stone-400 mb-0.5" />
-                  <span className="text-[7.5px] font-mono font-bold text-stone-500">
-                    الباركود محمي برمز PIN
+            {activeDesign === 'standard' ? (
+              /* Standard Back Face (Barcode on top, info text below) */
+              <div className="relative w-full h-full flex flex-col justify-between p-3">
+                {/* Personal Scannable Card Number Bar placed cleanly right under barcode */}
+                <div className="w-full text-center pt-2">
+                  <span
+                    dir="ltr"
+                    className="inline-block px-3 py-0.5 rounded bg-white/90 text-[#E30613] font-mono text-xs sm:text-sm font-black tracking-widest shadow-xs select-all"
+                  >
+                    * {displayedCardNumber} *
                   </span>
                 </div>
-              ) : (
-                <>
-                  {/* High-Resolution Dynamic Barcode SVG/Bars */}
-                  <div className="w-full flex-1 flex items-center justify-between px-1 overflow-hidden">
-                    {barcodeBars.map((width, idx) => (
-                      <div
-                        key={idx}
-                        className="h-full bg-[#0F172A]"
-                        style={{ width: `${Math.max(1, width * 1.35)}px` }}
-                      />
-                    ))}
+
+                {/* Bottom notification */}
+                <div className="w-full text-center pb-1">
+                  <span className="text-[7px] sm:text-[8px] font-mono font-bold text-white bg-black/60 px-2 py-0.5 rounded">
+                    فرع الأغواط 03 · هاتف خدمة الزبائن: 0550101012
+                  </span>
+                </div>
+              </div>
+            ) : (
+              /* VIP Default Back Face */
+              <>
+                {/* Top Details (Right under Zellige border band) */}
+                <div className="relative z-10 px-4 pt-3 flex items-center justify-between text-[7px] sm:text-[8px] font-mono text-stone-300/80">
+                  <span className="tracking-wider">TECHNO LAGHOUAT 03 · MAQAM</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[#FFD100] font-bold">
+                      {card.isPinProtected ? 'PIN SECURED' : 'CVV 030'}
+                    </span>
+                    <QrCode className="w-2.5 h-2.5 text-stone-300" />
                   </div>
+                </div>
 
-                  {/* Scannable Card Number Label */}
-                  <p
-                    dir="ltr"
-                    className="text-center font-mono text-[8px] sm:text-[9.5px] font-black tracking-wider text-[#0F172A] mt-0.5 select-all"
-                  >
-                    * {card.cardNumber} *
-                  </p>
-                </>
-              )}
-            </div>
+                {/* Dynamic Customer Barcode Container */}
+                <div
+                  className="absolute rounded-xl sm:rounded-2xl bg-white shadow-md flex flex-col items-center justify-between px-2.5 py-1.5 sm:py-2"
+                  style={{
+                    left: '26%',
+                    right: '26%',
+                    top: '52%',
+                    bottom: '12%',
+                  }}
+                >
+                  {isPartiallyMasked ? (
+                    <div className="w-full h-full flex flex-col items-center justify-center text-center p-1">
+                      <Lock className="w-4 h-4 text-stone-400 mb-0.5" />
+                      <span className="text-[7.5px] font-mono font-bold text-stone-500">
+                        الباركود محمي برمز PIN
+                      </span>
+                    </div>
+                  ) : (
+                    <>
+                      {/* High-Resolution Dynamic Barcode SVG/Bars */}
+                      <div className="w-full flex-1 flex items-center justify-between px-1 overflow-hidden">
+                        {barcodeBars.map((width, idx) => (
+                          <div
+                            key={idx}
+                            className="h-full bg-[#0F172A]"
+                            style={{ width: `${Math.max(1, width * 1.35)}px` }}
+                          />
+                        ))}
+                      </div>
 
-            {/* Bottom In-Store Scanner Instruction */}
-            <div className="relative z-10 pb-1.5 text-center">
-              <span className="text-[6.5px] sm:text-[7.5px] font-mono text-stone-300/80 tracking-tight">
-                أبرز الباركود عند الدفع في فرع الأغواط للاستفادة الفورية من الرصيد والخصومات
-              </span>
-            </div>
+                      {/* Scannable Card Number Label */}
+                      <p
+                        dir="ltr"
+                        className="text-center font-mono text-[8px] sm:text-[9.5px] font-black tracking-wider text-[#0F172A] mt-0.5 select-all"
+                      >
+                        * {card.cardNumber} *
+                      </p>
+                    </>
+                  )}
+                </div>
+
+                {/* Bottom In-Store Scanner Instruction */}
+                <div className="relative z-10 pb-1.5 text-center">
+                  <span className="text-[6.5px] sm:text-[7.5px] font-mono text-stone-300/80 tracking-tight">
+                    أبرز الباركود عند الدفع في فرع الأغواط للاستفادة الفورية من الرصيد والخصومات
+                  </span>
+                </div>
+              </>
+            )}
+
+            {/* Back Incomplete Mask if partially approved */}
+            {isPartiallyMasked && (
+              <div className="absolute inset-0 z-20 bg-stone-950/70 backdrop-blur-[2px] flex flex-col items-center justify-center p-4 text-center">
+                <Lock className="w-6 h-6 text-amber-400 mb-1" />
+                <span className="text-xs font-bold text-white">الباركود محمي</span>
+              </div>
+            )}
           </div>
         </motion.div>
       </div>

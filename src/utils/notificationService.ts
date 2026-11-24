@@ -432,7 +432,7 @@ export async function sendOrderNotifications(
     try {
       const workerBackendUrl =
         (typeof import.meta !== 'undefined' && import.meta.env?.VITE_BACKEND_URL) ||
-        'https://techno-laghouat-backend.hotel-saharien.workers.dev';
+        'https://techno-laghouat.pages.dev';
 
       const res = await fetch(`${workerBackendUrl.replace(/\/+$/, '')}/api/orders`, {
         method: 'POST',
@@ -563,7 +563,7 @@ export function buildLoyaltyCardTelegramMessage(
 
   const safePhone = maskPhoneNumber(data.customerPhone);
 
-  return `طلب جديد لإصدار بطاقة وفاء VIP — فرع تكنو الأغواط 03\n\n• الاسم الكامل: ${data.customerName}\n• رقم الهاتف: ${safePhone} (محمي لمنع الحظر)\n• سجل الشراء: ${purchaseStatusText}\n• رقم البطاقة: ${data.cardNumber}\n• الحالة: قيد الانتظار والمعالجة\n\nلرؤية رقم الهاتف الكامل وباقي البيانات غير المقنعة:\nقناة Ntfy المباشرة: ${ntfyUrl}\nلوحة التحكم للاعتماد: https://techno-laghouat-backend.hotel-saharien.workers.dev/admin/orders`;
+  return `طلب جديد لإصدار بطاقة وفاء VIP — فرع تكنو الأغواط 03\n\n• الاسم الكامل: ${data.customerName}\n• رقم الهاتف: ${safePhone} (محمي لمنع الحظر)\n• سجل الشراء: ${purchaseStatusText}\n• رقم البطاقة: ${data.cardNumber}\n• الحالة: قيد الانتظار والمعالجة\n\nلرؤية رقم الهاتف الكامل وباقي البيانات غير المقنعة:\nقناة Ntfy المباشرة: ${ntfyUrl}\nلوحة التحكم للاعتماد: https://techno-laghouat.pages.dev/admin/orders`;
 }
 
 /**
@@ -577,7 +577,7 @@ export function buildLoyaltyCardNtfyMessage(
     ? `اشترى سابقاً (${data.ordersCount} طلبات - بمجموع ${data.totalSpent.toLocaleString('ar-DZ')} دج)`
     : 'زبون جديد (لم يسجل طلبيات سابقة في المتجر)';
 
-  return `طلب بطاقة وفاء VIP جديدة — فرع تكنو الأغواط 03\n\n• الاسم الكامل: ${data.customerName}\n• رقم الهاتف الكامل: ${data.customerPhone}\n• سجل الشراء: ${purchaseStatusText}\n• رقم البطاقة: ${data.cardNumber}\n• الحالة: قيد الانتظار والمعالجة\n\nلوحة التحكم المباشرة للاعتماد:\nhttps://techno-laghouat-backend.hotel-saharien.workers.dev/admin/orders`;
+  return `طلب بطاقة وفاء VIP جديدة — فرع تكنو الأغواط 03\n\n• الاسم الكامل: ${data.customerName}\n• رقم الهاتف الكامل: ${data.customerPhone}\n• سجل الشراء: ${purchaseStatusText}\n• رقم البطاقة: ${data.cardNumber}\n• الحالة: قيد الانتظار والمعالجة\n\nلوحة التحكم المباشرة للاعتماد:\nhttps://techno-laghouat.pages.dev/admin/orders`;
 }
 
 /**
@@ -647,7 +647,7 @@ export async function sendLoyaltyCardRequestNotification(
               {
                 action: 'view',
                 label: 'لوحة التحكم للاعتماد',
-                url: 'https://techno-laghouat-backend.hotel-saharien.workers.dev/admin/orders',
+                url: 'https://techno-laghouat.pages.dev/admin/orders',
               },
             ],
           };

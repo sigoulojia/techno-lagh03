@@ -60,7 +60,7 @@ const CRAFTSMANSHIP_PILLARS = [
 
 const BACKEND_URL =
   (typeof import.meta !== 'undefined' && import.meta.env?.VITE_BACKEND_URL) ||
-  'https://techno-laghouat-backend.hotel-saharien.workers.dev';
+  'https://techno-laghouat.pages.dev';
 
 export function BranchSection({ savedOrders }: BranchSectionProps) {
   const [selectedWilayaLabel, setSelectedWilayaLabel] = useState<string>(DEFAULT_WILAYA);
