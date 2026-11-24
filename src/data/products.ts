@@ -14,7 +14,13 @@ export type ProductColorFamily =
   | 'green'
   | 'other'
   | string;
-export type DeliveryMethodId = 'pickup' | 'home' | 'stop_desk' | 'laghouat' | string;
+export type DeliveryMethodId =
+  | 'pickup'
+  | 'city_delivery'
+  | 'home'
+  | 'stop_desk'
+  | 'laghouat'
+  | string;
 
 export interface StoreCategory {
   id: string;
@@ -100,9 +106,18 @@ export const DELIVERY_METHODS: DeliveryMethod[] = [
     requiresWilaya: false,
   },
   {
+    id: 'city_delivery',
+    title: 'توصيل للمنزل داخل مدينة الأغواط',
+    subtitle: 'توصيل مباشر لباب منزلك في كافة أحياء وتجمعات مدينة الأغواط (100 دج فقط)',
+    eta: 'في نفس اليوم · خلال ساعات',
+    baseFeeDzd: 100,
+    requiresAddress: true,
+    requiresWilaya: false,
+  },
+  {
     id: 'home',
-    title: 'توصيل لباب المنزل',
-    subtitle: 'À Domicile عبر ZR Express داخل ولاية الأغواط وإلى 69 ولاية جزائرية',
+    title: 'توصيل لباب المنزل (ZR Express)',
+    subtitle: 'À Domicile عبر ZR Express لبلديات الأغواط والـ 69 ولاية جزائرية',
     eta: '24 – 72 ساعة',
     baseFeeDzd: 500,
     requiresAddress: true,

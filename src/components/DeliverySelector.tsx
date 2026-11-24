@@ -1,4 +1,4 @@
-import { MapPin, Store, Truck } from 'lucide-react';
+import { Home, MapPin, Store, Truck } from 'lucide-react';
 import {
   DELIVERY_METHODS,
   LAGHOUAT_COMMUNES,
@@ -6,6 +6,7 @@ import {
   type DeliveryMethodId,
 } from '../data/products';
 import {
+  DEFAULT_WILAYA_LABEL,
   WILAYA_DELIVERY_RATES,
   findWilayaRate,
   formatWilayaLabel,
@@ -41,11 +42,16 @@ export function DeliverySelector({
     onChangeForm((prev) => ({
       ...prev,
       deliveryMethod: methodId,
-      wilaya: prev.wilaya || formatWilayaLabel(selectedWilayaRate),
+      wilaya:
+        methodId === 'city_delivery' || methodId === 'pickup'
+          ? DEFAULT_WILAYA_LABEL
+          : prev.wilaya || formatWilayaLabel(selectedWilayaRate),
       commune:
-        isLaghouatWilaya(prev.wilaya) && !prev.commune
-          ? LAGHOUAT_COMMUNES[0]
-          : prev.commune,
+        methodId === 'city_delivery'
+          ? 'الأغواط (وسط المدينة والأحياء)'
+          : isLaghouatWilaya(prev.wilaya) && !prev.commune
+            ? LAGHOUAT_COMMUNES[0]
+            : prev.commune,
     }));
     onClearErrors(['wilaya', 'address', 'commune']);
   };
@@ -85,7 +91,13 @@ export function DeliverySelector({
                   : getShippingFeeForWilaya(method.id, form.wilaya);
 
             const Icon =
-              method.id === 'pickup' ? Store : method.id === 'stop_desk' ? MapPin : Truck;
+              method.id === 'pickup'
+                ? Store
+                : method.id === 'city_delivery'
+                  ? Home
+                  : method.id === 'stop_desk'
+                    ? MapPin
+                    : Truck;
 
             return (
               <label
@@ -136,7 +148,88 @@ export function DeliverySelector({
         </div>
       </fieldset>
 
-      {form.deliveryMethod === 'pickup' ? (
+      {form.deliveryMethod === 'city_delivery' ? (
+        <div className="space-y-3 pt-1">
+          <div className="rounded-2xl bg-[#FFFBEB] border-2 border-[#F59E0B] p-4 text-xs font-bold leading-relaxed text-[#92400E]">
+            <p className="font-black text-[#B45309] text-sm flex items-center gap-1.5 mb-1">
+              <Home className="w-4 h-4 text-[#E30613]" />
+              <span>توصيل منزلي سريع داخل مدينة الأغواط — 100 دج فقط</span>
+            </p>
+            <p>
+              يصلك مندوب التوصيل في نفس اليوم لباب منزلك داخل كافة أحياء وتجمعات مدينة الأغواط، والدفع نقداً عند الاستلام.
+            </p>
+          </div>
+
+          <div>
+            <label
+              htmlFor={`${idPrefix}-city-neighborhood`}
+              className="block text-sm font-black text-[#18181B] mb-1.5"
+            >
+              في أي حي سكني تعيش بمدينة الأغواط؟ <span className="text-[#E30613]">*</span>
+            </label>
+            <input
+              type="text"
+              id={`${idPrefix}-city-neighborhood`}
+              data-testid={`${idPrefix}-city-neighborhood-input`}
+              placeholder="اكتب اسم الحي السكني (مثال: حي المقام، حي الواحات، حي 5 جويلية، حي المعمورة...)"
+              value={form.address}
+              onChange={(e) => {
+                onChangeForm((prev) => ({ ...prev, address: e.target.value }));
+                onClearErrors(['address']);
+              }}
+              className={`w-full px-4 py-3 min-h-[46px] rounded-xl border-2 text-sm font-bold bg-white focus:outline-none transition-all ${
+                errors.address
+                  ? 'border-[#E30613] shadow-[2px_2px_0px_#E30613]'
+                  : 'border-[#18181B] shadow-[2px_2px_0px_#18181B] focus:shadow-[4px_4px_0px_#E30613]'
+              }`}
+            />
+            {errors.address ? (
+              <p role="alert" className="mt-1.5 text-xs font-black text-[#E30613]">
+                {errors.address}
+              </p>
+            ) : null}
+
+            {/* Quick-choice neighborhood badges */}
+            <div className="mt-2.5">
+              <span className="block text-[11px] font-bold text-stone-500 mb-1.5">
+                أو اختر حيك السكني بنقرة واحدة:
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  'حي المقام',
+                  'حي الواحات',
+                  'حي 5 جويلية',
+                  'حي المعمورة',
+                  'حي الصادقية',
+                  'حي شطيط',
+                  'حي المحافير',
+                  'حي سيدي ياني',
+                  'حي الوئام',
+                  'حي 800 مسكن',
+                  'حي البناء الذاتي',
+                  'حي قصر البزائم',
+                ].map((quarter) => (
+                  <button
+                    key={quarter}
+                    type="button"
+                    onClick={() => {
+                      onChangeForm((prev) => ({ ...prev, address: quarter }));
+                      onClearErrors(['address']);
+                    }}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+                      form.address === quarter
+                        ? 'bg-[#18181B] text-[#FFD100] border-[#18181B]'
+                        : 'bg-white text-stone-700 border-stone-300 hover:border-[#18181B] hover:bg-stone-50'
+                    }`}
+                  >
+                    {quarter}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : form.deliveryMethod === 'pickup' ? (
         <div className="rounded-2xl bg-[#FAF9F6] border-2 border-stone-300 p-4 text-xs font-bold leading-relaxed text-[#52525B] space-y-1">
           <p className="font-black text-[#18181B]">عنوان الاستلام المباشر المجاني:</p>
           <p>{STORE_INFO.address}</p>

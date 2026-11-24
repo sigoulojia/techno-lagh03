@@ -168,6 +168,9 @@ export function getShippingFeeForWilaya(
   if (deliveryMethod === 'pickup' || deliveryMethod === 'store_pickup') {
     return 0;
   }
+  if (deliveryMethod === 'city_delivery' || deliveryMethod === 'laghouat_city') {
+    return 100;
+  }
   const rate = findWilayaRate(wilayaInput);
   if (deliveryMethod === 'stop_desk') {
     return rate.stopDeskFeeDzd ?? rate.homeFeeDzd;

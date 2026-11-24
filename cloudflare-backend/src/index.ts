@@ -473,6 +473,8 @@ async function sendOrderAlertToTelegram(
     const deliveryTitle =
       deliveryMethod === 'pickup' || deliveryMethod === 'store_pickup'
         ? 'استلام مباشر من متجر تكنو الأغواط (وسط المدينة)'
+        : deliveryMethod === 'city_delivery' || deliveryMethod === 'laghouat_city'
+        ? 'توصيل لباب المنزل داخل مدينة الأغواط (100 دج)'
         : deliveryMethod === 'stop_desk'
         ? 'استلام من مكتب التوصيل — Stop Desk (ZR Express)'
         : 'توصيل لباب المنزل — À Domicile (ZR Express)';
@@ -614,6 +616,8 @@ async function sendOrderAlertToNtfy(
     const deliveryTitle =
       deliveryMethod === 'pickup' || deliveryMethod === 'store_pickup'
         ? 'استلام مباشر من متجر تكنو الأغواط (وسط المدينة)'
+        : deliveryMethod === 'city_delivery' || deliveryMethod === 'laghouat_city'
+        ? 'توصيل لباب المنزل داخل مدينة الأغواط (100 دج)'
         : deliveryMethod === 'stop_desk'
         ? 'استلام من مكتب التوصيل — Stop Desk (ZR Express)'
         : 'توصيل لباب المنزل — À Domicile (ZR Express)';
@@ -2159,6 +2163,8 @@ export default {
         const deliveryMethod =
           dm === 'pickup' || dm === 'store_pickup'
             ? 'استلام من المحل (وسط المدينة)'
+            : dm === 'city_delivery' || dm === 'laghouat_city'
+            ? 'توصيل منزلي داخل مدينة الأغواط (100 دج)'
             : dm === 'stop_desk'
             ? 'مكتب التوصيل Stop Desk (ZR Express)'
             : 'توصيل للمنزل À Domicile (ZR Express)';

@@ -370,7 +370,11 @@ export function validateOrderForm(input: OrderFormInput): OrderValidationErrors 
     errors.phone = 'يرجى إدخال رقم هاتف جزائري صحيح يبدأ بـ 05 أو 06 أو 07 (10 أرقام).';
   }
 
-  if (input.deliveryMethod !== 'pickup') {
+  if (input.deliveryMethod === 'city_delivery') {
+    if (!input.address || input.address.trim().length < 2) {
+      errors.address = 'يرجى كتابة اسم الحي السكني داخل مدينة الأغواط لتوصيل الطلب.';
+    }
+  } else if (input.deliveryMethod !== 'pickup') {
     if (!input.wilaya || !input.wilaya.trim()) {
       errors.wilaya = 'يرجى اختيار الولاية.';
     }
@@ -401,6 +405,9 @@ export function generateOrderId(seedNumber?: number): string {
 export function getDeliveryMethodTitle(methodId: DeliveryMethodId): string {
   if (methodId === 'laghouat') {
     return 'توصيل لباب المنزل (À Domicile)';
+  }
+  if (methodId === 'city_delivery' || methodId === 'laghouat_city') {
+    return 'توصيل للمنزل داخل مدينة الأغواط (100 دج)';
   }
   return DELIVERY_METHODS.find((m) => m.id === methodId)?.title ?? methodId;
 }
@@ -433,7 +440,7 @@ export function buildSavedOrder(
   }
 
   const normalizedWilaya =
-    customer.deliveryMethod === 'pickup'
+    customer.deliveryMethod === 'pickup' || customer.deliveryMethod === 'city_delivery'
       ? DEFAULT_WILAYA_LABEL
       : customer.wilaya || DEFAULT_WILAYA_LABEL;
 
@@ -452,6 +459,11 @@ export function buildSavedOrder(
         : `مكتب ZR Express — ولاية ${wilayaRate.nameAr}`
       : customer.address.trim();
 
+  const resolvedCommune =
+    customer.deliveryMethod === 'city_delivery'
+      ? 'الأغواط (وسط المدينة والأحياء)'
+      : customer.commune?.trim() || '';
+
   return {
     orderId: generateOrderId(seedNumber),
     createdAtIso: new Date().toISOString(),
@@ -461,7 +473,7 @@ export function buildSavedOrder(
       fullName: customer.fullName.trim(),
       phone: cleanAlgerianPhone(customer.phone),
       wilaya: normalizedWilaya,
-      commune: customer.commune?.trim() || '',
+      commune: resolvedCommune,
       address: resolvedAddress,
       notes: customer.notes.trim(),
     },
@@ -481,7 +493,12 @@ export function formatOrderMessage(order: SavedOrder): string {
     `طريقة الاستلام: ${deliveryTitle}`,
   ];
 
-  if (order.customer.deliveryMethod !== 'pickup') {
+  if (order.customer.deliveryMethod === 'city_delivery') {
+    lines.push(`المدينة: الأغواط (وسط المدينة والأحياء)`);
+    if (order.customer.address) {
+      lines.push(`الحي السكني: ${order.customer.address}`);
+    }
+  } else if (order.customer.deliveryMethod !== 'pickup') {
     lines.push(`الولاية: ${order.customer.wilaya}`);
     if (order.customer.commune) {
       lines.push(`البلدية / المكتب: ${order.customer.commune}`);

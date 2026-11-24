@@ -288,6 +288,27 @@ test('validateOrderForm enforces Algerian phone rules and wilaya selection', () 
     notes: '',
   });
   assert.deepEqual(stopDeskValid, {});
+
+  // City delivery REQUIRES residential neighborhood address
+  const cityDeliveryMissingAddress = validateOrderForm({
+    fullName: 'عميل المتجر',
+    phone: '0661 23 45 67',
+    deliveryMethod: 'city_delivery',
+    wilaya: '03 - الأغواط',
+    address: '',
+    notes: '',
+  });
+  assert.equal(Boolean(cityDeliveryMissingAddress.address), true);
+
+  const cityDeliveryValid = validateOrderForm({
+    fullName: 'عميل المتجر',
+    phone: '0661 23 45 67',
+    deliveryMethod: 'city_delivery',
+    wilaya: '03 - الأغواط',
+    address: 'حي المقام',
+    notes: '',
+  });
+  assert.deepEqual(cityDeliveryValid, {});
 });
 
 test('buildSavedOrder and formatOrderMessage include variant size and outside-wilaya delivery', () => {
