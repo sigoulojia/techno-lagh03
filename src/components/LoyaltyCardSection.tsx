@@ -75,7 +75,8 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
     const intervalId = setInterval(async () => {
       try {
         const res = await fetch(
-          `https://techno-laghouat-backend.hotel-saharien.workers.dev/api/loyalty/status?phone=${encodeURIComponent(card.customerPhone)}`
+          `https://techno-laghouat-backend.hotel-saharien.workers.dev/api/loyalty/status?phone=${encodeURIComponent(card.customerPhone)}&_t=${Date.now()}`,
+          { cache: 'no-store' }
         );
         if (!res.ok) return;
         const data: any = await res.json();
@@ -278,7 +279,8 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
     setIsRefreshingStatus(true);
     try {
       const res = await fetch(
-        `https://techno-laghouat-backend.hotel-saharien.workers.dev/api/loyalty/status?phone=${encodeURIComponent(cleanPhone)}`
+        `https://techno-laghouat-backend.hotel-saharien.workers.dev/api/loyalty/status?phone=${encodeURIComponent(cleanPhone)}&_t=${Date.now()}`,
+        { cache: 'no-store' }
       );
       if (!res.ok) {
         setFeedback({
@@ -378,7 +380,8 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
     let serverRequestData: any = null;
     try {
       const serverRes = await fetch(
-        `https://techno-laghouat-backend.hotel-saharien.workers.dev/api/loyalty/status?phone=${encodeURIComponent(cleanPhone)}`
+        `https://techno-laghouat-backend.hotel-saharien.workers.dev/api/loyalty/status?phone=${encodeURIComponent(cleanPhone)}&_t=${Date.now()}`,
+        { cache: 'no-store' }
       );
       if (serverRes.ok) {
         const sData: any = await serverRes.json();

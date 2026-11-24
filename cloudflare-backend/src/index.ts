@@ -2742,14 +2742,21 @@ export default {
     // 9a-loyalty. GET /api/loyalty/status
     if (url.pathname === '/api/loyalty/status' && request.method === 'GET') {
       const phone = (url.searchParams.get('phone') || '').trim();
+      const statusHeaders = {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+        ...CORS_HEADERS,
+      };
       if (!phone || !env.techno_products_kv) {
-        return jsonResponse({ exists: false });
+        return new Response(JSON.stringify({ exists: false }), { headers: statusHeaders });
       }
       const rawReqs = await env.techno_products_kv.get('loyalty_requests');
       const reqs = rawReqs ? JSON.parse(rawReqs) : [];
       const item = reqs.find((r: any) => r.customerPhone === phone);
-      if (!item) return jsonResponse({ exists: false });
-      return jsonResponse({ exists: true, status: item.status, request: item });
+      if (!item) return new Response(JSON.stringify({ exists: false }), { headers: statusHeaders });
+      return new Response(JSON.stringify({ exists: true, status: item.status, request: item }), { headers: statusHeaders });
     }
 
     // 9a-loyalty. POST /api/loyalty/pin-set (Customer finished setting 6-digit PIN)
