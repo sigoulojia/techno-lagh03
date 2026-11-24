@@ -217,7 +217,7 @@ export function VirtualLoyaltyCard({
               backfaceVisibility: 'hidden',
               backgroundImage:
                 activeDesign === 'standard'
-                  ? "url('/assets/techno-standard-front.jpg')"
+                  ? "url('/assets/techno-standard-front-v3.jpg?v=3')"
                   : "url('/assets/techno-vip-front.webp')",
               backgroundSize: '100% 100%',
               backgroundPosition: 'center',
@@ -244,56 +244,8 @@ export function VirtualLoyaltyCard({
             />
 
             {activeDesign === 'standard' ? (
-              /* Standard Front Card Layout (Red background with Techno mascot) */
-              <div className="absolute inset-0 z-10 flex flex-col justify-end p-4 pb-3">
-                {/* Chip & Contactless on upper left */}
-                <div className="absolute top-[28%] left-[6%] flex items-center gap-2">
-                  <div
-                    className="w-7 h-5 sm:w-8 sm:h-6 rounded relative overflow-hidden border border-[#B38F24] shadow-sm flex items-center justify-center shrink-0"
-                    style={{
-                      background:
-                        'linear-gradient(135deg, #FFE58F 0%, #D4AF37 35%, #B38F24 70%, #8C680E 100%)',
-                    }}
-                  >
-                    <div className="w-full h-[1px] bg-[#5C4307]/70 absolute top-1.5" />
-                    <div className="w-full h-[1px] bg-[#5C4307]/70 absolute bottom-1.5" />
-                    <div className="w-2 h-1 rounded border border-[#5C4307]/80 bg-[#FFE58F]/60" />
-                  </div>
-                  <Wifi className="w-3.5 h-3.5 text-white/80 rotate-90" />
-                </div>
-
-                {/* Card Number on lower half */}
-                <p
-                  dir="ltr"
-                  className="font-mono text-xs sm:text-sm md:text-base font-black tracking-[0.14em] text-white text-center drop-shadow-md mb-2"
-                  style={{
-                    textShadow:
-                      '0 2px 4px rgba(0,0,0,0.9), 0 -1px 2px rgba(0,0,0,0.8)',
-                  }}
-                >
-                  {displayedCardNumber}
-                </p>
-
-                {/* Cardholder name & validity */}
-                <div className="flex items-center justify-between px-2.5 py-1 rounded-lg bg-black/50 backdrop-blur-xs border border-white/10">
-                  <span className="font-display text-[9.5px] sm:text-[11px] font-black text-white truncate drop-shadow-sm">
-                    {card.customerName || 'عضو نادي الوفاء'}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <span
-                      dir="ltr"
-                      className="font-mono text-[8.5px] sm:text-[9.5px] font-bold text-white drop-shadow-sm"
-                    >
-                      VAL {card.validThru}
-                    </span>
-                    {card.isPinProtected && (
-                      <div className="p-0.5 rounded-full bg-emerald-500/30 border border-emerald-400/60 text-emerald-300">
-                        <Lock className="w-2 h-2" />
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
+              /* Standard Front Card Layout: Pure clean official artwork (No name, No expiry date, No fake chip) */
+              null
             ) : (
               /* Default VIP Front Card Layout (Blue Zellige) */
               <div
@@ -403,7 +355,7 @@ export function VirtualLoyaltyCard({
               transform: 'rotateY(180deg)',
               backgroundImage:
                 activeDesign === 'standard'
-                  ? "url('/assets/techno-standard-back.jpg')"
+                  ? "url('/assets/techno-standard-back-v3.jpg?v=3')"
                   : "url('/assets/techno-vip-back.webp')",
               backgroundSize: '100% 100%',
               backgroundPosition: 'center',

@@ -718,7 +718,7 @@ export async function exportCardToPng(
     // Load background image based on selected design
     const bgUrl =
       design === 'standard'
-        ? (face === 'back' ? '/assets/techno-standard-back.jpg' : '/assets/techno-standard-front.jpg')
+        ? (face === 'back' ? '/assets/techno-standard-back-v3.jpg' : '/assets/techno-standard-front-v3.jpg')
         : (face === 'back' ? '/assets/techno-vip-back.webp' : '/assets/techno-vip-front.webp');
 
     const img = new Image();
@@ -744,30 +744,7 @@ export async function exportCardToPng(
 
     if (design === 'standard') {
       if (face === 'front') {
-        // Front of standard card: show cardholder name, card number, and expiry
-        ctx.save();
-        ctx.font = 'bold 36px monospace';
-        ctx.fillStyle = '#FFFFFF';
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.95)';
-        ctx.shadowOffsetY = 3;
-        ctx.shadowOffsetX = 1;
-        ctx.shadowBlur = 4;
-        ctx.textAlign = 'center';
-        ctx.fillText(displayedNumber, canvas.width / 2, 490);
-        ctx.restore();
-
-        ctx.save();
-        ctx.fillStyle = '#FFFFFF';
-        ctx.font = 'bold 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
-        ctx.shadowOffsetY = 2;
-        ctx.textAlign = 'right';
-        ctx.fillText(card.customerName || 'عضو نادي الوفاء', canvas.width - 50, 535);
-
-        ctx.font = 'bold 18px monospace';
-        ctx.textAlign = 'left';
-        ctx.fillText('VAL: ' + card.validThru, 50, 535);
-        ctx.restore();
+        // Front of standard card: purely clean official illustration (no name, no validity date)
       } else {
         // Back of standard card: dynamic red barcode and red card number in the top yellow space
         const barcodeY = 48;
