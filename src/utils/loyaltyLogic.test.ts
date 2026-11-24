@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { Code128Reader, BitArray } from '@zxing/library';
 import {
   hashPin,
   verifyPin,
@@ -8,6 +9,7 @@ import {
   getTierFromPoints,
   formatCardDate,
   generateBarcodeBars,
+  generateCode128Binary,
   LOYALTY_TIERS,
   isValidSixDigitPin,
   requestCardActivation,
@@ -104,6 +106,26 @@ test('generateBarcodeBars outputs alternating positive bar widths', () => {
   const bars = generateBarcodeBars('TECHNO-03-8821');
   assert.ok(bars.length > 10);
   assert.ok(bars.every((b) => b >= 1 && b <= 4));
+});
+
+test('generateCode128Binary generates authentic Code 128 decodable by barcode scanners', () => {
+  const cardNum = '03-8815-4602-2614';
+  const binary = generateCode128Binary(cardNum);
+  assert.ok(binary && binary.length > 50);
+
+  // Verify that a standard barcode scanner engine (ZXing Code128Reader) decodes it exactly
+  const quietZone = 12;
+  const totalWidth = binary.length + quietZone * 2;
+  const bitArray = new BitArray(totalWidth);
+  for (let i = 0; i < binary.length; i++) {
+    if (binary[i] === '1') {
+      bitArray.set(quietZone + i);
+    }
+  }
+
+  const reader = new Code128Reader();
+  const decoded = reader.decodeRow(0, bitArray, null);
+  assert.equal(decoded.getText(), cardNum);
 });
 
 test('formatCardDate formats valid MM/YY strings', () => {

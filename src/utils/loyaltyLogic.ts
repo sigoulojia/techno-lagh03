@@ -1,3 +1,4 @@
+import JsBarcode from 'jsbarcode';
 import { type SavedOrder } from './storeLogic';
 
 export type LoyaltyTierId = 'classic' | 'silver' | 'gold' | 'black_vip';
@@ -257,16 +258,52 @@ export function formatCardDate(offsetYears: number = 0): string {
 }
 
 /**
- * Generate a simplified barcode pattern string of alternating bar widths
+ * Generate a certified real Code 128 binary string of bars ('1') and spaces ('0')
+ * Conforms to ISO/IEC 15417 standard scannable by physical and mobile barcode readers
+ */
+export function generateCode128Binary(code: string): string {
+  if (!code || typeof code !== 'string') return '';
+  try {
+    const CODE128 = (JsBarcode as any).getModule ? (JsBarcode as any).getModule('CODE128') : null;
+    if (CODE128) {
+      const encoder = new CODE128(code, {});
+      const encoded = encoder.encode();
+      if (encoded && typeof encoded.data === 'string') {
+        return encoded.data;
+      }
+    }
+  } catch (err) {
+    console.error('Error generating Code 128 binary:', err);
+  }
+  return '';
+}
+
+/**
+ * Generate alternating run-length bar and space widths from authentic Code 128 encoding
+ * Even index (0, 2, 4...) = Bar width in modules
+ * Odd index (1, 3, 5...) = Space width in modules
  */
 export function generateBarcodeBars(code: string): number[] {
-  const bars: number[] = [2, 1, 1, 2]; // start pattern
-  for (let i = 0; i < code.length; i++) {
-    const val = code.charCodeAt(i) % 4;
-    bars.push(val + 1, (i % 2) + 1, ((val + 2) % 3) + 1);
+  const binary = generateCode128Binary(code);
+  if (!binary) return [2, 1, 1, 2, 2, 1, 2, 2];
+
+  const runs: number[] = [];
+  let currentVal = '1';
+  let count = 0;
+
+  for (let i = 0; i < binary.length; i++) {
+    if (binary[i] === currentVal) {
+      count++;
+    } else {
+      runs.push(count);
+      currentVal = binary[i];
+      count = 1;
+    }
   }
-  bars.push(2, 1, 2, 2); // stop pattern
-  return bars;
+  if (count > 0) {
+    runs.push(count);
+  }
+  return runs;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -749,8 +786,8 @@ export async function exportCardToPng(
         // Back of standard card: dynamic red barcode and red card number in the top yellow space
         const barcodeY = 48;
         const barcodeH = 175;
-        const barcodeXStart = canvas.width * 0.10;
-        const barcodeWidthTotal = canvas.width * 0.80;
+        const barcodeXStart = canvas.width * 0.08;
+        const barcodeWidthTotal = canvas.width * 0.84;
 
         ctx.save();
         ctx.fillStyle = '#E30613';
@@ -760,19 +797,18 @@ export async function exportCardToPng(
           ctx.textAlign = 'center';
           ctx.fillText('🔒 الباركود محمي برمز PIN', canvas.width / 2, barcodeY + 90);
         } else {
-          // Draw alternating barcode bars in vibrant Techno Red
-          const bars = generateBarcodeBars(card.cardNumber);
-          const totalUnits = bars.reduce((sum, b) => sum + b, 0);
-          const unitWidth = barcodeWidthTotal / totalUnits;
-          let currentX = barcodeXStart;
+          // Draw authentic Code 128 barcode bars in vibrant Techno Red
+          const binary = generateCode128Binary(card.cardNumber);
+          const quietZone = 12; // Standard quiet zone
+          const totalModules = binary.length + quietZone * 2;
+          const unitWidth = barcodeWidthTotal / totalModules;
 
-          bars.forEach((barWidth, idx) => {
-            const w = barWidth * unitWidth;
-            if (idx % 2 === 0) {
-              ctx.fillRect(currentX, barcodeY, Math.max(1.5, w), barcodeH);
+          for (let i = 0; i < binary.length; i++) {
+            if (binary[i] === '1') {
+              const x = barcodeXStart + (quietZone + i) * unitWidth;
+              ctx.fillRect(x, barcodeY, Math.ceil(unitWidth), barcodeH);
             }
-            currentX += w;
-          });
+          }
 
           // Draw card number below barcode in bold red
           ctx.font = 'bold 25px monospace';
@@ -880,25 +916,23 @@ export async function exportCardToPng(
         }
         ctx.fill();
 
-        // Barcode bars
-        const bars = generateBarcodeBars(card.cardNumber);
-        const barPadding = 24;
+        // Draw authentic Code 128 barcode bars inside white container
+        const binary = generateCode128Binary(card.cardNumber);
+        const quietZone = 10;
+        const barPadding = 20;
         const barAreaW = boxW - barPadding * 2;
         const barAreaH = boxH - 52;
-        const totalUnits = bars.reduce((a, b) => a + b, 0);
-        const unitW = barAreaW / totalUnits;
-
-        let currentX = boxX + barPadding;
+        const totalModules = binary.length + quietZone * 2;
+        const unitW = barAreaW / totalModules;
         const barTop = boxY + 14;
 
         ctx.fillStyle = '#0F172A';
-        bars.forEach((w, idx) => {
-          const thisW = w * unitW;
-          if (idx % 2 === 0) {
-            ctx.fillRect(currentX, barTop, thisW, barAreaH);
+        for (let i = 0; i < binary.length; i++) {
+          if (binary[i] === '1') {
+            const x = boxX + barPadding + (quietZone + i) * unitW;
+            ctx.fillRect(x, barTop, Math.ceil(unitW), barAreaH);
           }
-          currentX += thisW;
-        });
+        }
 
         // Card number below barcode
         ctx.font = 'bold 18px monospace';

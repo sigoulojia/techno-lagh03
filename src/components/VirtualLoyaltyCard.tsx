@@ -14,10 +14,76 @@ import {
   type LoyaltyTierId,
   type LoyaltyCardDesign,
   LOYALTY_TIERS,
+  generateCode128Binary,
   generateBarcodeBars,
   exportCardToPng,
   downloadCardCredentialsDocument,
 } from '../utils/loyaltyLogic';
+
+export interface RealBarcodeSvgProps {
+  code: string;
+  color?: string;
+  className?: string;
+}
+
+/**
+ * Authentic ISO/IEC 15417 Code 128 Barcode Vector Renderer
+ * Uses crispEdges SVG rectangles for 100% scannability by physical laser/camera scanners and smartphones
+ */
+export function RealBarcodeSvg({
+  code,
+  color = '#E30613',
+  className = '',
+}: RealBarcodeSvgProps) {
+  const binary = generateCode128Binary(code);
+  const quietZone = 12;
+  const totalWidth = binary.length + quietZone * 2;
+  const height = 50;
+
+  const rects: React.ReactElement[] = [];
+  let barStart = -1;
+  let barWidth = 0;
+
+  for (let i = 0; i <= binary.length; i++) {
+    const isBar = i < binary.length && binary[i] === '1';
+    if (isBar) {
+      if (barStart === -1) {
+        barStart = i;
+        barWidth = 1;
+      } else {
+        barWidth++;
+      }
+    } else {
+      if (barStart !== -1) {
+        rects.push(
+          <rect
+            key={barStart}
+            x={quietZone + barStart}
+            y={0}
+            width={barWidth}
+            height={height}
+            fill={color}
+          />
+        );
+        barStart = -1;
+        barWidth = 0;
+      }
+    }
+  }
+
+  return (
+    <svg
+      viewBox={`0 0 ${totalWidth} ${height}`}
+      className={`w-full h-full ${className}`}
+      preserveAspectRatio="none"
+      shapeRendering="crispEdges"
+      role="img"
+      aria-label={`Barcode: ${code}`}
+    >
+      {rects}
+    </svg>
+  );
+}
 
 export interface VirtualLoyaltyCardProps {
   card: LoyaltyCardData;
@@ -402,15 +468,9 @@ export function VirtualLoyaltyCard({
                     </div>
                   ) : (
                     <>
-                      {/* High-Resolution Dynamic Barcode in Techno Red */}
-                      <div className="w-full flex-1 flex items-center justify-between px-1 overflow-hidden">
-                        {barcodeBars.map((width, idx) => (
-                          <div
-                            key={idx}
-                            className="h-full bg-[#E30613]"
-                            style={{ width: `${Math.max(1, width * 1.45)}px` }}
-                          />
-                        ))}
+                      {/* Authentic Real Code 128 Barcode in Techno Red */}
+                      <div className="w-full flex-1 flex items-center justify-center px-1 overflow-hidden">
+                        <RealBarcodeSvg code={card.cardNumber} color="#E30613" />
                       </div>
 
                       {/* Scannable Card Number in Bold Red */}
@@ -464,15 +524,9 @@ export function VirtualLoyaltyCard({
                     </div>
                   ) : (
                     <>
-                      {/* High-Resolution Dynamic Barcode SVG/Bars */}
-                      <div className="w-full flex-1 flex items-center justify-between px-1 overflow-hidden">
-                        {barcodeBars.map((width, idx) => (
-                          <div
-                            key={idx}
-                            className="h-full bg-[#0F172A]"
-                            style={{ width: `${Math.max(1, width * 1.35)}px` }}
-                          />
-                        ))}
+                      {/* Authentic Real Code 128 Barcode in Dark Charcoal */}
+                      <div className="w-full flex-1 flex items-center justify-center px-1 overflow-hidden">
+                        <RealBarcodeSvg code={card.cardNumber} color="#0F172A" />
                       </div>
 
                       {/* Scannable Card Number Label */}
