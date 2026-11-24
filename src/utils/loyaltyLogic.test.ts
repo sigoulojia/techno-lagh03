@@ -9,6 +9,9 @@ import {
   formatCardDate,
   generateBarcodeBars,
   LOYALTY_TIERS,
+  isValidSixDigitPin,
+  requestCardActivation,
+  activateCardWithSixDigitPin,
 } from './loyaltyLogic';
 import { type SavedOrder } from './storeLogic';
 
@@ -106,3 +109,26 @@ test('formatCardDate formats valid MM/YY strings', () => {
   const dateStr = formatCardDate(0);
   assert.match(dateStr, /^\d{2}\/\d{2}$/);
 });
+
+test('isValidSixDigitPin and 6-digit PIN activation flow', () => {
+  assert.equal(isValidSixDigitPin('123456'), true);
+  assert.equal(isValidSixDigitPin('000000'), true);
+  assert.equal(isValidSixDigitPin('12345'), false); // 5 digits
+  assert.equal(isValidSixDigitPin('1234567'), false); // 7 digits
+  assert.equal(isValidSixDigitPin('12a456'), false); // non-numeric
+
+  const req = requestCardActivation('أحمد زكي', '0661234567', []);
+  assert.equal(req.card.status, 'pending');
+  assert.equal(req.card.customerName, 'أحمد زكي');
+  assert.equal(req.hasPurchased, false);
+
+  const activationFail = activateCardWithSixDigitPin(req.card, '12345');
+  assert.equal(activationFail.success, false);
+
+  const activationSuccess = activateCardWithSixDigitPin(req.card, '654321');
+  assert.equal(activationSuccess.success, true);
+  assert.equal(activationSuccess.card?.status, 'active');
+  assert.equal(activationSuccess.card?.isPinProtected, true);
+});
+
+

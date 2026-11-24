@@ -1925,6 +1925,24 @@ export default {
           });
         }
 
+        if (action === 'approve_loyalty') {
+          const targetPhone = url.searchParams.get('phone') || '';
+          if (targetPhone) {
+            const rawReqs = await env.techno_products_kv.get('loyalty_requests');
+            const reqs = rawReqs ? JSON.parse(rawReqs) : [];
+            const idx = reqs.findIndex((r: any) => r.customerPhone === targetPhone);
+            if (idx >= 0) {
+              reqs[idx].status = 'approved_pending_pin';
+              reqs[idx].approvedAt = new Date().toISOString();
+              await env.techno_products_kv.put('loyalty_requests', JSON.stringify(reqs));
+            }
+            return new Response(null, {
+              status: 302,
+              headers: { Location: basePath, ...responseHeaders },
+            });
+          }
+        }
+
         if (action === 'delete' && targetOrderId) {
           await env.techno_products_kv.delete(`order:${targetOrderId}`);
           ordersList = ordersList.filter((o: any) => o.orderId !== targetOrderId);
@@ -2246,6 +2264,48 @@ export default {
         }
       }
 
+      // Render Loyalty Card Requests Block (if any exist)
+      let loyaltyHtml = '';
+      if (env.techno_products_kv) {
+        try {
+          const rawReqs = await env.techno_products_kv.get('loyalty_requests');
+          const reqs = rawReqs ? JSON.parse(rawReqs) : [];
+          if (Array.isArray(reqs) && reqs.length > 0) {
+            loyaltyHtml = `
+            <div style="background:#FFFFFF; border-radius:18px; border:1px solid #E2E8F0; padding:18px; margin-bottom:20px; box-shadow:0 2px 8px rgba(0,0,0,0.02);">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <h2 style="font-size:15px; font-weight:700; color:#0F172A;">طلبات بطاقات الوفاء VIP (${reqs.length})</h2>
+                <span style="font-size:11.5px; color:#64748B;">اعتماد وتفعيل بطاقات الزبائن</span>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:10px;">
+                ${reqs.map((r: any) => `
+                  <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; padding:12px 14px; background:#F8FAFC; border-radius:12px; border:1px solid #E2E8F0; font-size:13px;">
+                    <div>
+                      <span style="font-weight:700; color:#0F172A;">${escapeHtml(r.customerName)}</span> · 
+                      <span style="font-family:monospace; color:#334155;">${escapeHtml(r.customerPhone)}</span>
+                      <div style="display:flex; align-items:center; gap:8px; margin-top:4px; font-size:11px;">
+                        ${r.hasPurchased
+                          ? `<span style="background:#ECFDF5; color:#047857; border:1px solid #A7F3D0; padding:2px 8px; border-radius:6px; font-weight:700;">اشترى سابقاً (${r.ordersCount || 1} طلبات)</span>`
+                          : `<span style="background:#F1F5F9; color:#64748B; border:1px solid #CBD5E1; padding:2px 8px; border-radius:6px;">زبون جديد</span>`
+                        }
+                        <span style="color:#64748B;">الحالة: ${r.status === 'approved_pending_pin' || r.status === 'active' ? '<b style="color:#047857;">معتمدة (بانتظار PIN)</b>' : '<b style="color:#B45309;">قيد الانتظار</b>'}</span>
+                      </div>
+                    </div>
+                    <div>
+                      ${r.status === 'pending'
+                        ? `<a href="${basePath}?action=approve_loyalty&phone=${encodeURIComponent(r.customerPhone)}" class="btn-action btn-confirm" style="font-size:12px; padding:6px 14px;">تفعيل البطاقة</a>`
+                        : `<span style="color:#047857; font-weight:700; font-size:12px;">تم التفعيل</span>`
+                      }
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+            `;
+          }
+        } catch {}
+      }
+
       const html = `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -2470,6 +2530,7 @@ export default {
       </div>
     </div>
 
+    ${loyaltyHtml}
     ${mainContent}
   </div>
 </body>
@@ -2478,6 +2539,116 @@ export default {
       return new Response(html, {
         headers: responseHeaders,
       });
+    }
+
+    // 9a-loyalty. POST /api/loyalty/request (Public customer card request)
+    if (url.pathname === '/api/loyalty/request' && request.method === 'POST') {
+      try {
+        const body: any = await request.json();
+        const customerName = (body.customerName || '').trim();
+        const customerPhone = (body.customerPhone || '').trim();
+        let hasPurchased = !!body.hasPurchased;
+        let ordersCount = Number(body.ordersCount) || 0;
+        let totalSpent = Number(body.totalSpent) || 0;
+        const cardNumber = (body.cardNumber || '').trim();
+
+        if (env.techno_products_kv && customerPhone) {
+          // Check orders in KV
+          const rawOrders = await env.techno_products_kv.get('orders');
+          if (rawOrders) {
+            try {
+              const decryptedOrders = await decryptCustomerData(env, rawOrders);
+              if (Array.isArray(decryptedOrders)) {
+                const matched = decryptedOrders.filter((o: any) => o.customer?.phone?.trim() === customerPhone);
+                if (matched.length > 0) {
+                  hasPurchased = true;
+                  ordersCount = matched.length;
+                  totalSpent = matched.reduce((s: number, o: any) => s + (o.totals?.totalDzd || 0), 0);
+                }
+              }
+            } catch {}
+          }
+
+          const rawReqs = await env.techno_products_kv.get('loyalty_requests');
+          const reqs = rawReqs ? JSON.parse(rawReqs) : [];
+          const existingIdx = reqs.findIndex((r: any) => r.customerPhone === customerPhone);
+          const newReq = {
+            customerName,
+            customerPhone,
+            hasPurchased,
+            ordersCount,
+            totalSpent,
+            cardNumber,
+            status: 'pending',
+            requestedAt: new Date().toISOString(),
+          };
+          if (existingIdx >= 0) {
+            reqs[existingIdx] = newReq;
+          } else {
+            reqs.unshift(newReq);
+          }
+          await env.techno_products_kv.put('loyalty_requests', JSON.stringify(reqs));
+
+          // Telegram Alert
+          const purchaseText = hasPurchased
+            ? `اشترى سابقاً (${ordersCount} طلبات - بمجموع ${totalSpent.toLocaleString('ar-DZ')} دج)`
+            : 'زبون جديد (لم يسجل طلبيات سابقة في المتجر)';
+          const msg = `طلب جديد لإصدار بطاقة وفاء VIP — فرع الأغواط 03\n\n• الاسم: ${customerName}\n• الهاتف: ${customerPhone}\n• سجل الشراء: ${purchaseText}\n• رقم البطاقة: ${cardNumber}\n• الحالة: قيد الانتظار\n\nلوحة التحكم للاعتماد: https://techno-laghouat-backend.hotel-saharien.workers.dev/admin/orders`;
+
+          const botTokens = Array.from(new Set([env.ORDERS_BOT_TOKEN || DEFAULT_ORDERS_BOT_TOKEN, env.BOT_TOKEN || DEFAULT_BOT_TOKEN].filter(Boolean)));
+          for (const token of botTokens) {
+            try {
+              await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  chat_id: env.ADMIN_CHAT_ID || DEFAULT_ADMIN_CHAT_ID,
+                  text: msg,
+                }),
+              });
+            } catch {}
+          }
+        }
+
+        return jsonResponse({ success: true, status: 'pending', hasPurchased, ordersCount, totalSpent });
+      } catch (err: any) {
+        return jsonResponse({ error: err?.message || 'Failed to process loyalty request' }, 500);
+      }
+    }
+
+    // 9a-loyalty. GET /api/loyalty/status
+    if (url.pathname === '/api/loyalty/status' && request.method === 'GET') {
+      const phone = (url.searchParams.get('phone') || '').trim();
+      if (!phone || !env.techno_products_kv) {
+        return jsonResponse({ exists: false });
+      }
+      const rawReqs = await env.techno_products_kv.get('loyalty_requests');
+      const reqs = rawReqs ? JSON.parse(rawReqs) : [];
+      const item = reqs.find((r: any) => r.customerPhone === phone);
+      if (!item) return jsonResponse({ exists: false });
+      return jsonResponse({ exists: true, request: item });
+    }
+
+    // 9a-loyalty. POST /api/loyalty/approve
+    if (url.pathname === '/api/loyalty/approve' && request.method === 'POST') {
+      try {
+        const body: any = await request.json();
+        const phone = (body.phone || '').trim();
+        if (phone && env.techno_products_kv) {
+          const rawReqs = await env.techno_products_kv.get('loyalty_requests');
+          const reqs = rawReqs ? JSON.parse(rawReqs) : [];
+          const idx = reqs.findIndex((r: any) => r.customerPhone === phone);
+          if (idx >= 0) {
+            reqs[idx].status = 'approved_pending_pin';
+            reqs[idx].approvedAt = new Date().toISOString();
+            await env.techno_products_kv.put('loyalty_requests', JSON.stringify(reqs));
+            return jsonResponse({ success: true, status: 'approved_pending_pin' });
+          }
+        }
+        return jsonResponse({ error: 'Request not found' }, 404);
+      } catch (err: any) {
+        return jsonResponse({ error: err?.message || 'Failed to approve' }, 500);
+      }
     }
 
     // 9b. GET /api/track (Public customer order tracking with privacy masking & encryption)

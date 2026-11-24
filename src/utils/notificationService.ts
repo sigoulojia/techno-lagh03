@@ -539,3 +539,62 @@ export function createSampleTestOrder(): SavedOrder {
     },
   };
 }
+
+export interface LoyaltyCardRequestNotificationData {
+  customerName: string;
+  customerPhone: string;
+  hasPurchased: boolean;
+  ordersCount: number;
+  totalSpent: number;
+  cardNumber: string;
+}
+
+/**
+ * Broadcasts a VIP Loyalty Card activation request to store owner's Telegram bots and ntfy
+ */
+export async function sendLoyaltyCardRequestNotification(
+  data: LoyaltyCardRequestNotificationData
+): Promise<void> {
+  const purchaseStatusText = data.hasPurchased
+    ? `اشترى سابقاً (${data.ordersCount} طلبات - بمجموع ${data.totalSpent.toLocaleString('ar-DZ')} دج)`
+    : 'زبون جديد (لم يسجل طلبيات سابقة في المتجر)';
+
+  const messageText = `طلب جديد لإصدار بطاقة وفاء VIP — فرع تكنو الأغواط 03\n\n• الاسم الكامل: ${data.customerName}\n• رقم الهاتف: ${data.customerPhone}\n• سجل الشراء: ${purchaseStatusText}\n• رقم البطاقة المقترح: ${data.cardNumber}\n• الحالة: قيد الانتظار والمعالجة\n\nلوحة التحكم للاعتماد والتفعيل: https://techno-laghouat-backend.hotel-saharien.workers.dev/admin/orders`;
+
+  const telegramUrl1 = `https://api.telegram.org/bot${DEFAULT_NOTIFICATION_CONFIG.telegramToken}/sendMessage`;
+  const telegramUrl2 = `https://api.telegram.org/bot${DEFAULT_NOTIFICATION_CONFIG.secondTelegramToken}/sendMessage`;
+  const ntfyUrl = getNtfyTopicUrl();
+
+  const sendTg = async (url: string) => {
+    try {
+      await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: DEFAULT_NOTIFICATION_CONFIG.telegramChatId,
+          text: messageText,
+        }),
+      });
+    } catch {
+      // silent catch for resilient broadcast
+    }
+  };
+
+  const sendNtfy = async () => {
+    try {
+      await fetch(ntfyUrl, {
+        method: 'POST',
+        headers: {
+          Title: 'طلب بطاقة وفاء VIP جديدة — تكنو الأغواط',
+          Priority: 'default',
+        },
+        body: messageText,
+      });
+    } catch {
+      // silent catch
+    }
+  };
+
+  await Promise.allSettled([sendTg(telegramUrl1), sendTg(telegramUrl2), sendNtfy()]);
+}
+

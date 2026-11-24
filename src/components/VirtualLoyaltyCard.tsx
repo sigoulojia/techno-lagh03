@@ -9,12 +9,15 @@ import {
   Lock,
   Wifi,
   Check,
+  FileText,
 } from 'lucide-react';
 import {
   type LoyaltyCardData,
   type LoyaltyTierId,
   LOYALTY_TIERS,
   generateBarcodeBars,
+  exportCardToPng,
+  downloadCardCredentialsDocument,
 } from '../utils/loyaltyLogic';
 
 export interface VirtualLoyaltyCardProps {
@@ -33,11 +36,15 @@ export function VirtualLoyaltyCard({
   const [isFlipped, setIsFlipped] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadSuccess, setDownloadSuccess] = useState(false);
+  const [passDownloaded, setPassDownloaded] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
   // Current theme fallback to card's tier
   const currentTierId: LoyaltyTierId = activeTheme || card.themePreference || card.tier || 'classic';
   const tierInfo = LOYALTY_TIERS[currentTierId];
+
+  // Whether card is locked or pending PIN creation ("غير كاملة")
+  const isPartiallyMasked = card.status === 'approved_pending_pin' || card.status === 'pending';
 
   // 3D Motion Physics: Track Mouse/Touch for Realistic Card Tilting
   const x = useMotionValue(0);
@@ -76,34 +83,17 @@ export function VirtualLoyaltyCard({
     if (onFlip) onFlip(nextState);
   };
 
-  // Download card as high-resolution PNG using html2canvas with exact ISO 85.60 x 53.98mm proportions
+  // Download card as high-resolution PNG using Native Canvas 2D (100% reliable)
   const handleDownloadCard = async () => {
-    if (!cardRef.current || isDownloading) return;
+    if (isDownloading) return;
     setIsDownloading(true);
     try {
-      // Temporarily reset tilt for flat, straight export
-      x.set(0);
-      y.set(0);
-      await new Promise((resolve) => setTimeout(resolve, 80));
-
-      const html2canvasModule = await import('html2canvas');
-      const html2canvas = html2canvasModule.default || html2canvasModule;
-
-      const canvas = await html2canvas(cardRef.current, {
-        scale: 3,
-        backgroundColor: null,
-        useCORS: true,
-        logging: false,
-      });
-
-      const dataUrl = canvas.toDataURL('image/png');
-      const link = document.createElement('a');
-      link.download = `Techno-VIP-Card-${card.cardNumber}.png`;
-      link.href = dataUrl;
-      link.click();
-
-      setDownloadSuccess(true);
-      setTimeout(() => setDownloadSuccess(false), 3000);
+      const face = isFlipped ? 'back' : 'front';
+      const success = await exportCardToPng(card, face, currentTierId);
+      if (success) {
+        setDownloadSuccess(true);
+        setTimeout(() => setDownloadSuccess(false), 3000);
+      }
     } catch (err) {
       console.error('Failed to export card image:', err);
     } finally {
@@ -111,7 +101,19 @@ export function VirtualLoyaltyCard({
     }
   };
 
+  // Download official credentials pass document
+  const handleDownloadPass = () => {
+    downloadCardCredentialsDocument(card);
+    setPassDownloaded(true);
+    setTimeout(() => setPassDownloaded(false), 3000);
+  };
+
   const barcodeBars = generateBarcodeBars(card.cardNumber);
+
+  // Masked card number for "غير كاملة" state
+  const displayedCardNumber = isPartiallyMasked
+    ? `03-••••-••••-${card.cardNumber.slice(-4)}`
+    : card.cardNumber;
 
   return (
     <div className="flex flex-col items-center select-none w-full">
@@ -200,8 +202,7 @@ export function VirtualLoyaltyCard({
               </div>
             </div>
 
-            {/* Middle Navy Blue Section (Between Top Logo and Bottom CARTE FIDÉLITÉ):
-                Contains: EMV Chip + NFC Contactless, Embossed Card Number, Cardholder Name & Expiry */}
+            {/* Middle Navy Blue Section (Between Top Logo and Bottom CARTE FIDÉLITÉ) */}
             <div
               className="absolute left-[5.5%] z-10 flex flex-col justify-between"
               style={{
@@ -231,7 +232,7 @@ export function VirtualLoyaltyCard({
                 </div>
               </div>
 
-              {/* Row 2: Embossed VIP Card Number */}
+              {/* Row 2: Embossed VIP Card Number (Masked if partially incomplete) */}
               <p
                 dir="ltr"
                 className="font-mono text-xs sm:text-sm md:text-base font-black tracking-[0.14em] sm:tracking-[0.18em] text-white"
@@ -239,10 +240,10 @@ export function VirtualLoyaltyCard({
                   textShadow: '0 1px 1px rgba(255,255,255,0.45), 0 -1px 2px rgba(0,0,0,0.9), 0 2px 4px rgba(0,0,0,0.85)',
                 }}
               >
-                {card.cardNumber}
+                {displayedCardNumber}
               </p>
 
-              {/* Row 3: Cardholder Name & Validity (Comfortably sitting above CARTE FIDÉLITÉ) */}
+              {/* Row 3: Cardholder Name & Validity (Sitting cleanly above CARTE FIDÉLITÉ) */}
               <div className="flex items-end justify-between pr-2">
                 <div className="max-w-[70%]">
                   <span className="block text-[6.5px] sm:text-[7.5px] uppercase tracking-wider text-stone-300/90 font-mono leading-none">
@@ -274,6 +275,23 @@ export function VirtualLoyaltyCard({
                 </div>
               </div>
             </div>
+
+            {/* Incomplete / Pending PIN Frosted Overlay if partially approved */}
+            {isPartiallyMasked && (
+              <div className="absolute inset-0 z-20 bg-stone-950/65 backdrop-blur-[2px] flex flex-col items-center justify-center p-4 text-center">
+                <div className="w-10 h-10 rounded-full bg-amber-500/20 border border-amber-400/50 flex items-center justify-center text-amber-300 mb-2 shadow-lg">
+                  <Lock className="w-5 h-5" />
+                </div>
+                <p className="text-xs font-bold text-white tracking-wide">
+                  البطاقة غير مكتملة
+                </p>
+                <p className="text-[10px] text-stone-300 mt-1 max-w-[260px] leading-relaxed">
+                  {card.status === 'approved_pending_pin'
+                    ? 'يرجى إدخال رقمك السري (6 أرقام) أدناه لإظهار البطاقة والباركود بالكامل'
+                    : 'طلبك قيد المعالجة في قائمة الانتظار للتحقق من مشترياتك'}
+                </p>
+              </div>
+            )}
           </div>
 
           {/* =========================================================================
@@ -314,24 +332,35 @@ export function VirtualLoyaltyCard({
                 bottom: '12%',
               }}
             >
-              {/* High-Resolution Dynamic Barcode SVG/Bars */}
-              <div className="w-full flex-1 flex items-center justify-between px-1 overflow-hidden">
-                {barcodeBars.map((width, idx) => (
-                  <div
-                    key={idx}
-                    className="h-full bg-[#0F172A]"
-                    style={{ width: `${Math.max(1, width * 1.35)}px` }}
-                  />
-                ))}
-              </div>
+              {isPartiallyMasked ? (
+                <div className="w-full h-full flex flex-col items-center justify-center text-center p-1">
+                  <Lock className="w-4 h-4 text-stone-400 mb-0.5" />
+                  <span className="text-[7.5px] font-mono font-bold text-stone-500">
+                    الباركود محمي برمز PIN
+                  </span>
+                </div>
+              ) : (
+                <>
+                  {/* High-Resolution Dynamic Barcode SVG/Bars */}
+                  <div className="w-full flex-1 flex items-center justify-between px-1 overflow-hidden">
+                    {barcodeBars.map((width, idx) => (
+                      <div
+                        key={idx}
+                        className="h-full bg-[#0F172A]"
+                        style={{ width: `${Math.max(1, width * 1.35)}px` }}
+                      />
+                    ))}
+                  </div>
 
-              {/* Scannable Card Number Label */}
-              <p
-                dir="ltr"
-                className="text-center font-mono text-[8px] sm:text-[9.5px] font-black tracking-wider text-[#0F172A] mt-0.5 select-all"
-              >
-                * {card.cardNumber} *
-              </p>
+                  {/* Scannable Card Number Label */}
+                  <p
+                    dir="ltr"
+                    className="text-center font-mono text-[8px] sm:text-[9.5px] font-black tracking-wider text-[#0F172A] mt-0.5 select-all"
+                  >
+                    * {card.cardNumber} *
+                  </p>
+                </>
+              )}
             </div>
 
             {/* Bottom In-Store Scanner Instruction */}
@@ -344,7 +373,7 @@ export function VirtualLoyaltyCard({
         </motion.div>
       </div>
 
-      {/* Card Action Controls & Dimensions Pill */}
+      {/* Card Action Controls & Downloads */}
       <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
         <button
           type="button"
@@ -355,24 +384,54 @@ export function VirtualLoyaltyCard({
           <span>{isFlipped ? 'معاينة الواجهة الأمامية' : 'معاينة الباركود والخلف'}</span>
         </button>
 
+        {/* 100% Reliable Native Canvas High-Res PNG Exporter */}
         <button
           type="button"
           onClick={handleDownloadCard}
           disabled={isDownloading}
           className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-stone-900/90 hover:bg-stone-800 text-[#D4AF37] text-xs font-medium border border-[#D4AF37]/40 hover:border-[#D4AF37] shadow-2xs transition-all cursor-pointer disabled:opacity-50 active:scale-95"
+          title="حفظ صورة البطاقة عالية الدقة مباشرة في هاتفك أو حاسوبك"
         >
           {downloadSuccess ? (
             <>
               <Check className="w-3.5 h-3.5 text-emerald-400" />
-              <span>تم حفظ صورة البطاقة</span>
+              <span>تم حفظ الصورة بنجاح</span>
             </>
           ) : (
             <>
               <Download className="w-3.5 h-3.5 text-[#D4AF37]" />
-              <span>{isDownloading ? 'جارٍ التصدير...' : 'حفظ في الهاتف (PNG)'}</span>
+              <span>
+                {isDownloading
+                  ? 'جارٍ الحفظ...'
+                  : isFlipped
+                  ? 'حفظ الباركود (PNG)'
+                  : 'حفظ في الهاتف (PNG)'}
+              </span>
             </>
           )}
         </button>
+
+        {/* Download Official Credentials Document */}
+        {card.status === 'active' && (
+          <button
+            type="button"
+            onClick={handleDownloadPass}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-stone-900/90 hover:bg-stone-800 text-stone-200 text-xs font-medium border border-stone-800 hover:border-stone-700 shadow-2xs transition-all cursor-pointer active:scale-95"
+            title="تحميل وثيقة العضوية الرسمية متضمنة بيانات البطاقة والرمز السري"
+          >
+            {passDownloaded ? (
+              <>
+                <Check className="w-3.5 h-3.5 text-emerald-400" />
+                <span>تم تنزيل الوثيقة</span>
+              </>
+            ) : (
+              <>
+                <FileText className="w-3.5 h-3.5 text-stone-400" />
+                <span>حفظ بيانات البطاقة والرمز السري</span>
+              </>
+            )}
+          </button>
+        )}
       </div>
 
       {/* Exact Physical Dimensions Pill */}
@@ -409,4 +468,5 @@ export function VirtualLoyaltyCard({
     </div>
   );
 }
+
 
