@@ -769,12 +769,39 @@ export async function exportCardToPng(
         ctx.fillText('VAL: ' + card.validThru, 50, 535);
         ctx.restore();
       } else {
-        // Back of standard card: card number under the top barcode
+        // Back of standard card: dynamic red barcode and red card number in the top yellow space
+        const barcodeY = 48;
+        const barcodeH = 175;
+        const barcodeXStart = canvas.width * 0.10;
+        const barcodeWidthTotal = canvas.width * 0.80;
+
         ctx.save();
-        ctx.font = 'bold 22px monospace';
         ctx.fillStyle = '#E30613';
-        ctx.textAlign = 'center';
-        ctx.fillText('* ' + card.cardNumber + ' *', canvas.width / 2, 215);
+
+        if (card.status === 'approved_pending_pin') {
+          ctx.font = 'bold 24px -apple-system, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('🔒 الباركود محمي برمز PIN', canvas.width / 2, barcodeY + 90);
+        } else {
+          // Draw alternating barcode bars in vibrant Techno Red
+          const bars = generateBarcodeBars(card.cardNumber);
+          const totalUnits = bars.reduce((sum, b) => sum + b, 0);
+          const unitWidth = barcodeWidthTotal / totalUnits;
+          let currentX = barcodeXStart;
+
+          bars.forEach((barWidth, idx) => {
+            const w = barWidth * unitWidth;
+            if (idx % 2 === 0) {
+              ctx.fillRect(currentX, barcodeY, Math.max(1.5, w), barcodeH);
+            }
+            currentX += w;
+          });
+
+          // Draw card number below barcode in bold red
+          ctx.font = 'bold 25px monospace';
+          ctx.textAlign = 'center';
+          ctx.fillText('* ' + card.cardNumber + ' *', canvas.width / 2, barcodeY + barcodeH + 34);
+        }
         ctx.restore();
       }
     } else {

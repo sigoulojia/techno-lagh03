@@ -429,21 +429,52 @@ export function VirtualLoyaltyCard({
               }}
             />
             {activeDesign === 'standard' ? (
-              /* Standard Back Face (Barcode on top, info text below) */
-              <div className="relative w-full h-full flex flex-col justify-between p-3">
-                {/* Personal Scannable Card Number Bar placed cleanly right under barcode */}
-                <div className="w-full text-center pt-2">
-                  <span
-                    dir="ltr"
-                    className="inline-block px-3 py-0.5 rounded bg-white/90 text-[#E30613] font-mono text-xs sm:text-sm font-black tracking-widest shadow-xs select-all"
-                  >
-                    * {displayedCardNumber} *
-                  </span>
+              /* Standard Back Face: Dynamic Barcode and Number in Red placed in the empty yellow space */
+              <div className="relative w-full h-full overflow-hidden select-none">
+                {/* Barcode and Card Number Container positioned in the top yellow area */}
+                <div
+                  className="absolute flex flex-col items-center justify-between"
+                  style={{
+                    left: '10%',
+                    right: '10%',
+                    top: '7%',
+                    height: '43%',
+                  }}
+                >
+                  {isPartiallyMasked ? (
+                    <div className="w-full h-full flex flex-col items-center justify-center text-center p-1">
+                      <Lock className="w-4 h-4 text-[#E30613] mb-0.5" />
+                      <span className="text-[8px] sm:text-[9.5px] font-mono font-bold text-[#E30613]">
+                        الباركود محمي برمز PIN
+                      </span>
+                    </div>
+                  ) : (
+                    <>
+                      {/* High-Resolution Dynamic Barcode in Techno Red */}
+                      <div className="w-full flex-1 flex items-center justify-between px-1 overflow-hidden">
+                        {barcodeBars.map((width, idx) => (
+                          <div
+                            key={idx}
+                            className="h-full bg-[#E30613]"
+                            style={{ width: `${Math.max(1, width * 1.45)}px` }}
+                          />
+                        ))}
+                      </div>
+
+                      {/* Scannable Card Number in Bold Red */}
+                      <p
+                        dir="ltr"
+                        className="text-center font-mono text-[9px] sm:text-[11px] font-black tracking-widest text-[#E30613] mt-1 select-all"
+                      >
+                        * {card.cardNumber} *
+                      </p>
+                    </>
+                  )}
                 </div>
 
-                {/* Bottom notification */}
-                <div className="w-full text-center pb-1">
-                  <span className="text-[7px] sm:text-[8px] font-mono font-bold text-white bg-black/60 px-2 py-0.5 rounded">
+                {/* Bottom Customer Service Text in bottom red strip */}
+                <div className="absolute bottom-1 w-full text-center">
+                  <span className="text-[7px] sm:text-[8px] font-mono font-bold text-white/90 tracking-wide">
                     فرع الأغواط 03 · هاتف خدمة الزبائن: 0550101012
                   </span>
                 </div>
