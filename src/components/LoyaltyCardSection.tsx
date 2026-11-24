@@ -25,7 +25,7 @@ import {
   calculatePointsFromOrders,
   getTierFromPoints,
   requestCardActivation,
-  approveCardRequest,
+  saveLoyaltyCard,
   activateCardWithSixDigitPin,
   retrieveCardByPhone,
   unlockCardWithPin,
@@ -65,7 +65,40 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
 
   // Loading & Feedback
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isRefreshingStatus, setIsRefreshingStatus] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
+
+  // Auto-poll status from server while waiting in pending screen (every 4 seconds)
+  useEffect(() => {
+    if (card.status !== 'pending' || !card.customerPhone) return;
+
+    const intervalId = setInterval(async () => {
+      try {
+        const res = await fetch(
+          `https://techno-laghouat-backend.hotel-saharien.workers.dev/api/loyalty/status?phone=${encodeURIComponent(card.customerPhone)}`
+        );
+        if (!res.ok) return;
+        const data: any = await res.json();
+        if (data?.exists && data.status === 'approved_pending_pin') {
+          const approvedCard: LoyaltyCardData = {
+            ...card,
+            customerPhone: card.customerPhone,
+            customerName: data.request?.customerName || card.customerName,
+            status: 'approved_pending_pin',
+            approvedAt: data.request?.approvedAt || new Date().toISOString(),
+          };
+          saveLoyaltyCard(approvedCard);
+          setCard(approvedCard);
+          setFeedback({
+            type: 'success',
+            message: 'تمت موافقة الإدارة على تفعيل بطاقتك بنجاح! يرجى الآن تعيين رمزك السري (6 أرقام) لإظهارها كاملة.',
+          });
+        }
+      } catch {}
+    }, 4000);
+
+    return () => clearInterval(intervalId);
+  }, [card.status, card.customerPhone, card.customerName]);
 
   // Sync points when saved orders change for currently active card
   useEffect(() => {
@@ -230,17 +263,94 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
   };
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 3. Admin / Store Simulator: Approve Card Request (محاكاة موافقة الإدارة)
+  // 3. Real-time Status Refresh from Server (تحديث حالة الطلب لحظياً من الخادم)
   // ─────────────────────────────────────────────────────────────────────────
-  const handleSimulateApproval = () => {
-    setFeedback(null);
-    const approved = approveCardRequest(card.customerPhone);
-    if (approved) {
-      setCard(approved);
+  const handleRefreshStatus = async () => {
+    const cleanPhone = card.customerPhone?.trim() || requestPhone?.trim();
+    if (!cleanPhone) {
+      setFeedback({
+        type: 'error',
+        message: 'لا يوجد رقم هاتف مرتبط بهذا الطلب.',
+      });
+      return;
+    }
+
+    setIsRefreshingStatus(true);
+    try {
+      const res = await fetch(
+        `https://techno-laghouat-backend.hotel-saharien.workers.dev/api/loyalty/status?phone=${encodeURIComponent(cleanPhone)}`
+      );
+      if (!res.ok) {
+        setFeedback({
+          type: 'info',
+          message: 'يجري الاتصال بالخادم... يرجى إعادة المحاولة بعد لحظات.',
+        });
+        return;
+      }
+
+      const data: any = await res.json();
+      if (!data?.exists) {
+        setFeedback({
+          type: 'error',
+          message: 'لم يتم العثور على طلب معتمد بهذا الرقم. يمكنك تقديم طلب تفعيل جديد.',
+        });
+        return;
+      }
+
+      if (data.status === 'approved_pending_pin') {
+        const approvedCard: LoyaltyCardData = {
+          ...card,
+          customerPhone: cleanPhone,
+          customerName: data.request?.customerName || card.customerName,
+          status: 'approved_pending_pin',
+          approvedAt: data.request?.approvedAt || new Date().toISOString(),
+        };
+        saveLoyaltyCard(approvedCard);
+        setCard(approvedCard);
+        setFeedback({
+          type: 'success',
+          message: 'تمت موافقة الإدارة على تفعيل بطاقتك بنجاح! يرجى الآن تعيين رمزك السري (6 أرقام) لإظهارها كاملة.',
+        });
+        return;
+      }
+
+      if (data.status === 'active') {
+        const activeCard: LoyaltyCardData = {
+          ...card,
+          customerPhone: cleanPhone,
+          customerName: data.request?.customerName || card.customerName,
+          status: 'active',
+        };
+        saveLoyaltyCard(activeCard);
+        setCard(activeCard);
+        setFeedback({
+          type: 'success',
+          message: 'بطاقتك مفعلة ونشطة بالفعل!',
+        });
+        return;
+      }
+
+      if (data.status === 'disabled') {
+        setCard((prev) => ({ ...prev, status: 'disabled' }));
+        setFeedback({
+          type: 'error',
+          message: 'تم تعطيل / تعليق هذه البطاقة من طرف إدارة متجر تكنو الأغواط. يرجى مراجعة الفرع أو الإدارة للاستفسار.',
+        });
+        return;
+      }
+
+      // Still pending
       setFeedback({
         type: 'info',
-        message: 'تمت الموافقة على طلب البطاقة! يرجى الآن تعيين رمزك السري (6 أرقام) لإظهارها كاملة.',
+        message: 'طلبك قيد المعالجة في قائمة الانتظار، يجري التدقيق لاعتماد تفعيل بطاقتك من طرف الإدارة.',
       });
+    } catch {
+      setFeedback({
+        type: 'error',
+        message: 'تعذر الاتصال بالخادم للتحقق من حالة الطلب. يرجى التحقق من اتصال الإنترنت وإعادة المحاولة.',
+      });
+    } finally {
+      setIsRefreshingStatus(false);
     }
   };
 
@@ -265,6 +375,7 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
 
     // 2. Also check real-time status from server
     let serverStatus: string | null = null;
+    let serverRequestData: any = null;
     try {
       const serverRes = await fetch(
         `https://techno-laghouat-backend.hotel-saharien.workers.dev/api/loyalty/status?phone=${encodeURIComponent(cleanPhone)}`
@@ -273,6 +384,7 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
         const sData: any = await serverRes.json();
         if (sData?.exists && sData.status) {
           serverStatus = sData.status;
+          serverRequestData = sData.request;
         }
       }
     } catch {}
@@ -291,7 +403,27 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
       return;
     }
 
-    if (!res.exists || !res.card) {
+    // Resolve target card data (from local registry or fallback to server request)
+    let targetCard = res.card;
+    if (!targetCard && serverRequestData) {
+      targetCard = {
+        cardNumber: serverRequestData.cardNumber || generateCardNumber(cleanPhone),
+        customerName: serverRequestData.customerName || 'عضو نادي الوفاء',
+        customerPhone: cleanPhone,
+        status: effectiveStatus || 'pending',
+        points: WELCOME_BONUS_POINTS,
+        tier: 'classic',
+        memberSince: formatCardDate(0),
+        validThru: formatCardDate(3),
+        isPinProtected: false,
+        hasPurchased: serverRequestData.hasPurchased,
+        ordersCount: serverRequestData.ordersCount,
+        totalSpent: serverRequestData.totalSpent,
+      };
+      saveLoyaltyCard(targetCard);
+    }
+
+    if (!targetCard) {
       setFeedback({
         type: 'error',
         message: 'لم يتم العثور على بطاقة مسجلة بهذا الرقم. يمكنك طلب تفعيل بطاقة جديدة الآن.',
@@ -299,32 +431,34 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
       return;
     }
 
-    if (effectiveStatus === 'pending' || res.card.status === 'pending') {
-      setCard({ ...res.card, status: 'pending' });
+    if (effectiveStatus === 'pending') {
+      setCard({ ...targetCard, status: 'pending' });
       setViewMode('main');
       setFeedback({
         type: 'info',
-        message: 'طلبك قيد المعالجة في قائمة الانتظار، يجري التدقيق لاعتماد تفعيل بطاقتك.',
+        message: 'طلبك قيد المعالجة في قائمة الانتظار، يجري التدقيق لاعتماد تفعيل بطاقتك من طرف الإدارة.',
       });
       return;
     }
 
-    if (effectiveStatus === 'approved_pending_pin' || res.card.status === 'approved_pending_pin') {
-      setCard({ ...res.card, status: 'approved_pending_pin' });
+    if (effectiveStatus === 'approved_pending_pin') {
+      const approvedCard: LoyaltyCardData = { ...targetCard, status: 'approved_pending_pin' };
+      saveLoyaltyCard(approvedCard);
+      setCard(approvedCard);
       setViewMode('main');
       setFeedback({
-        type: 'info',
-        message: 'تمت الموافقة على بطاقتك! يرجى تعيين رقمك السري (6 أرقام) لإظهارها كاملة.',
+        type: 'success',
+        message: 'تمت موافقة الإدارة على تفعيل بطاقتك بنجاح! يرجى الآن تعيين رمزك السري (6 أرقام) لإظهارها كاملة.',
       });
       return;
     }
 
     // Card is active and secured by PIN: prompt for 6-digit PIN
-    setRetrievedCardTemp(res.card);
+    setRetrievedCardTemp(targetCard);
     setRetrievalPromptPin(true);
     setFeedback({
       type: 'info',
-      message: `أهلاً بك مجدداً ${res.card.customerName}! يرجى إدخال رقمك السري (6 أرقام) لعرض بطاقتك:`,
+      message: `أهلاً بك مجدداً ${targetCard.customerName}! يرجى إدخال رقمك السري (6 أرقام) لعرض بطاقتك:`,
     });
   };
 
@@ -690,28 +824,14 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
                 </p>
 
                 <div className="flex flex-wrap items-center gap-2.5 pt-2 border-t border-stone-800">
-                  {/* Store Simulator button for testing */}
                   <button
                     type="button"
-                    onClick={handleSimulateApproval}
-                    className="px-4 py-2 rounded-xl bg-stone-800 hover:bg-stone-700 text-[#D4AF37] border border-[#D4AF37]/30 text-xs font-bold transition-all cursor-pointer"
-                    title="محاكاة موافقة الإدارة في لوحة التحكم وتفعيل البطاقة فوراً"
+                    onClick={handleRefreshStatus}
+                    disabled={isRefreshingStatus}
+                    className="px-3.5 py-2 rounded-xl bg-stone-950 hover:bg-stone-800 text-stone-300 text-xs font-medium border border-stone-800 cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
                   >
-                    محاكاة موافقة الإدارة (تفعيل فوري)
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFeedback({
-                        type: 'info',
-                        message: 'يجري التحقق من خادم تكنو... الطلب لا يزال قيد المعالجة لدى الإدارة.',
-                      });
-                    }}
-                    className="px-3.5 py-2 rounded-xl bg-stone-950 hover:bg-stone-800 text-stone-300 text-xs font-medium border border-stone-800 cursor-pointer flex items-center gap-1.5"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5 text-stone-400" />
-                    <span>تحديث الحالة</span>
+                    <RefreshCw className={`w-3.5 h-3.5 text-stone-400 ${isRefreshingStatus ? 'animate-spin' : ''}`} />
+                    <span>{isRefreshingStatus ? 'جارٍ التحقق من الخادم...' : 'تحديث الحالة'}</span>
                   </button>
 
                   <button
