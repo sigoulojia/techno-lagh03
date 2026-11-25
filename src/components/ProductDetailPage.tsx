@@ -495,7 +495,7 @@ export function ProductDetailPage({
                 <p className="text-xs text-[#71717A] flex flex-wrap items-center gap-x-2 gap-y-1 mb-2">
                   <span className="font-semibold text-[#E30613]">{categoryLabel}</span>
                   <span aria-hidden="true">·</span>
-                  <span className="font-mono text-[#52525B]">رقم المنتج: {product.sku}</span>
+                  <span className="font-mono text-[#52525B]">رقم المنتج: {activeVariant?.sku || product.sku}</span>
                   <span aria-hidden="true">·</span>
                   <span className="font-medium text-[#18181B]">{product.availabilityText}</span>
                 </p>
@@ -567,12 +567,19 @@ export function ProductDetailPage({
                                 {variant.description}
                               </p>
                             )}
-                            {variant.dimensions && (
-                              <span className="inline-flex items-center gap-1 text-[10.5px] font-bold text-stone-700 bg-stone-100 border border-stone-200/80 px-2 py-0.5 rounded-md mt-1">
-                                <span>📏</span>
-                                <span>{variant.dimensions}</span>
-                              </span>
-                            )}
+                            <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                              {variant.sku && (
+                                <span className="inline-flex items-center gap-1 text-[10.5px] font-mono font-bold text-stone-600 bg-stone-100 border border-stone-200/80 px-1.5 py-0.5 rounded-md">
+                                  #{variant.sku}
+                                </span>
+                              )}
+                              {variant.dimensions && (
+                                <span className="inline-flex items-center gap-1 text-[10.5px] font-bold text-stone-700 bg-stone-100 border border-stone-200/80 px-2 py-0.5 rounded-md">
+                                  <span>📏</span>
+                                  <span>{variant.dimensions}</span>
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </button>
                       );

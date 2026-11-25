@@ -1015,11 +1015,17 @@ function parseVariantsText(raw: string): ProductVariant[] {
       const price = parseInt(match3[2].replace(/[^0-9]/g, ''), 10);
       const desc = match3[3].trim();
       if (label && price > 0) {
+        let sku: string | undefined = undefined;
+        const skuMatch = desc.match(/^(?:#|رقم\s*[:#]?|كود\s*[:#]?)\s*([0-9a-zA-Z\-_]+)$/i);
+        if (skuMatch) {
+          sku = skuMatch[1];
+        }
         variants.push({
           id: `v-${index + 1}-${Date.now().toString(36).slice(-3)}`,
           label,
           name: label,
           priceDzd: price,
+          sku,
           description: desc,
         });
         return;
@@ -1075,12 +1081,14 @@ interface WizardDraft {
   currentShape?: {
     image?: string;
     name?: string;
+    sku?: string;
     priceDzd?: number;
     description?: string;
     dimensions?: string;
     subSizes?: Array<{
       label: string;
       priceDzd: number;
+      sku?: string;
       description?: string;
       dimensions?: string;
     }>;
@@ -2314,6 +2322,7 @@ export default {
                   for (let idx = 0; idx < arr.length; idx++) {
                     const item = arr[idx];
                     const shapeName = (item.name || `شكل ${idx + 1}`).trim();
+                    const shapeSku = (item.sku || '').trim();
                     const shapeImg = (item.image || '').trim();
                     const shapeDesc = (item.description || '').trim();
                     const shapeDims = (item.dimensions || '').trim();
@@ -2326,6 +2335,7 @@ export default {
                           id: `var-${Date.now()}-${variantsFromJson.length + 1}`,
                           name: `${shapeName} (${sub.label})`,
                           label: sub.label,
+                          sku: sub.sku || shapeSku || undefined,
                           priceDzd: sub.priceDzd,
                           image: shapeImg || uploadedImages[idx] || uploadedImages[0],
                           description: (sub.description || shapeDesc).trim(),
@@ -2337,6 +2347,7 @@ export default {
                         id: `var-${Date.now()}-${variantsFromJson.length + 1}`,
                         name: shapeName,
                         label: shapeName,
+                        sku: shapeSku || undefined,
                         priceDzd: basePrice,
                         image: shapeImg || uploadedImages[idx] || uploadedImages[0],
                         description: shapeDesc,
@@ -4077,15 +4088,19 @@ export default {
             '<input type="text" class="shape-name" placeholder="مثال: شكل قطة كرتونية / أزرق ملكي" style="width:100%; box-sizing:border-box; padding:8px 12px; border:1px solid #CBD5E1; border-radius:8px; font-size:13px; font-weight:600;" oninput="syncShapesToJson()" />' +
           '</div>' +
           '<div>' +
-            '<label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">💰 3. سعر هذا الشكل (د.ج) <span style="font-size:11px; font-weight:400; color:#64748B;">(أو اتركه وحدد أسعار القياسات بالأسفل)</span></label>' +
+            '<label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">🔢 3. رقم أو كود هذا الشكل (اختياري)</label>' +
+            '<input type="text" class="shape-sku" placeholder="مثال: 71645-A أو 101" style="width:100%; box-sizing:border-box; padding:8px 12px; border:1px solid #CBD5E1; border-radius:8px; font-size:13px; font-family:monospace;" oninput="syncShapesToJson()" />' +
+          '</div>' +
+          '<div>' +
+            '<label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">💰 4. سعر هذا الشكل (د.ج) <span style="font-size:11px; font-weight:400; color:#64748B;">(أو اتركه وحدد أسعار القياسات بالأسفل)</span></label>' +
             '<input type="number" class="shape-price" min="0" placeholder="مثال: 1800" style="width:100%; box-sizing:border-box; padding:8px 12px; border:1px solid #CBD5E1; border-radius:8px; font-size:13px; font-family:monospace; font-weight:700; color:#0F172A;" oninput="syncShapesToJson()" />' +
           '</div>' +
           '<div>' +
-            '<label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">📝 4. وصف ومميزات هذا الشكل (اختياري)</label>' +
+            '<label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">📝 5. وصف ومميزات هذا الشكل (اختياري)</label>' +
             '<input type="text" class="shape-desc" placeholder="مثال: مبطنة بجيب إضافي" style="width:100%; box-sizing:border-box; padding:8px 12px; border:1px solid #CBD5E1; border-radius:8px; font-size:13px;" oninput="syncShapesToJson()" />' +
           '</div>' +
           '<div>' +
-            '<label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">📏 5. قياسات هذا الشكل (أو عدة قياسات بأسعارها)</label>' +
+            '<label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">📏 6. قياسات هذا الشكل (أو عدة قياسات بأسعارها)</label>' +
             '<textarea class="shape-dims" rows="2" placeholder="قياس واحد: 40x60 سم أو A4&#10;أو كل قياس بسعره (سطر لكل قياس):&#10;صغير : 1800&#10;متوسط : 2500&#10;كبير : 3400" style="width:100%; box-sizing:border-box; padding:8px 12px; border:1px solid #CBD5E1; border-radius:8px; font-size:12px; line-height:1.4;" oninput="syncShapesToJson()"></textarea>' +
           '</div>' +
         '</div>';
@@ -4133,20 +4148,23 @@ export default {
 
       cards.forEach(function(card, idx) {
         var nameInput = card.querySelector('.shape-name');
+        var skuInput = card.querySelector('.shape-sku');
         var priceIn = card.querySelector('.shape-price');
         var descInput = card.querySelector('.shape-desc');
         var dimsInput = card.querySelector('.shape-dims');
         var imgInput = card.querySelector('.shape-image-url');
 
         var name = (nameInput && nameInput.value || '').trim();
+        var sku = (skuInput && skuInput.value || '').trim();
         var price = parseFloat(priceIn && priceIn.value || '0');
         var desc = (descInput && descInput.value || '').trim();
         var dims = (dimsInput && dimsInput.value || '').trim();
         var image = (imgInput && imgInput.value || '').trim();
 
-        if (name || price > 0 || dims || image) {
+        if (name || sku || price > 0 || dims || image) {
           list.push({
             name: name || ('شكل ' + (idx + 1)),
+            sku: sku || undefined,
             priceDzd: price || 0,
             description: desc,
             dimensions: dims,
@@ -4673,6 +4691,7 @@ async function finalizeShapeAndPromptNext(
         name: vName,
         label: sub.label,
         priceDzd: sub.priceDzd,
+        sku: sub.sku || cur.sku,
         image: shapeImage,
         description: (sub.description || shapeDesc).trim(),
         dimensions: (sub.dimensions || sub.label).trim(),
@@ -4687,6 +4706,7 @@ async function finalizeShapeAndPromptNext(
       name: shapeName,
       label: shapeName,
       priceDzd: shapePrice,
+      sku: cur.sku,
       image: shapeImage,
       description: shapeDesc,
       dimensions: (cur.dimensions || '').trim(),
@@ -4707,6 +4727,9 @@ async function finalizeShapeAndPromptNext(
 
   // Build nice summary message
   let summaryDetails = '';
+  if (cur.sku) {
+    summaryDetails += `🔢 <b>رقم/كود هذا الشكل:</b> <code>#${escapeHtml(cur.sku)}</code>\n`;
+  }
   if (cur.subSizes && cur.subSizes.length > 0) {
     summaryDetails =
       `📏 <b>القياسات والأسعار المعتمدة لهذا الشكل (${cur.subSizes.length}):</b>\n` +
@@ -4847,8 +4870,13 @@ async function publishWizardDraft(
 
   const variantsSummary =
     variants.length > 0
-      ? `\n📏 <b>القياسات والأسعار:</b>\n` +
-        variants.map((v) => `   • ${escapeHtml(v.label)}: <b>${v.priceDzd.toLocaleString()} د.ج</b>`).join('\n')
+      ? `\n🎨 <b>الأشكال والموديلات (${variants.length}):</b>\n` +
+        variants
+          .map(
+            (v) =>
+              `   • ${escapeHtml(v.label)}${v.sku ? ` [رقم #${escapeHtml(v.sku)}]` : ''}: <b>${v.priceDzd.toLocaleString()} د.ج</b>${v.dimensions ? ` (📏 ${escapeHtml(v.dimensions)})` : ''}`,
+          )
+          .join('\n')
       : `\n💰 <b>السعر:</b> ${newProduct.priceDzd.toLocaleString()} د.ج`;
 
   const keyboard: any[][] = [
@@ -5089,14 +5117,11 @@ async function handleTelegramUpdate(
           `أرسل الآن <b>اسم المنتج</b> (مثال: <code>ساعة حائط كلاسيكية</code>):`,
         [[{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }]],
       );
-    } else if (data === 'wiz:num_auto') {
+    } else if (data === 'wiz:price_single') {
       const session = await getSession(env, chatId);
       if (session) {
-        const products = await getProducts(env);
-        const autoNum = await getNextNumericId(env, products);
-        session.draft.productNumber = autoNum;
         await setSession(env, chatId, {
-          step: 'prod_pricing_mode',
+          step: 'prod_number',
           draft: session.draft,
           updatedAt: Date.now(),
         });
@@ -5104,19 +5129,21 @@ async function handleTelegramUpdate(
           botToken,
           chatId,
           messageId,
-          `✅ تم تعيين رقم المنتج تلقائياً: <code>${autoNum}</code>\n\n` +
-            `💰 <b>الخطوة 4 من 6 — نوع التسعير والقياسات</b>\n` +
-            `هل لهذا المنتج سعر واحد أم عدة قياسات بأسعار مختلفة (مثل: صغير، متوسط، كبير)؟`,
+          `🔢 <b>الخطوة 3 — رقم المنتج</b>\n` +
+            `أدخل <b>رقم المنتج</b> الذي ستنتهي به صفحته (مثال: <code>71645</code> أو <code>105</code>)\n` +
+            `أو اضغط على زر التوليد التلقائي:`,
           [
-            [{ text: '💰 سعر واحد فقط', callback_data: 'wiz:price_single' }],
-            [{ text: '📏 عدة قياسات بأسعار مختلفة', callback_data: 'wiz:price_variants' }],
+            [{ text: '🎲 توليد رقم تلقائي', callback_data: 'wiz:num_auto' }],
             [{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }],
           ],
         );
       }
-    } else if (data === 'wiz:price_single') {
+    } else if (data === 'wiz:num_auto') {
       const session = await getSession(env, chatId);
       if (session) {
+        const products = await getProducts(env);
+        const autoNum = await getNextNumericId(env, products);
+        session.draft.productNumber = autoNum;
         await setSession(env, chatId, {
           step: 'prod_single_price',
           draft: session.draft,
@@ -5126,7 +5153,9 @@ async function handleTelegramUpdate(
           botToken,
           chatId,
           messageId,
-          `💰 <b>أدخل سعر المنتج بالدينار الجزائري</b> (أرقام فقط، مثال: <code>2500</code>):`,
+          `✅ تم تعيين رقم المنتج تلقائياً: <code>${autoNum}</code> (ستنتهي الصفحة بـ <code>/p/${autoNum}</code>)\n\n` +
+            `💰 <b>الخطوة 4 — سعر المنتج</b>\n` +
+            `أدخل الآن <b>سعر المنتج بالدينار الجزائري</b> (أرقام فقط، مثال: <code>2500</code>):`,
           [[{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }]],
         );
       }
@@ -5907,7 +5936,7 @@ async function handleTelegramUpdate(
       if (session.step === 'prod_name') {
         session.draft.name = text;
         await setSession(env, chatId, {
-          step: 'prod_number',
+          step: 'prod_pricing_mode',
           draft: session.draft,
           updatedAt: Date.now(),
         });
@@ -5915,13 +5944,32 @@ async function handleTelegramUpdate(
           chat_id: chatId,
           text:
             `✅ اسم المنتج: <b>${escapeHtml(text)}</b>\n\n` +
-            `🔢 <b>الخطوة 3 من 6 — رقم المنتج</b>\n` +
-            `أدخل <b>رقم المنتج</b> الذي ستنتهي به صفحته (مثال: <code>71645</code> أو <code>105</code>)\n` +
-            `أو اضغط على زر التوليد التلقائي:`,
+            `💰 <b>نوع التسعير والأشكال</b>\n` +
+            `هل لهذا المنتج <b>سعر واحد فقط</b> أم يتوفر بعدة <b>أشكال وموديلات / قياسات</b> مختلفة؟`,
           parse_mode: 'HTML',
           reply_markup: {
             inline_keyboard: [
-              [{ text: '🔢 توليد رقم تلقائي', callback_data: 'wiz:num_auto' }],
+              [{ text: '💰 سعر واحد فقط للمنتج', callback_data: 'wiz:price_single' }],
+              [{ text: '🎨 عدة أشكال وموديلات / قياسات', callback_data: 'wiz:price_variants' }],
+              [{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }],
+            ],
+          },
+        });
+        return;
+      }
+
+      if (session.step === 'prod_pricing_mode') {
+        await callTelegram(botToken, 'sendMessage', {
+          chat_id: chatId,
+          text:
+            `يرجى اختيار نوع التسعير بالضغط على أحد الزرين:\n` +
+            `• اضغط <b>«💰 سعر واحد فقط للمنتج»</b> وسنطلب منك رقم المنتج بعد ذلك.\n` +
+            `• اضغط <b>«🎨 عدة أشكال وموديلات»</b> للبدء في إضافة الأشكال والموديلات.`,
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '💰 سعر واحد فقط للمنتج', callback_data: 'wiz:price_single' }],
+              [{ text: '🎨 عدة أشكال وموديلات / قياسات', callback_data: 'wiz:price_variants' }],
               [{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }],
             ],
           },
@@ -5937,7 +5985,7 @@ async function handleTelegramUpdate(
             text: '⚠️ يرجى إدخال رقم منتج صحيح بالأرقام فقط (مثلاً: <code>71645</code>) أو الضغط على «توليد رقم تلقائي».',
             parse_mode: 'HTML',
             reply_markup: {
-              inline_keyboard: [[{ text: '🔢 توليد رقم تلقائي', callback_data: 'wiz:num_auto' }]],
+              inline_keyboard: [[{ text: '🎲 توليد رقم تلقائي', callback_data: 'wiz:num_auto' }]],
             },
           });
           return;
@@ -5950,14 +5998,14 @@ async function handleTelegramUpdate(
             text: `⚠️ الرقم <code>${cleanNum}</code> مستخدم مسبقاً لمنتج آخر. يرجى إدخال رقم مختلف أو الضغط على «توليد رقم تلقائي».`,
             parse_mode: 'HTML',
             reply_markup: {
-              inline_keyboard: [[{ text: '🔢 توليد رقم تلقائي', callback_data: 'wiz:num_auto' }]],
+              inline_keyboard: [[{ text: '🎲 توليد رقم تلقائي', callback_data: 'wiz:num_auto' }]],
             },
           });
           return;
         }
         session.draft.productNumber = cleanNum;
         await setSession(env, chatId, {
-          step: 'prod_pricing_mode',
+          step: 'prod_single_price',
           draft: session.draft,
           updatedAt: Date.now(),
         });
@@ -5965,15 +6013,11 @@ async function handleTelegramUpdate(
           chat_id: chatId,
           text:
             `✅ رقم المنتج: <code>${cleanNum}</code> (ستنتهي الصفحة بـ <code>/p/${cleanNum}</code>)\n\n` +
-            `💰 <b>الخطوة 4 من 6 — نوع التسعير والقياسات</b>\n` +
-            `هل لهذا المنتج سعر واحد أم عدة قياسات بأسعار مختلفة (مثل: صغير، متوسط، كبير)؟`,
+            `💰 <b>الخطوة 4 من 6 — سعر المنتج</b>\n` +
+            `أدخل الآن <b>سعر المنتج بالدينار الجزائري</b> (أرقام فقط، مثال: <code>2500</code>):`,
           parse_mode: 'HTML',
           reply_markup: {
-            inline_keyboard: [
-              [{ text: '💰 سعر واحد فقط', callback_data: 'wiz:price_single' }],
-              [{ text: '📏 عدة قياسات بأسعار مختلفة', callback_data: 'wiz:price_variants' }],
-              [{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }],
-            ],
+            inline_keyboard: [[{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }]],
           },
         });
         return;
@@ -6027,17 +6071,29 @@ async function handleTelegramUpdate(
 
       if (session.step === 'shape_name') {
         if (!session.draft.currentShape) session.draft.currentShape = {};
-        session.draft.currentShape.name = text.trim();
+        const rawText = text.trim();
+        let shapeName = rawText;
+        let shapeSku: string | undefined = undefined;
+
+        // Check if user included a shape code or number, e.g. "شكل قطة #101" or "موديل 105" or "رقم 105"
+        const skuMatch = rawText.match(/(?:#|رقم\s*[:#]?|كود\s*[:#]?)\s*([0-9a-zA-Z\-_]+)/i);
+        if (skuMatch) {
+          shapeSku = skuMatch[1];
+        }
+
+        session.draft.currentShape.name = shapeName;
+        session.draft.currentShape.sku = shapeSku;
         await setSession(env, chatId, {
           step: 'shape_pricing_choice',
           draft: session.draft,
           updatedAt: Date.now(),
         });
         const shapeIdx = (session.draft.variants?.length || 0) + 1;
+        const skuNotice = shapeSku ? ` (رقم/كود: <code>#${escapeHtml(shapeSku)}</code>)` : '';
         await callTelegram(botToken, 'sendMessage', {
           chat_id: chatId,
           text:
-            `✅ اسم الشكل: <b>${escapeHtml(text.trim())}</b>\n` +
+            `✅ اسم الشكل: <b>${escapeHtml(shapeName)}</b>${skuNotice}\n` +
             `━━━━━━━━━━━━━━━━━━━━\n` +
             `💰 <b>الخطوة 3 للشكل (${shapeIdx}): نوع التسعير والقياسات</b>\n` +
             `هل لهذا الشكل:\n` +
