@@ -4,12 +4,6 @@ import {
   ShoppingBag,
   Search,
   Sparkles,
-  FolderOpen,
-  Feather,
-  Briefcase,
-  Compass,
-  BookOpen,
-  Clock,
   Layers,
   ArrowUpDown,
   CheckCircle2,
@@ -23,7 +17,9 @@ import {
   formatDzd,
   filterAndSortProducts,
   getProductCategoryLabel,
+  normalizeArabicQuery,
 } from '../utils/storeLogic';
+import { getCategoryVisuals } from '../utils/categoryVisuals';
 import { TechnoLogo } from './TechnoLogo';
 import { ProductCard } from './ProductCard';
 
@@ -40,68 +36,6 @@ interface CategoryDetailPageProps {
   onOpenCart: () => void;
 }
 
-// Department metadata & visual themes
-const DEPARTMENT_METADATA: Record<
-  string,
-  {
-    title: string;
-    description: string;
-    icon: any;
-    tag: string;
-    badgeBg: string;
-    accentBorder: string;
-  }
-> = {
-  office: {
-    title: 'قسم الأدوات المكتبية والسجلات',
-    description: 'ملفات، سجلات محاسبية معتمدة، وأدوات تنظيم المكاتب الفاخرة المعتمدة لدى المؤسسات.',
-    icon: FolderOpen,
-    tag: 'مكتبي ومؤسسي',
-    badgeBg: 'bg-[#FFD100] text-[#18181B]',
-    accentBorder: 'border-[#FFD100]',
-  },
-  pens: {
-    title: 'قسم أقلام التوقيع والفاخرة',
-    description: 'أقلام حبر سائل، رولر تنفيذي، أقلام الخط العربي ومستلزمات الكتابة الراقية من كبرى الماركات.',
-    icon: Feather,
-    tag: 'كتابة راقية',
-    badgeBg: 'bg-[#E30613] text-white',
-    accentBorder: 'border-[#E30613]',
-  },
-  bags: {
-    title: 'قسم حقائب الحواسيب والمهن (PROBAG)',
-    description: 'حقائب أعمال متينة للأجهزة المحمولة والوثائق بمقاسات متعددة مبطنة ومقاومة للصدمات.',
-    icon: Briefcase,
-    tag: 'حماية وأناقة',
-    badgeBg: 'bg-[#18181B] text-[#FFD100]',
-    accentBorder: 'border-[#18181B]',
-  },
-  arts: {
-    title: 'قسم مستلزمات الهندسة والفنون',
-    description: 'أدوات رسم تقني دقيقة، مساطر معمارية، ألوان فنية وأوراق رسم متخصصة للمبدعين.',
-    icon: Compass,
-    tag: 'هندسة وإبداع',
-    badgeBg: 'bg-amber-500 text-white',
-    accentBorder: 'border-amber-500',
-  },
-  school: {
-    title: 'قسم اللوازم المدرسية والجامعية',
-    description: 'دفاتر تكنو فائقة الجودة والنعومة، أطقم هندسية متكاملة ومستلزمات الدراسة والامتحانات.',
-    icon: BookOpen,
-    tag: 'دراسة وتفوق',
-    badgeBg: 'bg-blue-600 text-white',
-    accentBorder: 'border-blue-600',
-  },
-  clocks: {
-    title: 'قسم الساعات المكتبية والآلات الحاسبة',
-    description: 'ساعات حائطية ومكتبية صامتة، آلات حاسبة علمية ومكتبية معتمدة للامتحانات والشركات.',
-    icon: Clock,
-    tag: 'تنظيم الوقت',
-    badgeBg: 'bg-emerald-600 text-white',
-    accentBorder: 'border-emerald-600',
-  },
-};
-
 export function CategoryDetailPage({
   categoryId,
   categoryName,
@@ -117,41 +51,92 @@ export function CategoryDetailPage({
   const [searchQuery, setSearchQuery] = useState('');
   const [sortOption, setSortOption] = useState<'featured' | 'price-asc' | 'price-desc'>('featured');
 
-  // Resolve department metadata
-  const meta =
-    DEPARTMENT_METADATA[categoryId] || {
-      title: categoryName ? `قسم ${categoryName}` : `قسم ${categoryId}`,
-      description: `تشكيلة كاملة من منتجات ومستلزمات فرع تكنو الأغواط 03 مع التوصيل لجميع الولايات والدفع عند الاستلام.`,
-      icon: Layers,
-      tag: 'تشكيلة متوفرة',
-      badgeBg: 'bg-[#18181B] text-[#FFD100]',
-      accentBorder: 'border-[#18181B]',
-    };
+  // Find matching dynamic category
+  const matchedCategory = useMemo(() => {
+    const targetNorm = normalizeArabicQuery(categoryId);
+    return allCategories.find((c) => {
+      const cIdNorm = normalizeArabicQuery(c.id);
+      const cNameNorm = normalizeArabicQuery(c.name);
+      return c.id === categoryId || cIdNorm === targetNorm || cNameNorm === targetNorm;
+    });
+  }, [allCategories, categoryId]);
+
+  const resolvedName = matchedCategory ? matchedCategory.name : categoryName || categoryId;
+
+  // Resolve visual metadata dynamically based on actual Arabic name
+  const visual = useMemo(() => {
+    return getCategoryVisuals(resolvedName);
+  }, [resolvedName]);
+
+  const meta = {
+    title: `قسم ${resolvedName}`,
+    description: visual.desc,
+    icon: visual.icon,
+    tag: visual.tag,
+    badgeBg: visual.badgeBg,
+    accentBorder: visual.accentBorder,
+  };
 
   const IconComponent = meta.icon;
 
   // Filter products for this specific category
   const categoryProducts = useMemo(() => {
-    return filterAndSortProducts(allProducts, {
-      series: categoryId,
-      color: 'all',
-      query: searchQuery,
-      sort: sortOption,
-    });
-  }, [allProducts, categoryId, searchQuery, sortOption]);
+    const targetIdNorm = normalizeArabicQuery(matchedCategory?.id || categoryId);
+    const targetNameNorm = normalizeArabicQuery(matchedCategory?.name || resolvedName);
 
-  // Other departments for quick switching
+    return allProducts
+      .filter((product) => {
+        const pCatIdNorm = normalizeArabicQuery(product.categoryId || '');
+        const pSeriesNorm = normalizeArabicQuery(product.series || '');
+        const pLabelNorm = normalizeArabicQuery(getProductCategoryLabel(product));
+
+        const matchesCat =
+          pCatIdNorm === targetIdNorm ||
+          pSeriesNorm === targetIdNorm ||
+          pLabelNorm === targetNameNorm ||
+          pLabelNorm.includes(targetNameNorm) ||
+          pCatIdNorm === targetNameNorm;
+
+        if (!matchesCat) return false;
+
+        if (searchQuery.trim()) {
+          const qNorm = normalizeArabicQuery(searchQuery);
+          const textToSearch = normalizeArabicQuery(
+            `${product.id} ${product.name} ${product.brand} ${product.sku} ${pLabelNorm} ${product.summary || ''} ${product.description || ''}`,
+          );
+          if (!textToSearch.includes(qNorm)) return false;
+        }
+
+        return true;
+      })
+      .sort((a, b) => {
+        if (sortOption === 'price-asc') return a.priceDzd - b.priceDzd;
+        if (sortOption === 'price-desc') return b.priceDzd - a.priceDzd;
+        return (a.featuredRank || 99) - (b.featuredRank || 99);
+      });
+  }, [allProducts, categoryId, matchedCategory, resolvedName, searchQuery, sortOption]);
+
+  // Other dynamic departments for quick switching
   const otherDepartments = useMemo(() => {
-    const defaultKeys = Object.keys(DEPARTMENT_METADATA);
-    return defaultKeys
-      .filter((k) => k !== categoryId)
-      .map((k) => ({
-        id: k,
-        title: DEPARTMENT_METADATA[k].title,
-        icon: DEPARTMENT_METADATA[k].icon,
-        tag: DEPARTMENT_METADATA[k].tag,
-      }));
-  }, [categoryId]);
+    const targetIdNorm = normalizeArabicQuery(matchedCategory?.id || categoryId);
+    const targetNameNorm = normalizeArabicQuery(matchedCategory?.name || resolvedName);
+
+    const filtered = allCategories.filter((c) => {
+      const cIdNorm = normalizeArabicQuery(c.id);
+      const cNameNorm = normalizeArabicQuery(c.name);
+      return cIdNorm !== targetIdNorm && cNameNorm !== targetNameNorm;
+    });
+
+    return filtered.map((c, i) => {
+      const v = getCategoryVisuals(c.name, i);
+      return {
+        id: c.id,
+        title: c.name,
+        icon: v.icon,
+        tag: v.tag,
+      };
+    });
+  }, [allCategories, matchedCategory, categoryId, resolvedName]);
 
   return (
     <div className="min-h-screen flex flex-col bg-lined-paper text-[#18181B]">
@@ -343,48 +328,50 @@ export function CategoryDetailPage({
         )}
 
         {/* Hop to other departments strip */}
-        <div className="pt-8 border-t-2 border-stone-300">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-display text-base sm:text-lg font-bold text-[#18181B] flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-[#FFD100]" />
-              <span>تصفح بقية أقسام وتشكيلات تكنو الأغواط</span>
-            </h3>
-            <button
-              type="button"
-              onClick={onBackToHome}
-              className="text-xs text-[#E30613] hover:underline font-bold"
-            >
-              عرض الكل بالرئيسية ←
-            </button>
-          </div>
+        {otherDepartments.length > 0 && (
+          <div className="pt-8 border-t-2 border-stone-300">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-display text-base sm:text-lg font-bold text-[#18181B] flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-[#FFD100]" />
+                <span>تصفح بقية أقسام وتشكيلات تكنو الأغواط</span>
+              </h3>
+              <button
+                type="button"
+                onClick={onBackToHome}
+                className="text-xs text-[#E30613] hover:underline font-bold"
+              >
+                عرض الكل بالرئيسية ←
+              </button>
+            </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-            {otherDepartments.map((dept) => {
-              const DeptIcon = dept.icon;
-              return (
-                <button
-                  key={dept.id}
-                  type="button"
-                  onClick={() => {
-                    onSelectCategory(dept.id);
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
-                  className="p-3.5 rounded-2xl bg-white border-2 border-stone-200 hover:border-[#18181B] text-right flex flex-col justify-between gap-3 transition-all hover:shadow-[3px_3px_0px_#18181B] hover:-translate-y-0.5 cursor-pointer group"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="p-2 rounded-xl bg-[#FAF8F5] border border-stone-200 text-[#18181B] group-hover:bg-[#FFD100] transition-colors">
-                      <DeptIcon className="w-4 h-4" />
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+              {otherDepartments.map((dept) => {
+                const DeptIcon = dept.icon;
+                return (
+                  <button
+                    key={dept.id}
+                    type="button"
+                    onClick={() => {
+                      onSelectCategory(dept.id);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    className="p-3.5 rounded-2xl bg-white border-2 border-stone-200 hover:border-[#18181B] text-right flex flex-col justify-between gap-3 transition-all hover:shadow-[3px_3px_0px_#18181B] hover:-translate-y-0.5 cursor-pointer group"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="p-2 rounded-xl bg-[#FAF8F5] border border-stone-200 text-[#18181B] group-hover:bg-[#FFD100] transition-colors">
+                        <DeptIcon className="w-4 h-4" />
+                      </span>
+                      <span className="text-[10px] font-bold text-stone-500">{dept.tag}</span>
+                    </div>
+                    <span className="text-xs font-black text-[#18181B] group-hover:text-[#E30613] transition-colors line-clamp-1">
+                      {dept.title}
                     </span>
-                    <span className="text-[10px] font-bold text-stone-500">{dept.tag}</span>
-                  </div>
-                  <span className="text-xs font-black text-[#18181B] group-hover:text-[#E30613] transition-colors line-clamp-1">
-                    {dept.title}
-                  </span>
-                </button>
-              );
-            })}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
       </main>
     </div>
   );

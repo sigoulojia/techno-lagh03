@@ -525,6 +525,7 @@ export default function App() {
             <TrustBadges />
 
             <CategoryShowcase
+              categories={storeCategories}
               onSelectCategory={(query) => {
                 setFilters((prev) => ({ ...prev, query, series: 'all' }));
               }}
