@@ -4246,9 +4246,14 @@ async function promptWizardPhotoCount(
     updatedAt: Date.now(),
   });
 
+  const variantsCount = draft.variants?.length || 0;
   const text =
-    `📸 <b>الخطوة 6 من 6 — عدد صور المنتج</b>\n` +
+    `📸 <b>الخطوة 6 من 6 — صور أشكال المنتج</b>\n` +
     `━━━━━━━━━━━━━━━━━━━━\n` +
+    (variantsCount > 0
+      ? `✨ <b>لديك ${variantsCount} أشكال/قياسات مسجلة لهذا المنتج!</b>\n` +
+        `اختر <b>${variantsCount} صور</b> (أو أكثر) بحيث تُربط كل صورة بشكلها بالترتيب تلقائياً، وتظهر للزبون صورة كل شكل بشكل مستقل عند النقر عليه في الموقع.\n\n`
+      : '') +
     `<b>كم عدد الصور التي تريد إضافتها لهذا المنتج؟</b>\n\n` +
     `اختر العدد من الأزرار أدناه أو أرسل أي رقم من 1 إلى 10:`;
 
@@ -4474,13 +4479,17 @@ async function handleTelegramUpdate(
           draft: session.draft,
           updatedAt: Date.now(),
         });
+        const firstVar = session.draft.variants && session.draft.variants.length > 0 ? session.draft.variants[0] : null;
+        const firstVarName = firstVar?.name || firstVar?.label;
         await sendOrEditMessage(
           botToken,
           chatId,
           messageId,
           `📸 <b>ممتاز! سيتم إضافة ${count} ${count === 1 ? 'صورة' : 'صور'} لهذا المنتج</b>\n` +
             `━━━━━━━━━━━━━━━━━━━━\n` +
-            `أرسل الآن <b>الصورة 1 من ${count}</b> (يمكنك إرسالها واحدة تلو الأخرى أو معاً):`,
+            `أرسل الآن <b>الصورة 1 من ${count}</b>` +
+            (firstVarName ? ` (المخصصة لشكل: <b>${escapeHtml(firstVarName)}</b>)` : '') +
+            ` (يمكنك إرسالها واحدة تلو الأخرى أو معاً):`,
           [[{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }]],
         );
       }
@@ -4822,11 +4831,16 @@ async function handleTelegramUpdate(
             draft: session.draft,
             updatedAt: Date.now(),
           });
+          const variants = session.draft.variants || [];
+          const nextVar = variants[nextImages.length];
+          const nextVarName = nextVar?.name || nextVar?.label;
           await callTelegram(botToken, 'sendMessage', {
             chat_id: chatId,
             text:
               `✅ <b>تم استلام الصورة ${nextImages.length} من ${targetCount}</b>\n` +
-              `أرسل الآن <b>الصورة ${nextImages.length + 1} من ${targetCount}</b>:`,
+              `أرسل الآن <b>الصورة ${nextImages.length + 1} من ${targetCount}</b>` +
+              (nextVarName ? ` (المخصصة لشكل: <b>${escapeHtml(nextVarName)}</b>)` : '') +
+              `:\n<i>يمكنك أيضاً إرسال باقي الصور دفعة واحدة.</i>`,
             parse_mode: 'HTML',
             reply_markup: {
               inline_keyboard: [
