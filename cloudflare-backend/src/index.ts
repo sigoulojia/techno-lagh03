@@ -1804,6 +1804,56 @@ export default {
       return new Response('Image not found', { status: 404 });
     }
 
+        // 5b. POST /api/upload-image (Upload & store compressed product image in KV)
+    if (url.pathname === '/api/upload-image' && request.method === 'POST') {
+      try {
+        const contentType = request.headers.get('content-type') || '';
+        let imageBytes: ArrayBuffer | null = null;
+
+        if (contentType.includes('application/json')) {
+          const body: any = await request.json();
+          const base64Data = body.data || body.image || '';
+          if (base64Data) {
+            const cleanBase64 = base64Data.replace(/^data:image\/[a-z0-9.+]+;base64,/, '');
+            const binaryString = atob(cleanBase64);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+              bytes[i] = binaryString.charCodeAt(i);
+            }
+            imageBytes = bytes.buffer;
+          }
+        } else if (contentType.includes('multipart/form-data')) {
+          const form = await request.formData();
+          const file = form.get('image') || form.get('file');
+          if (file && typeof (file as any).arrayBuffer === 'function') {
+            imageBytes = await (file as any).arrayBuffer();
+          }
+        } else {
+          imageBytes = await request.arrayBuffer();
+        }
+
+        if (!imageBytes || imageBytes.byteLength === 0) {
+          return jsonResponse({ error: 'No image data provided' }, 400);
+        }
+
+        const imageId = `img_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+        if (env.techno_products_kv) {
+          await env.techno_products_kv.put(`img:${imageId}`, imageBytes);
+        }
+
+        const imageUrl = `/api/images/${imageId}`;
+        return jsonResponse({
+          success: true,
+          imageId,
+          imageUrl,
+          sizeKb: Math.round(imageBytes.byteLength / 1024),
+        });
+      } catch (err: any) {
+        return jsonResponse({ error: err?.message || 'Upload failed' }, 500);
+      }
+    }
+
     // 6. GET /api/debug (Inspect last update received by webhook)
     if (url.pathname === '/api/debug') {
       let lastUpdate = null;
@@ -2188,16 +2238,63 @@ export default {
             const categoryName = (form.get('category')?.toString() || 'أدوات مكتبية').trim();
             const price = parseInt(form.get('price')?.toString() || '0', 10);
             const description = (form.get('description')?.toString() || '').trim();
-            const image = (form.get('image')?.toString() || '').trim();
             const variantsRaw = (form.get('variants_raw')?.toString() || '').trim();
             const colorFamily = (form.get('color')?.toString() || 'black').trim();
+
+            const uploadedImages: string[] = [];
+
+            // 1. URLs from client-side compressor
+            const hiddenUrls = form.getAll('uploaded_image_urls');
+            if (hiddenUrls && hiddenUrls.length > 0) {
+              for (const u of hiddenUrls) {
+                const s = u?.toString().trim();
+                if (s && s.startsWith('/api/images/')) uploadedImages.push(s);
+              }
+            }
+
+            // 2. Base64 compressed images from client-side compressor
+            const base64List = form.getAll('compressed_images_base64');
+            if (base64List && base64List.length > 0 && env.techno_products_kv) {
+              for (const b64 of base64List) {
+                const rawStr = b64?.toString() || '';
+                if (rawStr.startsWith('data:image/')) {
+                  const cleanBase64 = rawStr.replace(/^data:image\/[a-z0-9.+]+;base64,/, '');
+                  const binaryString = atob(cleanBase64);
+                  const len = binaryString.length;
+                  const bytes = new Uint8Array(len);
+                  for (let i = 0; i < len; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                  }
+                  const imageId = `img_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+                  await env.techno_products_kv.put(`img:${imageId}`, bytes.buffer);
+                  uploadedImages.push(`/api/images/${imageId}`);
+                }
+              }
+            }
+
+            // 3. Fallback manual image URL if provided
+            const manualImage = (form.get('image')?.toString() || '').trim();
+            if (manualImage) {
+              uploadedImages.unshift(manualImage);
+            }
+
+            // Fallback default image if none provided
+            if (uploadedImages.length === 0) {
+              uploadedImages.push('/assets/aistudio/photo_5767250388670156962_y__1__73abac5d.jpg');
+            }
 
             if (name && price > 0) {
               const products = await getProducts(env);
               const newId = await getNextNumericId(env, products);
               const catObj = await ensureCategory(env, categoryName);
               const parsedVariants = variantsRaw ? parseVariantsText(variantsRaw) : [];
-              const fallbackImage = image || '/assets/aistudio/photo_5767250388670156962_y__1__73abac5d.jpg';
+
+              // Link each uploaded image to its corresponding variant/shape
+              const linkedVariants = parsedVariants.map((v, i) => ({
+                ...v,
+                name: v.name || v.label,
+                image: v.image || uploadedImages[i] || uploadedImages[0],
+              }));
 
               const newProduct: Product = {
                 id: newId,
@@ -2213,9 +2310,9 @@ export default {
                 colorName: colorFamily === 'red' ? 'أحمر' : colorFamily === 'blue' ? 'أزرق' : 'قياسي',
                 colorHex: colorFamily === 'red' ? '#E30613' : colorFamily === 'blue' ? '#2563EB' : '#1F2024',
                 priceDzd: price,
-                image: fallbackImage,
-                images: [fallbackImage],
-                ...(parsedVariants.length > 0 ? { variants: parsedVariants } : {}),
+                image: uploadedImages[0],
+                images: uploadedImages,
+                ...(linkedVariants.length > 0 ? { variants: linkedVariants } : {}),
                 alt: `${name} — رقم المنتج ${newId}`,
                 summary: description || name,
                 description: description || 'منتج أصلي معتمد متوفر في فرع تكنو الأغواط.',
@@ -2225,11 +2322,11 @@ export default {
                 specs: [
                   { label: 'رقم المنتج', value: newId },
                   { label: 'القسم', value: catObj.name },
-                  ...(parsedVariants.length > 0
+                  ...(linkedVariants.length > 0
                     ? [
                         {
                           label: 'الأشكال المتوفرة',
-                          value: parsedVariants.map((v) => `${v.name || v.label} (${v.priceDzd.toLocaleString()} د.ج)`).join(' · '),
+                          value: linkedVariants.map((v) => `${v.name || v.label} (${v.priceDzd.toLocaleString()} د.ج)`).join(' · '),
                         },
                       ]
                     : []),
@@ -2825,10 +2922,37 @@ export default {
               </select>
             </div>
 
-            <div>
-              <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">🖼️ رابط صورة المنتج (اختياري)</label>
-              <input type="url" name="image" placeholder="https://... أو مسار الصورة" style="width:100%; box-sizing:border-box; padding:10px 14px; border:1.5px solid #CBD5E1; border-radius:10px; font-size:13px; font-family:monospace;" />
-              <div style="font-size:11px; color:#94A3B8; margin-top:3px;">إذا تُركت فارغة، سيتم اعتماد صورة تكنو الرسمية تلقائياً.</div>
+            <div style="grid-column: 1 / -1;">
+              <label style="display:block; font-size:12.5px; font-weight:700; color:#334155; margin-bottom:6px;">
+                📸 صور المنتج (رفع مباشر وضغط تلقائي للحجم مثل التيليغرام)
+              </label>
+
+              <!-- Upload Drag & Drop Area -->
+              <div id="drop-area" onclick="document.getElementById('product-file-input').click()" style="border: 2px dashed #CBD5E1; border-radius: 14px; padding: 22px 16px; text-align: center; cursor: pointer; background: #F8FAFC; transition: all 0.2s;">
+                <div style="font-size: 34px; margin-bottom: 6px;">📷</div>
+                <div style="font-weight: 800; font-size: 14.5px; color: #0F172A;">اضغط هنا لاختيار الصور من هاتفك أو جهازك (أو اسحبها إلى هنا)</div>
+                <div style="font-size: 12px; color: #64748B; margin-top: 4px;">
+                  ⚡ يتم تقليل وضغط حجم الصور فورياً في متصفحك (مثل التيليغرام) لتصبح خفيفة وسريعة التحميل لزبائن المتجر.
+                </div>
+                <div style="font-size: 11.5px; color: #0284C7; font-weight: 700; margin-top: 6px;">
+                  💡 يمكنك اختيار صورة واحدة أو عدة صور (لكل شكل صورة بالترتيب).
+                </div>
+              </div>
+
+              <input type="file" id="product-file-input" accept="image/*" multiple style="display:none;" onchange="handleProductFiles(this.files)" />
+
+              <!-- Images Preview Gallery -->
+              <div id="upload-status" style="margin-top: 10px; font-size: 12.5px; font-weight: 700; color: #047857; display: none;"></div>
+              <div id="image-previews" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; margin-top: 12px;"></div>
+              <div id="hidden-inputs"></div>
+
+              <!-- Optional manual URL fallback -->
+              <details style="margin-top: 10px; font-size: 12px; color: #64748B;">
+                <summary style="cursor: pointer; font-weight: 600;">🔗 أو أدخل رابط صورة خارجي (اختياري)</summary>
+                <div style="margin-top: 6px;">
+                  <input type="url" name="image" placeholder="https://... أو مسار الصورة" style="width:100%; box-sizing:border-box; padding:8px 12px; border:1px solid #CBD5E1; border-radius:8px; font-size:12.5px; font-family:monospace;" />
+                </div>
+              </details>
             </div>
 
             <div style="grid-column: 1 / -1;">
