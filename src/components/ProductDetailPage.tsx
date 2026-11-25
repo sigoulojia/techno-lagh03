@@ -548,6 +548,7 @@ export function ProductDetailPage({
                             <ProductImage
                               src={variantImg}
                               alt={variantTitle}
+                              fallbackTitle={variantTitle}
                               className="w-full h-full object-cover"
                             />
                           </div>

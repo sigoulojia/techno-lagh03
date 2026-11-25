@@ -4,7 +4,7 @@ import { Briefcase } from 'lucide-react';
 interface ProductImageProps {
   src: string;
   alt: string;
-  fallbackTitle: string;
+  fallbackTitle?: string;
   fallbackCode?: string;
   className?: string;
   loading?: 'eager' | 'lazy';

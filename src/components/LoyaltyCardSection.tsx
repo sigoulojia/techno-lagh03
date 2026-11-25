@@ -333,7 +333,7 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
   // 3. Real-time Status Refresh from Server (تحديث حالة الطلب لحظياً من الخادم)
   // ─────────────────────────────────────────────────────────────────────────
   const handleRefreshStatus = async () => {
-    const cleanPhone = card.customerPhone?.trim() || requestPhone?.trim();
+    const cleanPhone = card.customerPhone?.trim() || reqPhone?.trim();
     if (!cleanPhone) {
       setFeedback({
         type: 'error',

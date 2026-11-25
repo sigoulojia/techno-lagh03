@@ -243,6 +243,11 @@ export default function App() {
     };
   }, [products]);
 
+  const storeCategories = useMemo(
+    () => extractStoreCategories(products, backendCategories),
+    [products, backendCategories],
+  );
+
   const isProductNotFound = Boolean(
     isSynced &&
       requestedId &&
@@ -286,11 +291,6 @@ export default function App() {
     const timer = window.setTimeout(() => setToastMessage(null), 2800);
     return () => window.clearTimeout(timer);
   }, [toastMessage]);
-
-  const storeCategories = useMemo(
-    () => extractStoreCategories(products, backendCategories),
-    [products, backendCategories],
-  );
 
   const filteredProducts = useMemo(
     () => filterAndSortProducts(products, filters),
