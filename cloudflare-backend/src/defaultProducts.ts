@@ -19,6 +19,9 @@ export interface ProductVariant {
   label: string;
   priceDzd: number;
   sku?: string;
+  name?: string;
+  description?: string;
+  image?: string;
 }
 
 export interface ProductSpec {

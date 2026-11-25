@@ -129,6 +129,80 @@ export function resolveProductVariant(
 }
 
 /**
+ * Resolves the variant corresponding to a specific image index
+ */
+export function getVariantForImageIndex(
+  product: Product,
+  imageIdx: number,
+): ProductVariant | null {
+  if (!Array.isArray(product.variants) || product.variants.length === 0) {
+    return null;
+  }
+  const images = getProductImages(product);
+  if (imageIdx < 0 || imageIdx >= images.length) {
+    return null;
+  }
+  const currentImg = images[imageIdx];
+  if (currentImg) {
+    const matched = product.variants.find((v) => v.image === currentImg);
+    if (matched) return matched;
+  }
+  if (product.variants[imageIdx]) {
+    return product.variants[imageIdx];
+  }
+  return product.variants[0];
+}
+
+/**
+ * Finds the image index for a given variant
+ */
+export function getImageIndexForVariant(
+  product: Product,
+  variantId?: string,
+): number {
+  if (!variantId || !Array.isArray(product.variants)) return 0;
+  const images = getProductImages(product);
+  const variant = product.variants.find((v) => v.id === variantId);
+  if (!variant) return 0;
+
+  if (variant.image) {
+    const idx = images.indexOf(variant.image);
+    if (idx >= 0) return idx;
+  }
+
+  const vIdx = product.variants.indexOf(variant);
+  if (vIdx >= 0 && vIdx < images.length) {
+    return vIdx;
+  }
+  return 0;
+}
+
+/**
+ * Returns the effective display title for a product given its active variant/shape
+ */
+export function getProductDisplayName(product: Product, variantId?: string): string {
+  const variant = resolveProductVariant(product, variantId);
+  if (variant?.name && variant.name.trim() !== product.name.trim()) {
+    return `${product.name} — ${variant.name.trim()}`;
+  }
+  if (variant?.label && !product.name.includes(variant.label)) {
+    return `${product.name} (${variant.label.trim()})`;
+  }
+  return product.name;
+}
+
+/**
+ * Returns the effective display description for a product given its active variant/shape
+ */
+export function getProductDisplayDescription(product: Product, variantId?: string): string {
+  const variant = resolveProductVariant(product, variantId);
+  if (variant?.description && variant.description.trim().length > 0) {
+    return variant.description.trim();
+  }
+  return product.description;
+}
+
+/**
  * Returns the unit price for a product & optional selected variant.
  */
 export function getProductUnitPrice(product: Product, variantId?: string): number {
@@ -611,4 +685,58 @@ export function buildProductPageUrl(
   const base = origin.replace(/\/+$/, '');
   const cleanId = encodeURIComponent(productIdOrNumber.trim());
   return base ? `${base}/p/${cleanId}` : `/p/${cleanId}`;
+}
+
+/**
+ * Extracts category identifier from current location (e.g. /category/office or /c/pens or ?category=bags)
+ */
+export function extractCategoryIdFromLocation(location: {
+  pathname?: string;
+  search?: string;
+  hash?: string;
+}): string | null {
+  if (!location) return null;
+
+  // 1. Path format: /category/:id or /c/:id
+  const path = location.pathname || '';
+  const match = path.match(/^\/(?:category|c)\/([^/?#]+)/i);
+  if (match && match[1]) {
+    try {
+      return decodeURIComponent(match[1]).trim();
+    } catch {
+      return match[1].trim();
+    }
+  }
+
+  // 2. Query param: ?category=xxx or ?cat=xxx
+  if (location.search) {
+    const params = new URLSearchParams(location.search);
+    const cat = params.get('category') || params.get('cat');
+    if (cat) return cat.trim();
+  }
+
+  // 3. Hash format: #category=xxx or #/category/:id or #/c/:id
+  if (location.hash) {
+    if (location.hash.startsWith('#category=')) {
+      return decodeURIComponent(location.hash.replace('#category=', '')).trim();
+    }
+    const hashMatch = location.hash.match(/^#\/?(?:category|c)\/([^/?#]+)/i);
+    if (hashMatch && hashMatch[1]) {
+      return decodeURIComponent(hashMatch[1]).trim();
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Builds clean category page URL (e.g. https://site.com/category/office)
+ */
+export function buildCategoryPageUrl(
+  categoryIdOrSlug: string,
+  origin = typeof window !== 'undefined' ? window.location.origin : '',
+): string {
+  const base = origin.replace(/\/+$/, '');
+  const cleanId = encodeURIComponent(categoryIdOrSlug.trim());
+  return base ? `${base}/category/${cleanId}` : `/category/${cleanId}`;
 }

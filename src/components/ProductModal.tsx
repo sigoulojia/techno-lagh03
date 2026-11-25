@@ -7,6 +7,10 @@ import {
   getProductImages,
   getProductUnitPrice,
   resolveProductVariant,
+  getVariantForImageIndex,
+  getImageIndexForVariant,
+  getProductDisplayName,
+  getProductDisplayDescription,
 } from '../utils/storeLogic';
 import { ProductImage } from './ProductImage';
 
@@ -57,9 +61,31 @@ export function ProductModal({
   const variants = product.variants && product.variants.length > 0 ? product.variants : [];
   const activeVariant = resolveProductVariant(product, selectedVariantId);
   const unitPrice = getProductUnitPrice(product, activeVariant?.id);
+  const displayName = getProductDisplayName(product, activeVariant?.id);
+  const displayDescription = getProductDisplayDescription(product, activeVariant?.id);
   const siblingProducts = (product.siblingIds || [])
     .map((id) => catalog.find((p) => p.id === id))
     .filter((p): p is Product => Boolean(p));
+
+  const handleSelectImage = (idx: number) => {
+    setActiveImageIdx(idx);
+    if (product) {
+      const matched = getVariantForImageIndex(product, idx);
+      if (matched) {
+        setSelectedVariantId(matched.id);
+      }
+    }
+  };
+
+  const handleSelectVariant = (variantId: string) => {
+    setSelectedVariantId(variantId);
+    if (product) {
+      const matchedIdx = getImageIndexForVariant(product, variantId);
+      if (matchedIdx !== -1) {
+        setActiveImageIdx(matchedIdx);
+      }
+    }
+  };
 
   return (
     <div
@@ -116,7 +142,7 @@ export function ProductModal({
                   <button
                     key={`${imgUrl}-${idx}`}
                     type="button"
-                    onClick={() => setActiveImageIdx(idx)}
+                    onClick={() => handleSelectImage(idx)}
                     aria-label={`صورة ${idx + 1}`}
                     aria-pressed={idx === activeImageIdx}
                     className={`aspect-square rounded-lg overflow-hidden border cursor-pointer ${
@@ -181,7 +207,7 @@ export function ProductModal({
                 id="product-modal-title"
                 className="font-display text-2xl font-bold text-[#18181B] leading-snug"
               >
-                {product.name}
+                {displayName}
               </h2>
 
               <div className="mt-3 flex items-baseline justify-between gap-4 pb-4 border-b border-stone-200">
@@ -193,26 +219,37 @@ export function ProductModal({
                 </p>
               </div>
 
-              {/* Variants */}
+              {/* Variants / Shapes */}
               {variants.length > 0 ? (
                 <div className="mt-4 space-y-2">
-                  <p className="text-xs font-semibold text-[#18181B]">اختر القياس:</p>
+                  <p className="text-xs font-semibold text-[#18181B]">اختر الشكل / القياس:</p>
                   <div className="flex flex-wrap gap-2">
                     {variants.map((variant) => {
                       const isSelected = activeVariant?.id === variant.id;
+                      const shapeImg = variant.image;
                       return (
                         <button
                           key={variant.id}
                           type="button"
-                          onClick={() => setSelectedVariantId(variant.id)}
+                          onClick={() => handleSelectVariant(variant.id)}
                           aria-pressed={isSelected}
-                          className={`px-3 py-2 min-h-[40px] rounded-lg border text-xs font-semibold transition-colors cursor-pointer ${
+                          className={`flex items-center gap-2 px-3 py-2 min-h-[40px] rounded-lg border text-xs font-semibold transition-all cursor-pointer ${
                             isSelected
-                              ? 'border-[#E30613] bg-[#E30613] text-white'
-                              : 'border-stone-200 bg-white text-[#18181B] hover:border-stone-400'
+                              ? 'border-[#E30613] bg-[#E30613] text-white shadow-xs'
+                              : 'border-stone-200 bg-white text-[#18181B] hover:border-[#18181B]'
                           }`}
                         >
-                          {variant.label} · {formatDzd(variant.priceDzd)}
+                          {shapeImg && (
+                            <img
+                              src={shapeImg}
+                              alt={variant.name || variant.label}
+                              className="w-5 h-5 rounded object-cover border border-black/10 shrink-0"
+                            />
+                          )}
+                          <span>{variant.name || variant.label}</span>
+                          <span className={isSelected ? 'text-white/90 font-mono' : 'text-stone-500 font-mono'}>
+                            · {formatDzd(variant.priceDzd)}
+                          </span>
                         </button>
                       );
                     })}
@@ -220,9 +257,10 @@ export function ProductModal({
                 </div>
               ) : null}
 
-              <p className="mt-4 text-sm sm:text-[15px] leading-[1.75] text-[#52525B]">
-                {product.description}
-              </p>
+              {/* Description */}
+              <div className="mt-4 text-xs sm:text-sm text-stone-600 leading-relaxed">
+                <p>{displayDescription}</p>
+              </div>
 
               {product.highlights && product.highlights.length > 0 ? (
                 <ul className="mt-4 space-y-2 text-sm text-[#18181B]">

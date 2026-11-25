@@ -17,8 +17,10 @@ import {
 } from './data/products';
 import {
   buildProductPageUrl,
+  buildCategoryPageUrl,
   calculateOrderTotals,
   extractProductIdFromLocation,
+  extractCategoryIdFromLocation,
   extractStoreCategories,
   filterAndSortProducts,
   findProductByIdOrSku,
@@ -44,6 +46,7 @@ import { ProductCard } from './components/ProductCard';
 import { ProductModal } from './components/ProductModal';
 import { ProductDetailPage } from './components/ProductDetailPage';
 import { ProductNotFoundPage } from './components/ProductNotFoundPage';
+import { CategoryDetailPage } from './components/CategoryDetailPage';
 import { CartDrawer, type DrawerStep } from './components/CartDrawer';
 import { BranchSection } from './components/BranchSection';
 import { Footer } from './components/Footer';
@@ -114,6 +117,10 @@ export default function App() {
     if (!initialId) return null;
     const initialCatalog = readStorage<Product[]>(PRODUCTS_CACHE_KEY, []);
     return findProductByIdOrSku(initialCatalog, initialId);
+  });
+  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    return extractCategoryIdFromLocation(window.location);
   });
 
   useEffect(() => {
@@ -203,7 +210,9 @@ export default function App() {
   useEffect(() => {
     const handlePopState = () => {
       const currentId = extractProductIdFromLocation(window.location);
+      const currentCatId = extractCategoryIdFromLocation(window.location);
       setRequestedId(currentId);
+      setActiveCategoryId(currentCatId);
       if (currentId) {
         const match = findProductByIdOrSku(products, currentId);
         setActiveProduct(match);
@@ -233,10 +242,14 @@ export default function App() {
       document.title = `${activeProduct.name} (#${activeProduct.sku}) — ${STORE_INFO.branchName}`;
     } else if (isProductNotFound) {
       document.title = `المنتج غير متوفر حالياً — ${STORE_INFO.branchName}`;
+    } else if (activeCategoryId) {
+      const foundCat = storeCategories.find((c) => c.id === activeCategoryId || c.name === activeCategoryId);
+      const catLabel = foundCat ? foundCat.name : activeCategoryId;
+      document.title = `${catLabel} — ${STORE_INFO.branchName}`;
     } else {
       document.title = `${STORE_INFO.branchName} — متجر الأدوات المكتبية والمهنية`;
     }
-  }, [activeProduct, isProductNotFound]);
+  }, [activeProduct, isProductNotFound, activeCategoryId, storeCategories]);
 
   useEffect(() => {
     try {
@@ -298,8 +311,24 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const handleOpenCategoryPage = (catId: string) => {
+    setActiveCategoryId(catId);
+    setActiveProduct(null);
+    setRequestedId(null);
+    setSelectedProduct(null);
+    window.history.pushState(null, '', buildCategoryPageUrl(catId));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleBackFromCategory = () => {
+    setActiveCategoryId(null);
+    window.history.pushState(null, '', '/');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const handleBackToHome = () => {
     setActiveProduct(null);
+    setActiveCategoryId(null);
     setRequestedId(null);
     setSelectedProduct(null);
     window.history.pushState(null, '', '/');
@@ -443,6 +472,21 @@ export default function App() {
             setIsDrawerOpen(true);
           }}
         />
+      ) : activeCategoryId ? (
+        <CategoryDetailPage
+          categoryId={activeCategoryId}
+          allProducts={products}
+          allCategories={storeCategories}
+          cartCount={cartSummary.itemCount}
+          onBackToHome={handleBackFromCategory}
+          onSelectCategory={handleOpenCategoryPage}
+          onSelectProduct={handleOpenProductPage}
+          onAddToCart={(p, variantId) => handleAddToCart(p, 1, variantId)}
+          onOpenCart={() => {
+            setDrawerStep('cart');
+            setIsDrawerOpen(true);
+          }}
+        />
       ) : (
         <>
           <AnnouncementBar />
@@ -470,6 +514,7 @@ export default function App() {
               onSelectCategory={(query) => {
                 setFilters((prev) => ({ ...prev, query, series: 'all' }));
               }}
+              onOpenCategoryPage={handleOpenCategoryPage}
             />
 
             {/* Dynamic Categories & Catalog Section */}

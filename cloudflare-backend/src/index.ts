@@ -912,8 +912,8 @@ function buildCleanProductUrl(siteUrl: string, productNumber: string): string {
   return `${siteUrl.replace(/\/+$/, '')}/p/${encodeURIComponent(productNumber.trim())}`;
 }
 
-// Helper: Parse size/variant lines such as:
-// "صغير : 1800\nمتوسط : 2500\nكبير : 3400" OR "صغير=1800, متوسط=2500, كبير=3400"
+// Helper: Parse size/shape/variant lines such as:
+// "شكل قطة : 2500 : مبطنة بجيب إضافي" OR "صغير : 1800\nمتوسط : 2500\nكبير : 3400"
 function parseVariantsText(raw: string): ProductVariant[] {
   const variants: ProductVariant[] = [];
   const chunks = raw
@@ -922,18 +922,38 @@ function parseVariantsText(raw: string): ProductVariant[] {
     .filter(Boolean);
 
   chunks.forEach((chunk, index) => {
-    const match = chunk.match(/^(.+?)\s*[:=\-–—]\s*([0-9][0-9\s,.]*)$/);
-    if (match) {
-      const label = match[1].trim();
-      const price = parseInt(match[2].replace(/[^0-9]/g, ''), 10);
+    // 3 parts: "اسم الشكل : السعر : الوصف"
+    const match3 = chunk.match(/^(.+?)\s*[:=\-–—]\s*([0-9][0-9\s,.]*(?:\s*د\.?ج)?)\s*[:=\-–—]\s*(.+)$/);
+    if (match3) {
+      const label = match3[1].trim();
+      const price = parseInt(match3[2].replace(/[^0-9]/g, ''), 10);
+      const desc = match3[3].trim();
       if (label && price > 0) {
         variants.push({
           id: `v-${index + 1}-${Date.now().toString(36).slice(-3)}`,
           label,
+          name: label,
+          priceDzd: price,
+          description: desc,
+        });
+        return;
+      }
+    }
+
+    // 2 parts: "اسم الشكل : السعر"
+    const match2 = chunk.match(/^(.+?)\s*[:=\-–—]\s*([0-9][0-9\s,.]*(?:\s*د\.?ج)?)$/);
+    if (match2) {
+      const label = match2[1].trim();
+      const price = parseInt(match2[2].replace(/[^0-9]/g, ''), 10);
+      if (label && price > 0) {
+        variants.push({
+          id: `v-${index + 1}-${Date.now().toString(36).slice(-3)}`,
+          label,
+          name: label,
           priceDzd: price,
         });
+        return;
       }
-      return;
     }
 
     // Fallback: "صغير 1800"
@@ -945,6 +965,7 @@ function parseVariantsText(raw: string): ProductVariant[] {
         variants.push({
           id: `v-${index + 1}-${Date.now().toString(36).slice(-3)}`,
           label,
+          name: label,
           priceDzd: price,
         });
       }
@@ -1125,7 +1146,13 @@ function parseProductDetails(text: string) {
       line.includes('احجام:') ||
       line.includes('الأحجام:') ||
       line.includes('مقاسات:') ||
-      line.includes('المقاسات:')
+      line.includes('المقاسات:') ||
+      line.includes('أشكال:') ||
+      line.includes('الأشكال:') ||
+      line.includes('اشكال:') ||
+      line.includes('الاشكال:') ||
+      line.includes('موديلات:') ||
+      line.includes('الموديلات:')
     ) {
       const rawVariants = line.split(':').slice(1).join(':').trim();
       variants = [...variants, ...parseVariantsText(rawVariants)];
@@ -3384,6 +3411,12 @@ async function publishWizardDraft(
   const categoryName = draft.categoryName || 'معروضات عامة';
   const catObj = await ensureCategory(env, categoryName);
 
+  const linkedVariants = variants.map((v, i) => ({
+    ...v,
+    name: v.name || v.label,
+    image: v.image || images[i] || images[0],
+  }));
+
   const newProduct: Product = {
     id: newId,
     sku: newSku,
@@ -3400,7 +3433,7 @@ async function publishWizardDraft(
     priceDzd: basePrice,
     image: images[0],
     images,
-    ...(variants.length > 0 ? { variants } : {}),
+    ...(linkedVariants.length > 0 ? { variants: linkedVariants } : {}),
     alt: `${draft.name || 'منتج'} — رقم المنتج ${newSku}`,
     summary: draft.description || 'منتج أصلي معتمد متوفر في فرع تكنو الأغواط.',
     description: draft.description || 'منتج أصلي معتمد متوفر في فرع تكنو الأغواط.',
@@ -3410,11 +3443,11 @@ async function publishWizardDraft(
     specs: [
       { label: 'رقم المنتج', value: newSku },
       { label: 'القسم', value: catObj.name },
-      ...(variants.length > 0
+      ...(linkedVariants.length > 0
         ? [
             {
-              label: 'القياسات المتوفرة',
-              value: variants.map((v) => `${v.label} (${v.priceDzd.toLocaleString()} د.ج)`).join(' · '),
+              label: 'الأشكال / القياسات المتوفرة',
+              value: linkedVariants.map((v) => `${v.name || v.label} (${v.priceDzd.toLocaleString()} د.ج)`).join(' · '),
             },
           ]
         : []),
@@ -4190,7 +4223,7 @@ async function handleTelegramUpdate(
         await callTelegram(botToken, 'sendMessage', {
           chat_id: chatId,
           text:
-            `✅ اسم الباقة: <b>${escapeHtml(draft.name)}</b>\n\n` +
+            `✅ اسم الباقة: <b>${escapeHtml(draft.name || '')}</b>\n\n` +
             `📝 <b>الخطوة 2 من 4 — وصف ومميزات الباقة:</b>\n` +
             `أرسل الآن نبذة تسويقية للباقة تشرح ما تقدمه ومن المستهدف بها (مثال: <i>باقة متكاملة للمهندسين المعماريين توفر كافة أدوات الرسم والقياس والتخطيط بأعلى دقة وأفضل سعر جملة مخفض</i>):`,
           parse_mode: 'HTML',
@@ -4225,8 +4258,8 @@ async function handleTelegramUpdate(
         const draft: PackDraft = session.packDraft || {};
         const lines = text
           .split(/[\n,،]/)
-          .map((s) => s.trim())
-          .filter((s) => s.length > 0);
+          .map((s: string) => s.trim())
+          .filter((s: string) => s.length > 0);
         draft.items = lines;
         await setSession(env, chatId, {
           step: 'pack_pricing' as any,
@@ -4569,7 +4602,15 @@ async function handleTelegramUpdate(
       priceDzd: details.price,
       image: imageUrl,
       images: [imageUrl],
-      ...(details.variants.length > 0 ? { variants: details.variants } : {}),
+      ...(details.variants.length > 0
+        ? {
+            variants: details.variants.map((v) => ({
+              ...v,
+              name: v.name || v.label,
+              image: v.image || imageUrl,
+            })),
+          }
+        : {}),
       alt: `${details.name} - رقم المنتج ${newId}`,
       summary: details.description,
       description: details.description,
@@ -4792,7 +4833,15 @@ async function handleTelegramUpdate(
       priceDzd: details.price,
       image: '/assets/aistudio/photo_5767250388670156962_y__1__73abac5d.jpg',
       images: ['/assets/aistudio/photo_5767250388670156962_y__1__73abac5d.jpg'],
-      ...(details.variants.length > 0 ? { variants: details.variants } : {}),
+      ...(details.variants.length > 0
+        ? {
+            variants: details.variants.map((v) => ({
+              ...v,
+              name: v.name || v.label,
+              image: v.image || '/assets/aistudio/photo_5767250388670156962_y__1__73abac5d.jpg',
+            })),
+          }
+        : {}),
       alt: `${details.name} - رقم المنتج ${newId}`,
       summary: details.description,
       description: details.description,

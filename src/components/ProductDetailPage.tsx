@@ -35,6 +35,10 @@ import {
   getProductPriceRange,
   getProductUnitPrice,
   resolveProductVariant,
+  getVariantForImageIndex,
+  getImageIndexForVariant,
+  getProductDisplayName,
+  getProductDisplayDescription,
   validateOrderForm,
   type OrderFormInput,
   type OrderValidationErrors,
@@ -121,8 +125,24 @@ export function ProductDetailPage({
     return () => window.removeEventListener('keydown', handleKey);
   }, [isLightboxOpen, images.length]);
 
+  const handleSelectImage = (idx: number) => {
+    setActiveImageIdx(idx);
+    const matchedVariant = getVariantForImageIndex(product, idx);
+    if (matchedVariant) {
+      setSelectedVariantId(matchedVariant.id);
+    }
+  };
+
+  const handleSelectVariant = (variantId: string) => {
+    setSelectedVariantId(variantId);
+    const matchedIdx = getImageIndexForVariant(product, variantId);
+    setActiveImageIdx(matchedIdx);
+  };
+
   const activeVariant = resolveProductVariant(product, selectedVariantId);
   const unitPrice = getProductUnitPrice(product, activeVariant?.id);
+  const displayName = getProductDisplayName(product, activeVariant?.id);
+  const displayDescription = getProductDisplayDescription(product, activeVariant?.id);
   const categoryLabel = getProductCategoryLabel(product);
 
   const directCart = [
@@ -311,7 +331,7 @@ export function ProductDetailPage({
                       type="button"
                       data-testid="pdp-gallery-prev"
                       onClick={() =>
-                        setActiveImageIdx((prev) => (prev - 1 + images.length) % images.length)
+                        handleSelectImage((activeImageIdx - 1 + images.length) % images.length)
                       }
                       aria-label="الصورة السابقة"
                       className="absolute right-3.5 top-1/2 -translate-y-1/2 w-10 h-10 rounded-xl bg-white/92 border border-stone-200 text-[#18181B] inline-flex items-center justify-center hover:bg-[#18181B] hover:text-white transition-colors shadow-xs cursor-pointer"
@@ -321,7 +341,7 @@ export function ProductDetailPage({
                     <button
                       type="button"
                       data-testid="pdp-gallery-next"
-                      onClick={() => setActiveImageIdx((prev) => (prev + 1) % images.length)}
+                      onClick={() => handleSelectImage((activeImageIdx + 1) % images.length)}
                       aria-label="الصورة التالية"
                       className="absolute left-3.5 top-1/2 -translate-y-1/2 w-10 h-10 rounded-xl bg-white/92 border border-stone-200 text-[#18181B] inline-flex items-center justify-center hover:bg-[#18181B] hover:text-white transition-colors shadow-xs cursor-pointer"
                     >
@@ -353,7 +373,7 @@ export function ProductDetailPage({
                         data-testid={`pdp-thumb-${idx}`}
                         aria-label={`عرض الصورة رقم ${idx + 1}`}
                         aria-pressed={isSelected}
-                        onClick={() => setActiveImageIdx(idx)}
+                        onClick={() => handleSelectImage(idx)}
                         className={`aspect-square rounded-xl overflow-hidden border bg-white transition-all cursor-pointer ${
                           isSelected
                             ? 'border-[#E30613] ring-2 ring-[#E30613]/25'
@@ -430,7 +450,7 @@ export function ProductDetailPage({
                 تفاصيل ومميزات المنتج
               </h2>
               <p className="text-sm leading-relaxed text-[#52525B]">
-                {product.description}
+                {displayDescription}
               </p>
 
               {product.highlights && product.highlights.length > 0 ? (
@@ -481,52 +501,72 @@ export function ProductDetailPage({
                 </p>
 
                 <h1 className="font-display text-2xl sm:text-3xl font-bold text-[#18181B] leading-tight">
-                  {product.name}
+                  {displayName}
                 </h1>
                 <p className="mt-2 text-sm text-[#52525B] leading-relaxed">
-                  {product.summary}
+                  {displayDescription}
                 </p>
               </div>
 
-              {/* Interactive Size / Variant Selector */}
+              {/* Interactive Size / Shape / Variant Selector */}
               {variants.length > 0 ? (
                 <div className="pt-3 border-t border-stone-100 space-y-2.5">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-sm font-semibold text-[#18181B]">
-                      اختر القياس أو النسخة المطلوبة:
+                      اختر الشكل أو النموذج المطلوب:
                     </span>
                     {activeVariant ? (
                       <span className="text-xs font-medium text-[#E30613]">
-                        المحدد: {activeVariant.label}
+                        المحدد: {activeVariant.name || activeVariant.label}
                       </span>
                     ) : null}
                   </div>
                   <div
                     role="group"
-                    aria-label="اختيار قياس المنتج"
+                    aria-label="اختيار شكل أو قياس المنتج"
                     className="grid grid-cols-1 sm:grid-cols-2 gap-2.5"
                   >
-                    {variants.map((variant) => {
+                    {variants.map((variant, idx) => {
                       const isSelected = activeVariant?.id === variant.id;
+                      const variantImg = variant.image || images[idx] || product.image;
+                      const variantTitle = variant.name || variant.label;
                       return (
                         <button
                           key={variant.id}
                           type="button"
                           data-testid={`pdp-variant-${variant.id}`}
                           aria-pressed={isSelected}
-                          onClick={() => setSelectedVariantId(variant.id)}
-                          className={`flex items-center justify-between gap-3 px-3.5 py-3 min-h-[46px] rounded-xl border text-right transition-colors cursor-pointer ${
+                          onClick={() => handleSelectVariant(variant.id)}
+                          className={`flex items-start gap-3 p-3 rounded-2xl border-2 text-right transition-all cursor-pointer ${
                             isSelected
-                              ? 'border-[#E30613] bg-[#E30613]/[0.06] text-[#18181B]'
-                              : 'border-stone-200 bg-white text-[#52525B] hover:border-stone-400'
+                              ? 'border-[#E30613] bg-[#E30613]/[0.05] ring-2 ring-[#E30613]/20 shadow-xs'
+                              : 'border-stone-200 bg-white hover:border-[#18181B]'
                           }`}
                         >
-                          <span className="text-sm font-semibold text-[#18181B]">
-                            {variant.label}
-                          </span>
-                          <span className="font-mono text-sm font-bold text-[#E30613] tabular-nums shrink-0">
-                            {formatDzd(variant.priceDzd)}
-                          </span>
+                          {/* Miniature Shape Image */}
+                          <div className="w-12 h-12 rounded-xl overflow-hidden border border-stone-200 bg-stone-50 shrink-0">
+                            <ProductImage
+                              src={variantImg}
+                              alt={variantTitle}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-1.5">
+                              <span className="text-xs sm:text-sm font-black text-[#18181B] truncate">
+                                {variantTitle}
+                              </span>
+                              <span className="font-mono text-xs sm:text-sm font-black text-[#E30613] shrink-0">
+                                {formatDzd(variant.priceDzd)}
+                              </span>
+                            </div>
+                            {variant.description && (
+                              <p className="text-[11px] text-stone-500 line-clamp-1 mt-0.5">
+                                {variant.description}
+                              </p>
+                            )}
+                          </div>
                         </button>
                       );
                     })}
@@ -538,7 +578,7 @@ export function ProductDetailPage({
               <div className="p-4 rounded-xl bg-[#FAF9F6] border border-stone-200 flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <span className="text-xs text-[#71717A]">
-                    {activeVariant ? `السعر لقياس (${activeVariant.label}):` : 'السعر الرسمي:'}
+                    {activeVariant ? `السعر للشكل (${activeVariant.name || activeVariant.label}):` : 'السعر الرسمي:'}
                   </span>
                   <p
                     data-testid="pdp-unit-price"

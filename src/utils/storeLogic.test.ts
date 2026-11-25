@@ -105,11 +105,13 @@ import {
 } from '../data/deliveryRates';
 import {
   buildProductPageUrl,
+  buildCategoryPageUrl,
   buildSavedOrder,
   calculateOrderTotals,
   cleanAlgerianPhone,
   isFakeAlgerianPhone,
   extractProductIdFromLocation,
+  extractCategoryIdFromLocation,
   extractStoreCategories,
   filterAndSortProducts,
   findProductByIdOrSku,
@@ -118,6 +120,10 @@ import {
   getProductImages,
   getProductPriceRange,
   getProductUnitPrice,
+  getVariantForImageIndex,
+  getImageIndexForVariant,
+  getProductDisplayName,
+  getProductDisplayDescription,
   upsertCartItem,
   validateOrderForm,
 } from './storeLogic';
@@ -370,4 +376,61 @@ test('extractProductIdFromLocation and buildProductPageUrl end cleanly with prod
   const found = findProductByIdOrSku(SAMPLE_PRODUCTS, '71640');
   assert.ok(found);
   assert.equal(found.sku, '71640');
+});
+
+test('extractCategoryIdFromLocation and buildCategoryPageUrl work for dedicated category pages', () => {
+  const url = buildCategoryPageUrl('office', 'https://techno-laghouat.pages.dev');
+  assert.equal(url, 'https://techno-laghouat.pages.dev/category/office');
+
+  assert.equal(
+    extractCategoryIdFromLocation({ pathname: '/category/pens', search: '', hash: '' }),
+    'pens',
+  );
+  assert.equal(
+    extractCategoryIdFromLocation({ pathname: '/c/office', search: '', hash: '' }),
+    'office',
+  );
+  assert.equal(
+    extractCategoryIdFromLocation({ pathname: '/', search: '?category=bags', hash: '' }),
+    'bags',
+  );
+  assert.equal(
+    extractCategoryIdFromLocation({ pathname: '/', search: '', hash: '#/category/school' }),
+    'school',
+  );
+  assert.equal(
+    extractCategoryIdFromLocation({ pathname: '/', search: '', hash: '' }),
+    null,
+  );
+});
+
+test('multi-shape product sync helpers link variants and images correctly', () => {
+  const productWithShapes: Product = {
+    ...SAMPLE_PRODUCTS[0],
+    image: '/img-cat.jpg',
+    images: ['/img-cat.jpg', '/img-dog.jpg'],
+    variants: [
+      { id: 'v1', label: 'شكل قطة', name: 'شكل قطة', priceDzd: 2500, description: 'حقيبة بشكل قطة وردية', image: '/img-cat.jpg' },
+      { id: 'v2', label: 'شكل كلب', name: 'شكل كلب', priceDzd: 2600, description: 'حقيبة بشكل كلب بني', image: '/img-dog.jpg' },
+    ],
+  };
+
+  // Image index to variant
+  assert.equal(getVariantForImageIndex(productWithShapes, 0)?.id, 'v1');
+  assert.equal(getVariantForImageIndex(productWithShapes, 1)?.id, 'v2');
+  assert.equal(getVariantForImageIndex(productWithShapes, 2), null);
+
+  // Variant to image index
+  assert.equal(getImageIndexForVariant(productWithShapes, 'v1'), 0);
+  assert.equal(getImageIndexForVariant(productWithShapes, 'v2'), 1);
+
+  // Display name and description
+  assert.equal(
+    getProductDisplayName(productWithShapes, 'v1'),
+    `${productWithShapes.name} — شكل قطة`,
+  );
+  assert.equal(
+    getProductDisplayDescription(productWithShapes, 'v1'),
+    'حقيبة بشكل قطة وردية',
+  );
 });

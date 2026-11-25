@@ -447,16 +447,16 @@ export function VirtualLoyaltyCard({
               }}
             />
             {activeDesign === 'standard' ? (
-              /* Standard Back Face: Dynamic Barcode and Number in Red placed in the empty yellow space */
+              /* Standard Back Face: Dynamic Real Code 128 Barcode and Number in Techno Red placed inside the clean yellow field */
               <div className="relative w-full h-full overflow-hidden select-none">
                 {/* Barcode and Card Number Container positioned in the top yellow area */}
                 <div
                   className="absolute flex flex-col items-center justify-between"
                   style={{
-                    left: '10%',
-                    right: '10%',
-                    top: '7%',
-                    height: '43%',
+                    left: '12%',
+                    right: '12%',
+                    top: '10%',
+                    height: '42%',
                   }}
                 >
                   {isPartiallyMasked ? (
@@ -476,19 +476,12 @@ export function VirtualLoyaltyCard({
                       {/* Scannable Card Number in Bold Red */}
                       <p
                         dir="ltr"
-                        className="text-center font-mono text-[9px] sm:text-[11px] font-black tracking-widest text-[#E30613] mt-1 select-all"
+                        className="text-center font-mono text-[9.5px] sm:text-[11.5px] font-black tracking-widest text-[#E30613] mt-1 select-all"
                       >
                         * {card.cardNumber} *
                       </p>
                     </>
                   )}
-                </div>
-
-                {/* Bottom Customer Service Text in bottom red strip */}
-                <div className="absolute bottom-1 w-full text-center">
-                  <span className="text-[7px] sm:text-[8px] font-mono font-bold text-white/90 tracking-wide">
-                    فرع الأغواط 03 · هاتف خدمة الزبائن: 0550101012
-                  </span>
                 </div>
               </div>
             ) : (

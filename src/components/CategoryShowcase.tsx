@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 
 interface CategoryShowcaseProps {
   onSelectCategory: (categoryKeyword: string) => void;
+  onOpenCategoryPage?: (categoryId: string) => void;
 }
 
 const CATEGORIES = [
@@ -74,12 +75,16 @@ const CATEGORIES = [
   },
 ];
 
-export function CategoryShowcase({ onSelectCategory }: CategoryShowcaseProps) {
-  const handleClick = (query: string) => {
-    onSelectCategory(query);
-    const elem = document.getElementById('collection');
-    if (elem) {
-      elem.scrollIntoView({ behavior: 'smooth' });
+export function CategoryShowcase({ onSelectCategory, onOpenCategoryPage }: CategoryShowcaseProps) {
+  const handleClick = (catId: string, query: string) => {
+    if (onOpenCategoryPage) {
+      onOpenCategoryPage(catId);
+    } else {
+      onSelectCategory(query);
+      const elem = document.getElementById('collection');
+      if (elem) {
+        elem.scrollIntoView({ behavior: 'smooth' });
+      }
     }
   };
 
@@ -106,7 +111,7 @@ export function CategoryShowcase({ onSelectCategory }: CategoryShowcaseProps) {
               <button
                 key={cat.id}
                 type="button"
-                onClick={() => handleClick(cat.filterQuery)}
+                onClick={() => handleClick(cat.id, cat.filterQuery)}
                 className="group relative text-right p-6 sm:p-7 rounded-2xl bg-white border-2 border-[#18181B] shadow-[4px_4px_0px_#18181B] hover:shadow-[6px_6px_0px_#E30613] hover:-translate-y-1 transition-all duration-200 cursor-pointer flex flex-col justify-between overflow-hidden"
               >
                 <div>
