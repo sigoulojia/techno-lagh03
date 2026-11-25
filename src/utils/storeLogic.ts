@@ -54,6 +54,7 @@ export interface OrderTotals {
   isFreeShippingUnlocked: boolean;
   remainingForFreeLaghouatDzd: number;
   totalDzd: number;
+  grandTotalDzd?: number;
 }
 
 export interface SavedOrderLine {
@@ -413,6 +414,7 @@ export function calculateOrderTotals(
     isFreeShippingUnlocked,
     remainingForFreeLaghouatDzd: 0,
     totalDzd: subtotalDzd + shippingFeeDzd,
+    grandTotalDzd: subtotalDzd + shippingFeeDzd,
   };
 }
 

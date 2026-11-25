@@ -487,7 +487,7 @@ export function CartDrawer({
                     <Sparkles className="w-4 h-4 text-[#D4AF37] shrink-0" />
                     <div>
                       <span className="font-black text-[#18181B] block">
-                        + {Math.floor(confirmedOrder.totals.grandTotalDzd / 100)} نقطة وفاء مضافة!
+                        + {Math.floor((confirmedOrder.totals.totalDzd || (confirmedOrder.totals as any).grandTotalDzd || 0) / 100)} نقطة وفاء مضافة!
                       </span>
                       <span className="text-[10px] text-stone-600">
                         أُضيفت تلقائياً إلى بطاقتك الرقمية (Techno VIP Pass)
