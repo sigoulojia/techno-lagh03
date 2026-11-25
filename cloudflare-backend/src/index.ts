@@ -275,6 +275,92 @@ async function resetFailedPinAttempts(env: Env, clientIp: string): Promise<void>
   await env.techno_products_kv.delete(`rl:pinfail:${clientIp}`);
 }
 
+// ─── Admin Access Logs Tracking (IP, Status, Device, Location) ───────────────
+
+export interface AdminAccessLog {
+  id: string;
+  ip: string;
+  status: 'success' | 'failed' | 'lockout';
+  userAgent: string;
+  country: string;
+  city: string;
+  timestamp: string;
+}
+
+async function recordAdminAccessLog(
+  env: Env,
+  entry: Omit<AdminAccessLog, 'id'>,
+): Promise<void> {
+  if (!env.techno_products_kv) return;
+  try {
+    const raw = await env.techno_products_kv.get('admin_access_logs');
+    const logs: AdminAccessLog[] = raw ? JSON.parse(raw) : [];
+    const newEntry: AdminAccessLog = {
+      id: `log-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+      ...entry,
+    };
+    logs.unshift(newEntry);
+    const trimmed = logs.slice(0, 100);
+    await env.techno_products_kv.put('admin_access_logs', JSON.stringify(trimmed));
+  } catch {}
+}
+
+async function getAdminAccessLogs(env: Env): Promise<AdminAccessLog[]> {
+  if (!env.techno_products_kv) return [];
+  try {
+    const raw = await env.techno_products_kv.get('admin_access_logs');
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function computeLoyaltyTier(points: number): string {
+  if (points >= 1500) return 'black_vip';
+  if (points >= 600) return 'gold';
+  if (points >= 200) return 'silver';
+  return 'classic';
+}
+
+function formatUserAgent(ua: string): string {
+  if (!ua) return 'غير محدد';
+  if (ua.includes('iPhone')) return '📱 iPhone (Safari)';
+  if (ua.includes('Android')) return '📱 Android (Mobile)';
+  if (ua.includes('Windows')) return '💻 Windows PC';
+  if (ua.includes('Macintosh')) return '💻 Mac OS';
+  if (ua.includes('Linux')) return '💻 Linux';
+  return ua.slice(0, 32);
+}
+
+// ─── Store Phone KV Helpers ───────────────────────────────────────────────────
+
+async function getStorePhone(env: Env): Promise<{ display: string; href: string }> {
+  if (env.techno_products_kv) {
+    try {
+      const stored = await env.techno_products_kv.get('store_phone');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed?.display && parsed?.href) return parsed;
+        if (typeof parsed === 'string') {
+          return { display: parsed, href: 'tel:' + parsed.replace(/[^+\d]/g, '') };
+        }
+      }
+    } catch {}
+  }
+  return { display: '0560 15 46 63', href: 'tel:+213560154663' };
+}
+
+async function setStorePhone(env: Env, phone: string): Promise<void> {
+  if (!env.techno_products_kv) return;
+  const cleanPhone = phone.trim();
+  const phoneObj = {
+    display: cleanPhone,
+    href: 'tel:' + cleanPhone.replace(/[^+\d]/g, ''),
+  };
+  await env.techno_products_kv.put('store_phone', JSON.stringify(phoneObj));
+}
+
+
 // ─── AES-256-GCM Customer Data Encryption At-Rest ─────────────────────────────
 
 async function getMasterEncryptionKey(env: Env): Promise<CryptoKey> {
@@ -1831,31 +1917,60 @@ export default {
       }
     }
 
-    // 9. GET /ntfy/open & POST /ntfy/open (Protected Orders Dashboard & Order Details)
+        // 8b. GET /api/store-info (Store Official Phone & Info)
+    if (url.pathname === '/api/store-info' && request.method === 'GET') {
+      const storePhone = await getStorePhone(env);
+      return jsonResponse({
+        phoneDisplay: storePhone.display,
+        phoneHref: storePhone.href,
+        hours: 'السبت إلى الخميس · 08:30 صباحاً – 20:00 مساءً',
+        address: 'حي المقام بجانب المقبرة — وسط المدينة، الأغواط',
+      });
+    }
+
+        // 9. GET & POST /admin, /orders, /ntfy/open (Complete Store Management Dashboard)
     if (
-      url.pathname === '/ntfy/open' ||
-      url.pathname === '/ntfy' ||
+      url.pathname === '/admin' ||
+      url.pathname === '/admin/' ||
+      url.pathname === '/admin/orders' ||
       url.pathname === '/orders' ||
-      url.pathname === '/admin/orders'
+      url.pathname === '/orders/' ||
+      url.pathname === '/ntfy/open' ||
+      url.pathname === '/ntfy'
     ) {
+      const clientIp = request.headers.get('cf-connecting-ip') || 'unknown';
+      const country = request.headers.get('cf-ipcountry') || 'DZ';
+      const city = request.headers.get('cf-ipcity') || 'Laghouat';
+      const userAgent = formatUserAgent(request.headers.get('user-agent') || '');
+      const timestamp = new Date().toISOString();
+      const basePath = url.pathname.replace(/\/+$/, '');
+
       // Logout support: clear cookie and redirect
       if (url.searchParams.get('logout') === '1') {
         await destroyAdminSession(env, request.headers.get('Cookie') || '');
         return new Response('Redirecting to login...', {
           status: 302,
           headers: {
-            Location: url.pathname,
+            Location: basePath || '/admin',
             'Set-Cookie': `admin_session=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax; Secure; HttpOnly`,
             ...CORS_HEADERS,
           },
         });
       }
 
-      const clientIp = request.headers.get('cf-connecting-ip') || 'unknown';
-
       // 1. Brute-Force Rate Limiting & Lockout Check
       const bruteCheck = await checkPinBruteForce(env, clientIp);
       if (bruteCheck.locked) {
+        // Record lockout event in access logs
+        await recordAdminAccessLog(env, {
+          ip: clientIp,
+          status: 'lockout',
+          userAgent,
+          country,
+          city,
+          timestamp,
+        });
+
         const lockoutHtml = `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -1899,10 +2014,18 @@ export default {
             if (isValid) {
               await resetFailedPinAttempts(env, clientIp);
               const sessionToken = await createAdminSession(env);
+              await recordAdminAccessLog(env, {
+                ip: clientIp,
+                status: 'success',
+                userAgent,
+                country,
+                city,
+                timestamp,
+              });
               return new Response('Redirecting to dashboard...', {
                 status: 302,
                 headers: {
-                  Location: url.pathname + (orderIdParam ? `?order=${encodeURIComponent(orderIdParam)}` : ''),
+                  Location: basePath + (orderIdParam ? `?order=${encodeURIComponent(orderIdParam)}` : ''),
                   'Set-Cookie': `admin_session=${sessionToken}; Path=/; Max-Age=604800; SameSite=Lax; Secure; HttpOnly`,
                   ...CORS_HEADERS,
                 },
@@ -1910,6 +2033,14 @@ export default {
             } else {
               isPinWrong = true;
               await recordFailedPinAttempt(env, clientIp);
+              await recordAdminAccessLog(env, {
+                ip: clientIp,
+                status: 'failed',
+                userAgent,
+                country,
+                city,
+                timestamp,
+              });
             }
           }
         } catch {}
@@ -1938,256 +2069,6 @@ export default {
         ...CORS_HEADERS,
       };
 
-      // Fetch all orders from KV (Decrypted securely in memory)
-      let ordersList: any[] = [];
-      if (env.techno_products_kv) {
-        const rawList = await env.techno_products_kv.get('orders');
-        if (rawList) {
-          try {
-            ordersList = await decryptCustomerData(env, rawList);
-            if (!Array.isArray(ordersList)) ordersList = [];
-          } catch {}
-        }
-      }
-
-      const basePath = url.pathname;
-
-      // Handle order actions (Confirm, Cancel, Reset Status, Delete, Delete All)
-      const action = url.searchParams.get('action') || '';
-      const targetOrderId = url.searchParams.get('orderId') || '';
-
-      if (isAuthorized && action && env.techno_products_kv) {
-        if (action === 'delete_all') {
-          if (ordersList.length > 0) {
-            for (const o of ordersList) {
-              if (o.orderId) {
-                await env.techno_products_kv.delete(`order:${o.orderId}`);
-              }
-            }
-          }
-          await env.techno_products_kv.put('orders', await encryptCustomerData(env, []));
-          return new Response(null, {
-            status: 302,
-            headers: { Location: basePath, ...responseHeaders },
-          });
-        }
-
-        if (action === 'approve_loyalty') {
-          const targetPhone = url.searchParams.get('phone') || '';
-          const manualCardNumber = (url.searchParams.get('card_number') || '').trim();
-          if (targetPhone) {
-            const rawReqs = await env.techno_products_kv.get('loyalty_requests');
-            const reqs = rawReqs ? JSON.parse(rawReqs) : [];
-            const idx = reqs.findIndex((r: any) => r.customerPhone === targetPhone);
-            if (idx >= 0) {
-              reqs[idx].status = 'approved_pending_pin';
-              reqs[idx].approvedAt = new Date().toISOString();
-              if (manualCardNumber) {
-                reqs[idx].cardNumber = manualCardNumber;
-              }
-              await env.techno_products_kv.put('loyalty_requests', JSON.stringify(reqs));
-            }
-            return new Response(null, {
-              status: 302,
-              headers: { Location: `${basePath}?tab=cards`, ...responseHeaders },
-            });
-          }
-        }
-
-        if (action === 'update_card_number') {
-          const targetPhone = url.searchParams.get('phone') || '';
-          const manualCardNumber = (url.searchParams.get('card_number') || '').trim();
-          if (targetPhone && manualCardNumber) {
-            const rawReqs = await env.techno_products_kv.get('loyalty_requests');
-            const reqs = rawReqs ? JSON.parse(rawReqs) : [];
-            const idx = reqs.findIndex((r: any) => r.customerPhone === targetPhone);
-            if (idx >= 0) {
-              reqs[idx].cardNumber = manualCardNumber;
-              await env.techno_products_kv.put('loyalty_requests', JSON.stringify(reqs));
-            }
-            return new Response(null, {
-              status: 302,
-              headers: { Location: `${basePath}?tab=cards`, ...responseHeaders },
-            });
-          }
-        }
-
-        if (action === 'disable_loyalty') {
-          const targetPhone = url.searchParams.get('phone') || '';
-          if (targetPhone) {
-            const rawReqs = await env.techno_products_kv.get('loyalty_requests');
-            const reqs = rawReqs ? JSON.parse(rawReqs) : [];
-            const idx = reqs.findIndex((r: any) => r.customerPhone === targetPhone);
-            if (idx >= 0) {
-              reqs[idx].status = 'disabled';
-              reqs[idx].disabledAt = new Date().toISOString();
-              await env.techno_products_kv.put('loyalty_requests', JSON.stringify(reqs));
-            }
-            return new Response(null, {
-              status: 302,
-              headers: { Location: `${basePath}?tab=cards`, ...responseHeaders },
-            });
-          }
-        }
-
-        if (action === 'enable_loyalty') {
-          const targetPhone = url.searchParams.get('phone') || '';
-          if (targetPhone) {
-            const rawReqs = await env.techno_products_kv.get('loyalty_requests');
-            const reqs = rawReqs ? JSON.parse(rawReqs) : [];
-            const idx = reqs.findIndex((r: any) => r.customerPhone === targetPhone);
-            if (idx >= 0) {
-              reqs[idx].status = reqs[idx].hasPin ? 'active' : 'approved_pending_pin';
-              delete reqs[idx].disabledAt;
-              await env.techno_products_kv.put('loyalty_requests', JSON.stringify(reqs));
-            }
-            return new Response(null, {
-              status: 302,
-              headers: { Location: `${basePath}?tab=cards`, ...responseHeaders },
-            });
-          }
-        }
-
-        if (action === 'delete_loyalty') {
-          const targetPhone = url.searchParams.get('phone') || '';
-          if (targetPhone) {
-            const rawReqs = await env.techno_products_kv.get('loyalty_requests');
-            let reqs = rawReqs ? JSON.parse(rawReqs) : [];
-            reqs = reqs.filter((r: any) => r.customerPhone !== targetPhone);
-            await env.techno_products_kv.put('loyalty_requests', JSON.stringify(reqs));
-            return new Response(null, {
-              status: 302,
-              headers: { Location: `${basePath}?tab=cards`, ...responseHeaders },
-            });
-          }
-        }
-
-        // Action: Store owner manually adds a customer registered in the physical store
-        if (action === 'add_manual_loyalty') {
-          const fullName = (url.searchParams.get('customer_name') || '').trim();
-          const phone = (url.searchParams.get('phone') || '').trim();
-          let cardNumber = (url.searchParams.get('card_number') || '').trim();
-          let points = parseInt(url.searchParams.get('points') || '50', 10);
-          if (isNaN(points) || points < 0) points = 50;
-          const birthDate = (url.searchParams.get('birth_date') || '').trim();
-          const profession = (url.searchParams.get('profession') || '').trim();
-          const email = (url.searchParams.get('email') || '').trim();
-          const address = (url.searchParams.get('address') || '').trim();
-
-          if (phone) {
-            const rawReqs = await env.techno_products_kv.get('loyalty_requests');
-            let reqs = rawReqs ? JSON.parse(rawReqs) : [];
-            const existingIdx = reqs.findIndex((r: any) => r.customerPhone === phone);
-
-            // Auto-generate card number starting with 03 if not provided
-            if (!cardNumber) {
-              const num2 = Math.floor(1000 + Math.random() * 9000).toString();
-              const num3 = Math.floor(1000 + Math.random() * 9000).toString();
-              const num4 = (new Date().getFullYear() % 100).toString().padStart(2, '0') + Math.floor(10 + Math.random() * 90).toString();
-              cardNumber = `03-${num2}-${num3}-${num4}`;
-            }
-
-            const record = {
-              customerName: fullName || 'زبون تكنو المعتمد',
-              firstName: fullName.split(' ')[0] || '',
-              lastName: fullName.split(' ').slice(1).join(' ') || '',
-              customerPhone: phone,
-              cardNumber: cardNumber,
-              points: points,
-              tier: points >= 1500 ? 'black_vip' : points >= 600 ? 'gold' : points >= 200 ? 'silver' : 'classic',
-              status: 'active', // Immediately active so the customer finds their card on the site!
-              hasPurchased: true,
-              ordersCount: 1,
-              totalSpent: points * 100,
-              customerBirthDate: birthDate,
-              customerProfession: profession,
-              customerEmail: email,
-              customerAddress: address,
-              source: 'in_store_counter', // Registered physically in the shop
-              requestedAt: new Date().toISOString(),
-              approvedAt: new Date().toISOString(),
-              activatedAt: new Date().toISOString(),
-            };
-
-            if (existingIdx >= 0) {
-              reqs[existingIdx] = { ...reqs[existingIdx], ...record };
-            } else {
-              reqs.unshift(record);
-            }
-
-            await env.techno_products_kv.put('loyalty_requests', JSON.stringify(reqs));
-            return new Response(null, {
-              status: 302,
-              headers: { Location: `${basePath}?tab=cards&added=true`, ...responseHeaders },
-            });
-          }
-        }
-
-        if (action === 'delete' && targetOrderId) {
-          await env.techno_products_kv.delete(`order:${targetOrderId}`);
-          ordersList = ordersList.filter((o: any) => o.orderId !== targetOrderId);
-          await env.techno_products_kv.put('orders', await encryptCustomerData(env, ordersList));
-          return new Response(null, {
-            status: 302,
-            headers: { Location: basePath, ...responseHeaders },
-          });
-        }
-
-        if (action === 'confirm' && targetOrderId) {
-          let orderObj = ordersList.find((o: any) => o.orderId === targetOrderId);
-          if (!orderObj) {
-            const raw = await env.techno_products_kv.get(`order:${targetOrderId}`);
-            if (raw) { try { orderObj = await decryptCustomerData(env, raw); } catch {} }
-          }
-          if (orderObj) {
-            orderObj.status = 'confirmed';
-            await env.techno_products_kv.put(`order:${targetOrderId}`, await encryptCustomerData(env, orderObj));
-            ordersList = ordersList.map((o: any) => (o.orderId === targetOrderId ? orderObj : o));
-            await env.techno_products_kv.put('orders', await encryptCustomerData(env, ordersList));
-          }
-          return new Response(null, {
-            status: 302,
-            headers: { Location: basePath, ...responseHeaders },
-          });
-        }
-
-        if (action === 'cancel' && targetOrderId) {
-          let orderObj = ordersList.find((o: any) => o.orderId === targetOrderId);
-          if (!orderObj) {
-            const raw = await env.techno_products_kv.get(`order:${targetOrderId}`);
-            if (raw) { try { orderObj = await decryptCustomerData(env, raw); } catch {} }
-          }
-          if (orderObj) {
-            orderObj.status = 'cancelled';
-            await env.techno_products_kv.put(`order:${targetOrderId}`, await encryptCustomerData(env, orderObj));
-            ordersList = ordersList.map((o: any) => (o.orderId === targetOrderId ? orderObj : o));
-            await env.techno_products_kv.put('orders', await encryptCustomerData(env, ordersList));
-          }
-          return new Response(null, {
-            status: 302,
-            headers: { Location: basePath, ...responseHeaders },
-          });
-        }
-
-        if (action === 'reset_status' && targetOrderId) {
-          let orderObj = ordersList.find((o: any) => o.orderId === targetOrderId);
-          if (!orderObj) {
-            const raw = await env.techno_products_kv.get(`order:${targetOrderId}`);
-            if (raw) { try { orderObj = await decryptCustomerData(env, raw); } catch {} }
-          }
-          if (orderObj) {
-            orderObj.status = 'pending';
-            await env.techno_products_kv.put(`order:${targetOrderId}`, await encryptCustomerData(env, orderObj));
-            ordersList = ordersList.map((o: any) => (o.orderId === targetOrderId ? orderObj : o));
-            await env.techno_products_kv.put('orders', await encryptCustomerData(env, ordersList));
-          }
-          return new Response(null, {
-            status: 302,
-            headers: { Location: basePath, ...responseHeaders },
-          });
-        }
-      }
-
       if (!isAuthorized) {
         // Unauthorized: Security Lock Gate (Protected with PBKDF2 Hashing)
         const gateHtml = `<!DOCTYPE html>
@@ -2195,7 +2076,7 @@ export default {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>بوابة إدارة الطلبات — متجر تكنو الأغواط</title>
+  <title>بوابة إدارة متجر تكنو الأغواط</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -2232,7 +2113,7 @@ export default {
       cursor: pointer;
       transition: background 0.2s;
     }
-    .btn:hover { background: #B81D46; }
+    .btn:hover { background: #E30613; }
     input[type="password"] {
       width: 100%;
       padding: 13px;
@@ -2244,17 +2125,17 @@ export default {
       outline: none;
       background: #fff;
     }
-    input[type="password"]:focus { border-color: #B81D46; }
+    input[type="password"]:focus { border-color: #E30613; }
   </style>
 </head>
 <body>
   <div class="card">
     <div style="font-size: 40px; margin-bottom: 12px;">🔐</div>
     <h2 style="font-size: 19px; color: #1E293B; margin-bottom: 8px; font-weight: bold;">
-      بوابة إدارة الطلبات
+      لوحة تحكم تكنو الأغواط
     </h2>
     <p style="font-size: 13.5px; color: #64748B; line-height: 1.6; margin-bottom: 20px;">
-      مخصصة لإدارة متجر تكنو الأغواط فقط لمتابعة وتأكيد طلبات الزبائن. أدخل رمز الأمان (PIN) للمتابعة:
+      مخصصة لإدارة متجر تكنو الأغواط لمتابعة الطلبات، إدارة المنتجات، وإصدار بطاقات الوفاء. أدخل رمز الأمان (PIN):
     </p>
 
     ${
@@ -2273,7 +2154,7 @@ export default {
     </form>
 
     <div style="margin-top: 18px; font-size: 12px; color: #94A3B8; border-top: 1px dashed #E2E8F0; padding-top: 14px;">
-      🛡️ البوابة محمية بنظام تشفير PBKDF2 و حظر المحاولات المتكررة
+      🛡️ اللوحة محمية بنظام تشفير PBKDF2 وتسجيل الـ IP وحظر المحاولات المتكررة
     </div>
   </div>
 </body>
@@ -2281,7 +2162,439 @@ export default {
         return new Response(gateHtml, { headers: responseHeaders });
       }
 
-      // Helper function to render a human-friendly order card
+      // Fetch all orders from KV (Decrypted securely in memory)
+      let ordersList: any[] = [];
+      if (env.techno_products_kv) {
+        const rawList = await env.techno_products_kv.get('orders');
+        if (rawList) {
+          try {
+            ordersList = await decryptCustomerData(env, rawList);
+            if (!Array.isArray(ordersList)) ordersList = [];
+          } catch {}
+        }
+      }
+
+      // ─── Authorized Actions Handler (POST & GET) ───────────────────────────
+
+      // Handle Authorized POST Form Actions
+      if (request.method === 'POST') {
+        try {
+          const form = await request.formData();
+          const formAction = form.get('action')?.toString() || '';
+
+          // Action: Add Product from Dashboard
+          if (formAction === 'add_product') {
+            const name = (form.get('name')?.toString() || '').trim();
+            const categoryName = (form.get('category')?.toString() || 'أدوات مكتبية').trim();
+            const price = parseInt(form.get('price')?.toString() || '0', 10);
+            const description = (form.get('description')?.toString() || '').trim();
+            const image = (form.get('image')?.toString() || '').trim();
+            const variantsRaw = (form.get('variants_raw')?.toString() || '').trim();
+            const colorFamily = (form.get('color')?.toString() || 'black').trim();
+
+            if (name && price > 0) {
+              const products = await getProducts(env);
+              const newId = await getNextNumericId(env, products);
+              const catObj = await ensureCategory(env, categoryName);
+              const parsedVariants = variantsRaw ? parseVariantsText(variantsRaw) : [];
+              const fallbackImage = image || '/assets/aistudio/photo_5767250388670156962_y__1__73abac5d.jpg';
+
+              const newProduct: Product = {
+                id: newId,
+                sku: newId,
+                name,
+                shortName: name,
+                brand: 'TECHNO STATIONERY',
+                series: catObj.id,
+                seriesLabel: catObj.name,
+                categoryId: catObj.id,
+                categoryName: catObj.name,
+                colorFamily,
+                colorName: colorFamily === 'red' ? 'أحمر' : colorFamily === 'blue' ? 'أزرق' : 'قياسي',
+                colorHex: colorFamily === 'red' ? '#E30613' : colorFamily === 'blue' ? '#2563EB' : '#1F2024',
+                priceDzd: price,
+                image: fallbackImage,
+                images: [fallbackImage],
+                ...(parsedVariants.length > 0 ? { variants: parsedVariants } : {}),
+                alt: `${name} — رقم المنتج ${newId}`,
+                summary: description || name,
+                description: description || 'منتج أصلي معتمد متوفر في فرع تكنو الأغواط.',
+                availabilityText: 'متوفر في فرع الأغواط',
+                featuredRank: 1,
+                siblingIds: [],
+                specs: [
+                  { label: 'رقم المنتج', value: newId },
+                  { label: 'القسم', value: catObj.name },
+                  ...(parsedVariants.length > 0
+                    ? [
+                        {
+                          label: 'الأشكال المتوفرة',
+                          value: parsedVariants.map((v) => `${v.name || v.label} (${v.priceDzd.toLocaleString()} د.ج)`).join(' · '),
+                        },
+                      ]
+                    : []),
+                ],
+                highlights: ['منتج أصلي معتمد متوفر في فرع تكنو الأغواط'],
+              };
+
+              await saveProducts(env, [newProduct, ...products]);
+              return new Response(null, {
+                status: 302,
+                headers: { Location: `${basePath}?tab=products&added=1`, ...responseHeaders },
+              });
+            }
+          }
+        } catch {}
+      }
+
+      // Handle Authorized GET Actions
+      const action = url.searchParams.get('action') || '';
+      const targetOrderId = url.searchParams.get('orderId') || '';
+
+      if (action && env.techno_products_kv) {
+        // Delete all orders
+        if (action === 'delete_all') {
+          if (ordersList.length > 0) {
+            for (const o of ordersList) {
+              if (o.orderId) {
+                await env.techno_products_kv.delete(`order:${o.orderId}`);
+              }
+            }
+          }
+          await env.techno_products_kv.put('orders', await encryptCustomerData(env, []));
+          return new Response(null, {
+            status: 302,
+            headers: { Location: `${basePath}?tab=orders`, ...responseHeaders },
+          });
+        }
+
+        // Delete single product
+        if (action === 'delete_product') {
+          const prodId = (url.searchParams.get('id') || '').trim();
+          if (prodId) {
+            const products = await getProducts(env);
+            const filtered = products.filter((p) => p.id !== prodId && p.sku !== prodId);
+            await saveProducts(env, filtered);
+            return new Response(null, {
+              status: 302,
+              headers: { Location: `${basePath}?tab=products&deleted=1`, ...responseHeaders },
+            });
+          }
+        }
+
+        // Approve loyalty card with custom initial points
+        if (action === 'approve_loyalty') {
+          const targetPhone = (url.searchParams.get('phone') || '').trim();
+          const manualCardNumber = (url.searchParams.get('card_number') || '').trim();
+          let points = parseInt(url.searchParams.get('points') || '50', 10);
+          if (isNaN(points) || points < 0) points = 50;
+
+          if (targetPhone) {
+            const rawReqs = await env.techno_products_kv.get('loyalty_requests');
+            const reqs = rawReqs ? JSON.parse(rawReqs) : [];
+            const idx = reqs.findIndex((r: any) => r.customerPhone === targetPhone);
+            if (idx >= 0) {
+              reqs[idx].status = 'approved_pending_pin';
+              reqs[idx].approvedAt = new Date().toISOString();
+              reqs[idx].points = points;
+              reqs[idx].tier = computeLoyaltyTier(points);
+              if (manualCardNumber) {
+                reqs[idx].cardNumber = manualCardNumber;
+              }
+              await env.techno_products_kv.put('loyalty_requests', JSON.stringify(reqs));
+            }
+            return new Response(null, {
+              status: 302,
+              headers: { Location: `${basePath}?tab=cards&approved=1`, ...responseHeaders },
+            });
+          }
+        }
+
+        // Update card points balance
+        if (action === 'update_card_points') {
+          const targetPhone = (url.searchParams.get('phone') || '').trim();
+          const points = parseInt(url.searchParams.get('points') || '0', 10);
+          if (targetPhone && !isNaN(points) && points >= 0) {
+            const rawReqs = await env.techno_products_kv.get('loyalty_requests');
+            const reqs = rawReqs ? JSON.parse(rawReqs) : [];
+            const idx = reqs.findIndex((r: any) => r.customerPhone === targetPhone);
+            if (idx >= 0) {
+              reqs[idx].points = points;
+              reqs[idx].tier = computeLoyaltyTier(points);
+              await env.techno_products_kv.put('loyalty_requests', JSON.stringify(reqs));
+            }
+            return new Response(null, {
+              status: 302,
+              headers: { Location: `${basePath}?tab=cards&updated_points=1`, ...responseHeaders },
+            });
+          }
+        }
+
+        // Update customer phone number on card
+        if (action === 'update_customer_phone') {
+          const oldPhone = (url.searchParams.get('phone') || '').trim();
+          const newPhone = (url.searchParams.get('new_phone') || '').trim();
+          if (oldPhone && newPhone) {
+            const rawReqs = await env.techno_products_kv.get('loyalty_requests');
+            const reqs = rawReqs ? JSON.parse(rawReqs) : [];
+            const idx = reqs.findIndex((r: any) => r.customerPhone === oldPhone);
+            if (idx >= 0) {
+              reqs[idx].customerPhone = newPhone;
+              await env.techno_products_kv.put('loyalty_requests', JSON.stringify(reqs));
+            }
+            return new Response(null, {
+              status: 302,
+              headers: { Location: `${basePath}?tab=cards&updated_phone=1`, ...responseHeaders },
+            });
+          }
+        }
+
+        // Update store official phone number
+        if (action === 'update_store_phone') {
+          const newPhone = (url.searchParams.get('store_phone') || '').trim();
+          if (newPhone) {
+            await setStorePhone(env, newPhone);
+            return new Response(null, {
+              status: 302,
+              headers: { Location: `${basePath}?tab=settings&saved=1`, ...responseHeaders },
+            });
+          }
+        }
+
+        // Clear Admin Access Logs
+        if (action === 'clear_logs') {
+          await env.techno_products_kv.delete('admin_access_logs');
+          return new Response(null, {
+            status: 302,
+            headers: { Location: `${basePath}?tab=logs&cleared=1`, ...responseHeaders },
+          });
+        }
+
+        // Update card number
+        if (action === 'update_card_number') {
+          const targetPhone = url.searchParams.get('phone') || '';
+          const manualCardNumber = (url.searchParams.get('card_number') || '').trim();
+          if (targetPhone && manualCardNumber) {
+            const rawReqs = await env.techno_products_kv.get('loyalty_requests');
+            const reqs = rawReqs ? JSON.parse(rawReqs) : [];
+            const idx = reqs.findIndex((r: any) => r.customerPhone === targetPhone);
+            if (idx >= 0) {
+              reqs[idx].cardNumber = manualCardNumber;
+              await env.techno_products_kv.put('loyalty_requests', JSON.stringify(reqs));
+            }
+            return new Response(null, {
+              status: 302,
+              headers: { Location: `${basePath}?tab=cards`, ...responseHeaders },
+            });
+          }
+        }
+
+        // Disable loyalty card
+        if (action === 'disable_loyalty') {
+          const targetPhone = url.searchParams.get('phone') || '';
+          if (targetPhone) {
+            const rawReqs = await env.techno_products_kv.get('loyalty_requests');
+            const reqs = rawReqs ? JSON.parse(rawReqs) : [];
+            const idx = reqs.findIndex((r: any) => r.customerPhone === targetPhone);
+            if (idx >= 0) {
+              reqs[idx].status = 'disabled';
+              reqs[idx].disabledAt = new Date().toISOString();
+              await env.techno_products_kv.put('loyalty_requests', JSON.stringify(reqs));
+            }
+            return new Response(null, {
+              status: 302,
+              headers: { Location: `${basePath}?tab=cards`, ...responseHeaders },
+            });
+          }
+        }
+
+        // Enable loyalty card
+        if (action === 'enable_loyalty') {
+          const targetPhone = url.searchParams.get('phone') || '';
+          if (targetPhone) {
+            const rawReqs = await env.techno_products_kv.get('loyalty_requests');
+            const reqs = rawReqs ? JSON.parse(rawReqs) : [];
+            const idx = reqs.findIndex((r: any) => r.customerPhone === targetPhone);
+            if (idx >= 0) {
+              reqs[idx].status = reqs[idx].hasPin ? 'active' : 'approved_pending_pin';
+              delete reqs[idx].disabledAt;
+              await env.techno_products_kv.put('loyalty_requests', JSON.stringify(reqs));
+            }
+            return new Response(null, {
+              status: 302,
+              headers: { Location: `${basePath}?tab=cards`, ...responseHeaders },
+            });
+          }
+        }
+
+        // Delete loyalty card
+        if (action === 'delete_loyalty') {
+          const targetPhone = url.searchParams.get('phone') || '';
+          if (targetPhone) {
+            const rawReqs = await env.techno_products_kv.get('loyalty_requests');
+            let reqs = rawReqs ? JSON.parse(rawReqs) : [];
+            reqs = reqs.filter((r: any) => r.customerPhone !== targetPhone);
+            await env.techno_products_kv.put('loyalty_requests', JSON.stringify(reqs));
+            return new Response(null, {
+              status: 302,
+              headers: { Location: `${basePath}?tab=cards`, ...responseHeaders },
+            });
+          }
+        }
+
+        // Store owner manually adds a customer registered in the physical store
+        if (action === 'add_manual_loyalty') {
+          const fullName = (url.searchParams.get('customer_name') || '').trim();
+          const phone = (url.searchParams.get('phone') || '').trim();
+          let cardNumber = (url.searchParams.get('card_number') || '').trim();
+          let points = parseInt(url.searchParams.get('points') || '50', 10);
+          if (isNaN(points) || points < 0) points = 50;
+          const birthDate = (url.searchParams.get('birth_date') || '').trim();
+          const profession = (url.searchParams.get('profession') || '').trim();
+          const email = (url.searchParams.get('email') || '').trim();
+          const address = (url.searchParams.get('address') || '').trim();
+
+          if (phone) {
+            const rawReqs = await env.techno_products_kv.get('loyalty_requests');
+            let reqs = rawReqs ? JSON.parse(rawReqs) : [];
+            const existingIdx = reqs.findIndex((r: any) => r.customerPhone === phone);
+
+            if (!cardNumber) {
+              const num2 = Math.floor(1000 + Math.random() * 9000).toString();
+              const num3 = Math.floor(1000 + Math.random() * 9000).toString();
+              const num4 = (new Date().getFullYear() % 100).toString().padStart(2, '0') + Math.floor(10 + Math.random() * 90).toString();
+              cardNumber = `03-${num2}-${num3}-${num4}`;
+            }
+
+            const record = {
+              customerName: fullName || 'زبون تكنو المعتمد',
+              firstName: fullName.split(' ')[0] || '',
+              lastName: fullName.split(' ').slice(1).join(' ') || '',
+              customerPhone: phone,
+              cardNumber: cardNumber,
+              points: points,
+              tier: computeLoyaltyTier(points),
+              status: 'active',
+              hasPurchased: true,
+              ordersCount: 1,
+              totalSpent: points * 100,
+              customerBirthDate: birthDate,
+              customerProfession: profession,
+              customerEmail: email,
+              customerAddress: address,
+              source: 'in_store_counter',
+              requestedAt: new Date().toISOString(),
+              approvedAt: new Date().toISOString(),
+              activatedAt: new Date().toISOString(),
+            };
+
+            if (existingIdx >= 0) {
+              reqs[existingIdx] = { ...reqs[existingIdx], ...record };
+            } else {
+              reqs.unshift(record);
+            }
+
+            await env.techno_products_kv.put('loyalty_requests', JSON.stringify(reqs));
+            return new Response(null, {
+              status: 302,
+              headers: { Location: `${basePath}?tab=cards&added=true`, ...responseHeaders },
+            });
+          }
+        }
+
+        // Delete order
+        if (action === 'delete' && targetOrderId) {
+          await env.techno_products_kv.delete(`order:${targetOrderId}`);
+          ordersList = ordersList.filter((o: any) => o.orderId !== targetOrderId);
+          await env.techno_products_kv.put('orders', await encryptCustomerData(env, ordersList));
+          return new Response(null, {
+            status: 302,
+            headers: { Location: `${basePath}?tab=orders`, ...responseHeaders },
+          });
+        }
+
+        // Confirm order
+        if (action === 'confirm' && targetOrderId) {
+          let orderObj = ordersList.find((o: any) => o.orderId === targetOrderId);
+          if (!orderObj) {
+            const raw = await env.techno_products_kv.get(`order:${targetOrderId}`);
+            if (raw) { try { orderObj = await decryptCustomerData(env, raw); } catch {} }
+          }
+          if (orderObj) {
+            orderObj.status = 'confirmed';
+            await env.techno_products_kv.put(`order:${targetOrderId}`, await encryptCustomerData(env, orderObj));
+            ordersList = ordersList.map((o: any) => (o.orderId === targetOrderId ? orderObj : o));
+            await env.techno_products_kv.put('orders', await encryptCustomerData(env, ordersList));
+          }
+          return new Response(null, {
+            status: 302,
+            headers: { Location: `${basePath}?tab=orders`, ...responseHeaders },
+          });
+        }
+
+        // Cancel order
+        if (action === 'cancel' && targetOrderId) {
+          let orderObj = ordersList.find((o: any) => o.orderId === targetOrderId);
+          if (!orderObj) {
+            const raw = await env.techno_products_kv.get(`order:${targetOrderId}`);
+            if (raw) { try { orderObj = await decryptCustomerData(env, raw); } catch {} }
+          }
+          if (orderObj) {
+            orderObj.status = 'cancelled';
+            await env.techno_products_kv.put(`order:${targetOrderId}`, await encryptCustomerData(env, orderObj));
+            ordersList = ordersList.map((o: any) => (o.orderId === targetOrderId ? orderObj : o));
+            await env.techno_products_kv.put('orders', await encryptCustomerData(env, ordersList));
+          }
+          return new Response(null, {
+            status: 302,
+            headers: { Location: `${basePath}?tab=orders`, ...responseHeaders },
+          });
+        }
+
+        // Reset status order
+        if (action === 'reset_status' && targetOrderId) {
+          let orderObj = ordersList.find((o: any) => o.orderId === targetOrderId);
+          if (!orderObj) {
+            const raw = await env.techno_products_kv.get(`order:${targetOrderId}`);
+            if (raw) { try { orderObj = await decryptCustomerData(env, raw); } catch {} }
+          }
+          if (orderObj) {
+            orderObj.status = 'pending';
+            await env.techno_products_kv.put(`order:${targetOrderId}`, await encryptCustomerData(env, orderObj));
+            ordersList = ordersList.map((o: any) => (o.orderId === targetOrderId ? orderObj : o));
+            await env.techno_products_kv.put('orders', await encryptCustomerData(env, ordersList));
+          }
+          return new Response(null, {
+            status: 302,
+            headers: { Location: `${basePath}?tab=orders`, ...responseHeaders },
+          });
+        }
+      }
+
+      // Fetch products, categories, logs, and store phone
+      const productsList = await getProducts(env);
+      const categoriesList = await getCategories(env);
+      const logsList = await getAdminAccessLogs(env);
+      const storePhone = await getStorePhone(env);
+
+      // Read Loyalty Card Requests/Cards from KV
+      let reqs: any[] = [];
+      if (env.techno_products_kv) {
+        try {
+          const rawReqs = await env.techno_products_kv.get('loyalty_requests');
+          reqs = rawReqs ? JSON.parse(rawReqs) : [];
+        } catch {}
+      }
+      if (!Array.isArray(reqs)) reqs = [];
+
+      const pendingCardsCount = reqs.filter((r: any) => r.status === 'pending').length;
+      const activeCardsCount = reqs.filter((r: any) => r.status === 'active' || r.status === 'approved_pending_pin').length;
+      const disabledCardsCount = reqs.filter((r: any) => r.status === 'disabled').length;
+
+      // Tab handling: 'orders' | 'products' | 'cards' | 'logs' | 'settings'
+      const currentTab = url.searchParams.get('tab') || 'orders';
+
+      // ─── TAB 1: Orders Content ─────────────────────────────────────────────
       const renderOrderCard = (order: any, isSingle = false) => {
         const rawPhone = order.customer?.phone || '';
         const cleanPhone = rawPhone.replace(/[^\d+]/g, '');
@@ -2398,29 +2711,26 @@ export default {
         </div>`;
       };
 
-      // Authorized View
-      let mainContent = '';
-
+      let ordersContent = '';
       if (orderIdParam) {
-        // Single Order View
         const order = singleOrder || ordersList.find((o: any) => o.orderId === orderIdParam);
         if (!order) {
-          mainContent = `
+          ordersContent = `
             <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 16px; padding: 32px; text-align: center;">
               <div style="font-size: 32px; margin-bottom: 8px;">⚠️</div>
               <h3 style="color: #1E293B; font-size: 16px; margin-bottom: 8px;">الطلب غير موجود</h3>
               <p style="color: #64748B; font-size: 13px; margin-bottom: 16px;">
                 لم يتم العثور على طلب برقم: <code>#${escapeHtml(orderIdParam)}</code>
               </p>
-              <a href="${basePath}" class="btn-action btn-neutral" style="display: inline-block;">
+              <a href="${basePath}?tab=orders" class="btn-action btn-neutral" style="display: inline-block;">
                 📋 العودة لجميع الطلبات (${ordersList.length})
               </a>
             </div>`;
         } else {
-          mainContent = `
+          ordersContent = `
             <div>
               <div style="margin-bottom: 14px;">
-                <a href="${basePath}" style="font-size: 13px; color: #475569; text-decoration: none; font-weight: 600;">
+                <a href="${basePath}?tab=orders" style="font-size: 13px; color: #475569; text-decoration: none; font-weight: 600;">
                   « العودة لقائمة جميع الطلبات (${ordersList.length})
                 </a>
               </div>
@@ -2428,9 +2738,8 @@ export default {
             </div>`;
         }
       } else {
-        // All Orders View
         if (ordersList.length === 0) {
-          mainContent = `
+          ordersContent = `
             <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 18px; padding: 48px 20px; text-align: center;">
               <div style="font-size: 40px; margin-bottom: 12px;">📭</div>
               <h3 style="color: #1E293B; font-size: 17px; font-weight: bold; margin-bottom: 6px;">لا توجد أي طلبات حالياً</h3>
@@ -2439,49 +2748,183 @@ export default {
               </p>
             </div>`;
         } else {
-          mainContent = `
+          ordersContent = `
             <div style="display: flex; flex-direction: column; gap: 16px;">
               ${ordersList.map((order: any) => renderOrderCard(order, false)).join('')}
             </div>`;
         }
       }
 
-      // Tab handling: 'orders' or 'cards'
-      const currentTab = url.searchParams.get('tab') || 'orders';
+      // ─── TAB 2: Products Content ───────────────────────────────────────────
+      const isProductAdded = url.searchParams.get('added') === '1';
+      const isProductDeleted = url.searchParams.get('deleted') === '1';
 
-      // Read Loyalty Card Requests/Cards from KV
-      let reqs: any[] = [];
-      if (env.techno_products_kv) {
-        try {
-          const rawReqs = await env.techno_products_kv.get('loyalty_requests');
-          reqs = rawReqs ? JSON.parse(rawReqs) : [];
-        } catch {}
-      }
-      if (!Array.isArray(reqs)) reqs = [];
-
-      const pendingCardsCount = reqs.filter((r: any) => r.status === 'pending').length;
-      const activeCardsCount = reqs.filter((r: any) => r.status === 'active' || r.status === 'approved_pending_pin').length;
-      const disabledCardsCount = reqs.filter((r: any) => r.status === 'disabled').length;
-
-      const isCardAdded = url.searchParams.get('added') === 'true';
-      const addCardSuccessBanner = isCardAdded ? `
-        <div style="background:#ECFDF5; border:1.5px solid #10B981; color:#065F46; padding:14px 18px; border-radius:14px; margin-bottom:18px; font-weight:700; font-size:13.5px; display:flex; align-items:center; gap:10px; box-shadow:0 2px 8px rgba(16,185,129,0.15);">
-          <span style="font-size:22px;">🎉</span>
-          <div>
-            <strong>تم حفظ وإصدار بطاقة الوفاء بنجاح!</strong>
-            <div style="font-size:12px; font-weight:500; color:#047857; margin-top:2px;">الزبون الآن مسجل رسمياً ويمكنه الدخول إلى الموقع في أي وقت وإدخال رقم هاتفه أو رقم بطاقته لرؤية واستخدام بطاقته الافتراضية فوراً.</div>
+      const productsContent = `
+        ${isProductAdded ? `
+          <div style="background:#ECFDF5; border:1.5px solid #10B981; color:#065F46; padding:14px 18px; border-radius:14px; margin-bottom:18px; font-weight:700; font-size:13.5px; display:flex; align-items:center; gap:10px;">
+            <span style="font-size:22px;">🎉</span>
+            <div>
+              <strong>تم نشر وحفظ المنتج الجديد بنجاح في المتجر!</strong>
+              <div style="font-size:12px; font-weight:500; color:#047857; margin-top:2px;">المنتج متاح الآن فوراً لجميع الزبائن في المتجر ويمكن طلبه مباشرة.</div>
+            </div>
           </div>
+        ` : ''}
+
+        ${isProductDeleted ? `
+          <div style="background:#FEF2F2; border:1.5px solid #F87171; color:#991B1B; padding:12px 16px; border-radius:14px; margin-bottom:18px; font-weight:700; font-size:13px;">
+            🗑️ تم حذف المنتج من المتجر بنجاح.
+          </div>
+        ` : ''}
+
+        <!-- Add Product Form Card -->
+        <div style="background:#FFFFFF; border:1px solid #E2E8F0; border-radius:18px; padding:22px 20px; margin-bottom:24px; box-shadow:0 2px 10px rgba(0,0,0,0.03);">
+          <div style="display:flex; align-items:center; gap:10px; margin-bottom:16px; border-bottom:1px solid #F1F5F9; padding-bottom:12px;">
+            <div style="font-size:24px;">➕</div>
+            <div>
+              <h3 style="font-size:16px; font-weight:800; color:#0F172A; margin:0;">إضافة منتج جديد للمتجر مباشرة</h3>
+              <p style="font-size:12px; color:#64748B; margin-top:2px;">أضف المنتج من هنا بسهولة بدون الحاجة لتيليغرام. سيظهر فوراً للزبائن في المتجر.</p>
+            </div>
+          </div>
+
+          <form method="POST" action="${basePath}" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:14px;">
+            <input type="hidden" name="action" value="add_product" />
+
+            <div style="grid-column: 1 / -1;">
+              <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">🏷️ اسم المنتج *</label>
+              <input type="text" name="name" required placeholder="مثال: مقلمة مدرسية فاخرة تكنو 3 سحابات" style="width:100%; box-sizing:border-box; padding:10px 14px; border:1.5px solid #CBD5E1; border-radius:10px; font-size:13.5px; font-weight:600;" />
+            </div>
+
+            <div>
+              <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">📂 القسم / الفئة *</label>
+              <input type="text" name="category" list="cat-suggestions" required placeholder="اختر أو اكتب اسماً جديداً..." style="width:100%; box-sizing:border-box; padding:10px 14px; border:1.5px solid #CBD5E1; border-radius:10px; font-size:13.5px;" />
+              <datalist id="cat-suggestions">
+                ${categoriesList.map((c) => `<option value="${escapeHtml(c.name)}">`).join('')}
+                <option value="أدوات مدرسية">
+                <option value="أدوات مكتبية">
+                <option value="فنون ورسم">
+                <option value="ورقيات ودفاتر">
+                <option value="أقلام وألوان">
+                <option value="محافظ وحقائب">
+              </datalist>
+            </div>
+
+            <div>
+              <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">💰 السعر بالدينار الجزائري (د.ج) *</label>
+              <input type="number" name="price" required min="10" placeholder="1800" style="width:100%; box-sizing:border-box; padding:10px 14px; border:1.5px solid #CBD5E1; border-radius:10px; font-size:13.5px; font-family:monospace; font-weight:700; color:#0F172A;" />
+            </div>
+
+            <div>
+              <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">🎨 اللون الرئيسي</label>
+              <select name="color" style="width:100%; box-sizing:border-box; padding:10px 14px; border:1.5px solid #CBD5E1; border-radius:10px; font-size:13px; background:#fff;">
+                <option value="black">أسود / قياسي</option>
+                <option value="red">أحمر تكنو</option>
+                <option value="blue">أزرق</option>
+                <option value="green">أخضر</option>
+                <option value="brown">بني</option>
+                <option value="other">متعدد الألوان</option>
+              </select>
+            </div>
+
+            <div>
+              <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">🖼️ رابط صورة المنتج (اختياري)</label>
+              <input type="url" name="image" placeholder="https://... أو مسار الصورة" style="width:100%; box-sizing:border-box; padding:10px 14px; border:1.5px solid #CBD5E1; border-radius:10px; font-size:13px; font-family:monospace;" />
+              <div style="font-size:11px; color:#94A3B8; margin-top:3px;">إذا تُركت فارغة، سيتم اعتماد صورة تكنو الرسمية تلقائياً.</div>
+            </div>
+
+            <div style="grid-column: 1 / -1;">
+              <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">
+                ✨ الأشكال المتعددة للمنتج (Multi-Shapes / Variants) — اختياري
+              </label>
+              <div style="font-size:11.5px; color:#64748B; margin-bottom:6px;">
+                إذا كان المنتج يحتوي على أشكال أو أحجام أو سعات مختلفة، اكتب كل شكل في سطر منفصل بالتنسيق: <code>اسم الشكل : السعر : الوصف</code>
+              </div>
+              <textarea name="variants_raw" rows="3" placeholder="مثال:
+شكل قطة كرتونية : 1800 : مبطنة بجيب إضافي
+شكل فضاء ونجوم : 2200 : سعة مضاعفة مع مقلمة صغيرة" style="width:100%; box-sizing:border-box; padding:10px 14px; border:1.5px solid #CBD5E1; border-radius:10px; font-size:13px; font-family:inherit;"></textarea>
+            </div>
+
+            <div style="grid-column: 1 / -1;">
+              <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">📝 وصف ومميزات المنتج (اختياري)</label>
+              <textarea name="description" rows="2" placeholder="وصف موجز للمنتج، خامة الصنع، ومميزاته..." style="width:100%; box-sizing:border-box; padding:10px 14px; border:1.5px solid #CBD5E1; border-radius:10px; font-size:13px; font-family:inherit;"></textarea>
+            </div>
+
+            <div style="grid-column: 1 / -1; display:flex; justify-content:flex-end;">
+              <button type="submit" style="background:#0F172A; color:#FFD100; border:none; padding:12px 28px; border-radius:12px; font-weight:800; font-size:14px; cursor:pointer; display:flex; align-items:center; gap:8px; box-shadow:0 3px 10px rgba(15,23,42,0.2);">
+                <span>💾 حفظ ونشر المنتج في المتجر فوراً</span>
+              </button>
+            </div>
+          </form>
         </div>
-      ` : '';
+
+        <!-- Products List -->
+        <div style="margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;">
+          <h3 style="font-size:16px; font-weight:800; color:#0F172A; margin:0;">
+            🛍️ المنتجات المتوفرة في المتجر (${productsList.length})
+          </h3>
+          <span style="font-size:12px; color:#64748B;">تحديث فوري على السحابة</span>
+        </div>
+
+        ${productsList.length === 0 ? `
+          <div style="background:#FFFFFF; border:1px solid #E2E8F0; border-radius:18px; padding:48px 20px; text-align:center;">
+            <div style="font-size:40px; margin-bottom:12px;">📦</div>
+            <h3 style="color:#1E293B; font-size:17px; font-weight:bold; margin-bottom:6px;">لا توجد أي منتجات معروضة حالياً</h3>
+            <p style="color:#64748B; font-size:13.5px; max-width:380px; margin:0 auto; line-height:1.6;">
+              استخدم النموذج أعلاه لإضافة منتجك الأول، أو أضف المنتجات عبر بوت تيليغرام المربوط بالمتجر.
+            </p>
+          </div>
+        ` : `
+          <div style="display:flex; flex-direction:column; gap:12px;">
+            ${productsList.map((p) => {
+              const variantsCount = p.variants?.length || 0;
+              return `
+                <div style="background:#FFFFFF; border:1px solid #E2E8F0; border-radius:16px; padding:14px 18px; display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; box-shadow:0 2px 6px rgba(0,0,0,0.02);">
+                  <div style="display:flex; align-items:center; gap:14px; min-width:240px; flex:1;">
+                    <img src="${escapeHtml(p.image)}" alt="${escapeHtml(p.name)}" style="width:56px; height:56px; object-fit:cover; border-radius:10px; border:1px solid #E2E8F0; background:#F8FAFC; flex-shrink:0;" onerror="this.src='/assets/aistudio/photo_5767250388670156962_y__1__73abac5d.jpg'" />
+                    <div>
+                      <div style="font-size:14.5px; font-weight:700; color:#0F172A;">${escapeHtml(p.name)}</div>
+                      <div style="font-size:12px; color:#64748B; margin-top:3px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                        <span style="font-family:monospace; background:#F1F5F9; padding:1px 6px; border-radius:6px; font-weight:700;">#${escapeHtml(p.sku || p.id)}</span>
+                        <span>·</span>
+                        <span style="background:#EFF6FF; color:#1D4ED8; padding:1px 8px; border-radius:10px; font-size:11px; font-weight:700;">${escapeHtml(p.categoryName || p.seriesLabel || 'عام')}</span>
+                        ${variantsCount > 0 ? `<span style="background:#FEF3C7; color:#92400E; padding:1px 8px; border-radius:10px; font-size:11px; font-weight:700;">${variantsCount} أشكال</span>` : ''}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style="display:flex; align-items:center; gap:16px;">
+                    <div style="font-family:monospace; font-size:16px; font-weight:800; color:#E30613;">
+                      ${Number(p.priceDzd || 0).toLocaleString()} د.ج
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                      <a href="/${encodeURIComponent(p.id)}" target="_blank" style="background:#F1F5F9; color:#0F172A; text-decoration:none; padding:7px 12px; border-radius:10px; font-size:12px; font-weight:700;">
+                        عرض بالمتجر ↗
+                      </a>
+                      <a href="${basePath}?action=delete_product&id=${encodeURIComponent(p.id)}" onclick="return confirm('هل تريد بالتأكيد حذف هذا المنتج نهائياً من المتجر؟')" style="background:#FEF2F2; color:#DC2626; border:1px solid #FECACA; text-decoration:none; padding:7px 12px; border-radius:10px; font-size:12px; font-weight:700;">
+                        🗑️ حذف
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `}
+      `;
+
+      // ─── TAB 3: Cards Content ──────────────────────────────────────────────
+      const isCardAdded = url.searchParams.get('added') === 'true';
+      const isCardApproved = url.searchParams.get('approved') === '1';
+      const isPhoneUpdated = url.searchParams.get('updated_phone') === '1';
+      const isPointsUpdated = url.searchParams.get('updated_points') === '1';
 
       const manualAddForm = `
-        <div style="background:#FFFFFF; border:1.5px solid #10B981; border-radius:18px; padding:20px; margin-bottom:20px; box-shadow:0 4px 14px rgba(16,185,129,0.08);">
-          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px; flex-wrap:wrap; gap:8px;">
+        <div style="background:#FFFFFF; border:1.5px solid #10B981; border-radius:18px; padding:20px 22px; margin-bottom:24px; box-shadow:0 4px 15px rgba(16,185,129,0.08);">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
             <div style="display:flex; align-items:center; gap:10px;">
-              <span style="font-size:24px; background:#ECFDF5; padding:6px 10px; border-radius:12px; border:1px solid #A7F3D0;">🏪</span>
+              <span style="font-size:26px;">🏪</span>
               <div>
-                <h3 style="margin:0; font-size:16px; font-weight:800; color:#065F46;">إضافة زبون مسجل في المحل مباشرة (بطاقة ورقية / بلاستيكية)</h3>
-                <p style="margin:3px 0 0; font-size:12px; color:#047857; line-height:1.5;">أدخل بيانات الزبون ورقم البطاقة المسلّمة له بالفرع، حتى يجد بطاقته الافتراضية جاهزة فور دخوله للموقع ورؤيتها بكامل رصيدها.</p>
+                <h3 style="font-size:15px; font-weight:800; color:#065F46; margin:0;">إضافة زبون مسجل ببطاقة وفاء في المحل (تسجيل يدوي فوري)</h3>
+                <p style="font-size:12px; color:#047857; margin-top:2px;">لإتاحة البطاقة الافتراضية للزبون فور دخوله للموقع ورؤيتها برقمها ورصيدها الحقيقي.</p>
               </div>
             </div>
           </div>
@@ -2506,8 +2949,8 @@ export default {
             </div>
 
             <div>
-              <label style="display:block; font-size:11.5px; font-weight:700; color:#334155; margin-bottom:4px;">⭐ رصيد النقاط الأولي</label>
-              <input type="number" name="points" value="50" min="0" style="width:100%; box-sizing:border-box; padding:9px 12px; border:1px solid #CBD5E1; border-radius:10px; font-size:13px; font-family:monospace;" />
+              <label style="display:block; font-size:11.5px; font-weight:700; color:#334155; margin-bottom:4px;">⭐ رصيد النقاط الأولي للمالك اختياره *</label>
+              <input type="number" name="points" value="50" min="0" style="width:100%; box-sizing:border-box; padding:9px 12px; border:1.5px solid #D97706; border-radius:10px; font-size:13px; font-family:monospace; font-weight:700; color:#92400E; background:#FEF3C7;" />
             </div>
 
             <div>
@@ -2529,8 +2972,38 @@ export default {
         </div>
       `;
 
-      // Cards View Content
-      let cardsContent = addCardSuccessBanner + manualAddForm;
+      let cardsContent = `
+        ${isCardAdded ? `
+          <div style="background:#ECFDF5; border:1.5px solid #10B981; color:#065F46; padding:14px 18px; border-radius:14px; margin-bottom:18px; font-weight:700; font-size:13.5px; display:flex; align-items:center; gap:10px;">
+            <span style="font-size:22px;">🎉</span>
+            <div>
+              <strong>تم حفظ وإصدار بطاقة الوفاء بنجاح!</strong>
+              <div style="font-size:12px; font-weight:500; color:#047857; margin-top:2px;">الزبون الآن مسجل رسمياً ويمكنه الدخول إلى الموقع في أي وقت وإدخال رقم هاتفه لرؤية بطاقته الافتراضية.</div>
+            </div>
+          </div>
+        ` : ''}
+
+        ${isCardApproved ? `
+          <div style="background:#ECFDF5; border:1.5px solid #10B981; color:#065F46; padding:12px 16px; border-radius:14px; margin-bottom:18px; font-weight:700; font-size:13px;">
+            ✅ تم اعتماد طلب البطاقة وتعيين رصيد النقاط بنجاح!
+          </div>
+        ` : ''}
+
+        ${isPhoneUpdated ? `
+          <div style="background:#EFF6FF; border:1.5px solid #60A5FA; color:#1E40AF; padding:12px 16px; border-radius:14px; margin-bottom:18px; font-weight:700; font-size:13px;">
+            📞 تم تحديث رقم هاتف الزبون بنجاح!
+          </div>
+        ` : ''}
+
+        ${isPointsUpdated ? `
+          <div style="background:#FFFBEB; border:1.5px solid #FCD34D; color:#92400E; padding:12px 16px; border-radius:14px; margin-bottom:18px; font-weight:700; font-size:13px;">
+            ⭐ تم تحديث رصيد نقاط الزبون والترقية بنجاح!
+          </div>
+        ` : ''}
+
+        ${manualAddForm}
+      `;
+
       if (reqs.length === 0) {
         cardsContent += `
           <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 18px; padding: 48px 20px; text-align: center;">
@@ -2587,85 +3060,89 @@ export default {
                         <span>${escapeHtml(r.customerName)}</span>
                         ${statusBadge}
                       </div>
-                      <div style="margin-top:4px; font-size:13px; color:#475569; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-                        <span>📞 <a href="tel:${escapeHtml(r.customerPhone)}" style="color:#0284C7; font-weight:600; text-decoration:none; font-family:monospace;">${escapeHtml(r.customerPhone)}</a></span>
-                        <span>·</span>
-                        <span style="font-family:monospace; color:#334155; font-weight:700;">💳 ${escapeHtml(r.cardNumber || 'بانتظار تعيين الرقم يدوياً')}</span>
+
+                      <div style="margin-top:6px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                        <!-- Inline Edit Phone Form -->
+                        <form method="GET" action="${basePath}" style="display:inline-flex; align-items:center; gap:4px; background:#F8FAFC; padding:4px 8px; border-radius:8px; border:1px solid #E2E8F0;">
+                          <input type="hidden" name="tab" value="cards" />
+                          <input type="hidden" name="action" value="update_customer_phone" />
+                          <input type="hidden" name="phone" value="${escapeHtml(r.customerPhone)}" />
+                          <span style="font-size:12px;">📞</span>
+                          <input type="tel" name="new_phone" value="${escapeHtml(r.customerPhone)}" dir="ltr" style="width:110px; font-size:12px; font-family:monospace; font-weight:700; padding:2px 6px; border:1px solid #CBD5E1; border-radius:6px;" title="تعديل رقم الهاتف" />
+                          <button type="submit" style="padding:3px 7px; font-size:11px; background:#0F172A; color:#fff; border:none; border-radius:6px; cursor:pointer;" title="حفظ رقم الهاتف">💾</button>
+                        </form>
+
+                        <!-- Inline Edit Points Form -->
+                        <form method="GET" action="${basePath}" style="display:inline-flex; align-items:center; gap:4px; background:#FEF3C7; padding:4px 8px; border-radius:8px; border:1px solid #FCD34D;">
+                          <input type="hidden" name="tab" value="cards" />
+                          <input type="hidden" name="action" value="update_card_points" />
+                          <input type="hidden" name="phone" value="${escapeHtml(r.customerPhone)}" />
+                          <span style="font-size:12px;">⭐</span>
+                          <input type="number" name="points" value="${r.points || 0}" min="0" style="width:65px; font-size:12px; font-family:monospace; font-weight:700; padding:2px 6px; border:1px solid #F59E0B; border-radius:6px; color:#92400E;" title="تعديل رصيد النقاط" />
+                          <button type="submit" style="padding:3px 7px; font-size:11px; background:#D97706; color:#fff; border:none; border-radius:6px; cursor:pointer;" title="حفظ النقاط">💾</button>
+                        </form>
+
+                        <span style="font-family:monospace; color:#334155; font-weight:700; font-size:12px; background:#F1F5F9; padding:4px 8px; border-radius:8px;">💳 ${escapeHtml(r.cardNumber || 'بانتظار التعيين')}</span>
                       </div>
                     </div>
-                    <div>
-                      ${r.hasPurchased
-                        ? `<span style="background:#ECFDF5; color:#047857; border:1px solid #A7F3D0; padding:4px 10px; border-radius:8px; font-size:11.5px; font-weight:700;">اشترى سابقاً (${r.ordersCount || 1} طلبات - ${(r.totalSpent || 0).toLocaleString('ar-DZ')} دج)</span>`
-                        : `<span style="background:#F1F5F9; color:#64748B; border:1px solid #CBD5E1; padding:4px 10px; border-radius:8px; font-size:11.5px;">زبون جديد</span>`
-                      }
+
+                    <div style="display:flex; align-items:center; gap:6px;">
+                      <span style="background:#F1F5F9; color:#475569; padding:4px 10px; border-radius:8px; font-size:12px; font-weight:600;">
+                        الفئة: <b>${r.tier === 'black_vip' ? '🖤 VIP الأسود' : r.tier === 'gold' ? '💛 ذهبي' : r.tier === 'silver' ? '🥈 فضي' : '🎟️ كلاسيك'}</b>
+                      </span>
                     </div>
                   </div>
 
-                  <!-- Customer Full Coordinates (Coordonnées) -->
-                  <div style="background:#F8FAFC; border:1px solid #E2E8F0; border-radius:12px; padding:12px 14px; margin-bottom:12px; display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:8px; font-size:12.5px;">
-                    <div><span style="color:#64748B;">👤 الاسم:</span> <strong style="color:#0F172A;">${escapeHtml(r.firstName || 'غير محدد')}</strong></div>
-                    <div><span style="color:#64748B;">👥 اللقب:</span> <strong style="color:#0F172A;">${escapeHtml(r.lastName || 'غير محدد')}</strong></div>
-                    <div><span style="color:#64748B;">📞 الهاتف:</span> <strong style="color:#0F172A; font-family:monospace;">${escapeHtml(r.customerPhone)}</strong></div>
-                    <div><span style="color:#64748B;">🎂 تاريخ الميلاد:</span> <strong style="color:#0F172A; font-family:monospace;">${escapeHtml(r.customerBirthDate || 'غير محدد')}</strong></div>
-                    <div><span style="color:#64748B;">💼 المهنة:</span> <strong style="color:#0F172A;">${escapeHtml(r.customerProfession || 'غير محدد')}</strong></div>
-                    <div><span style="color:#64748B;">✉️ البريد:</span> <strong style="color:#0F172A; font-family:monospace;">${escapeHtml(r.customerEmail || 'غير محدد')}</strong></div>
-                    <div style="grid-column: 1 / -1;"><span style="color:#64748B;">📍 العنوان الكامل:</span> <strong style="color:#0F172A;">${escapeHtml(r.customerAddress || 'غير محدد')}</strong></div>
+                  <!-- Customer Details -->
+                  <div style="font-size:12.5px; color:#475569; display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:6px; margin-bottom:12px; background:#F8FAFC; padding:10px 14px; border-radius:10px;">
+                    <div>📅 تاريخ الميلاد: <b>${escapeHtml(r.customerBirthDate || 'غير محدد')}</b></div>
+                    <div>💼 المهنة: <b>${escapeHtml(r.customerProfession || 'غير محدد')}</b></div>
+                    <div>📍 العنوان: <b>${escapeHtml(r.customerAddress || 'الأغواط')}</b></div>
+                    ${r.customerEmail ? `<div>✉️ البريد: <b>${escapeHtml(r.customerEmail)}</b></div>` : ''}
                   </div>
 
-                  ${isPending ? `
-                    <!-- Manual Card Number Assignment Form by Store Owner -->
-                    <form method="GET" action="${basePath}" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:12px; background:#F0FDF4; border:1.5px dashed #059669; padding:12px 14px; border-radius:12px;">
-                      <input type="hidden" name="tab" value="cards" />
-                      <input type="hidden" name="action" value="approve_loyalty" />
-                      <input type="hidden" name="phone" value="${escapeHtml(r.customerPhone)}" />
-                      <div style="display:flex; flex-direction:column; gap:4px; flex:1; min-width:240px;">
-                        <label style="font-size:12px; font-weight:700; color:#065F46;">
-                          🔢 رقم بطاقة الزبون (إدخال يدوي من مالك المحل للموافقة):
-                        </label>
-                        <input type="text" name="card_number" required placeholder="أدخل رقم البطاقة هنا (مثال: 03-8542-1092-7741)" style="padding:8px 12px; border:1.5px solid #059669; border-radius:8px; font-size:13px; font-family:monospace; font-weight:700; color:#0F172A; background:#FFFFFF;" />
-                      </div>
-                      <button type="submit" class="btn-action btn-confirm" style="font-size:12.5px; padding:10px 18px; font-weight:700; height:fit-content; cursor:pointer;">
-                        ✅ موافقة وتعيين رقم البطاقة
-                      </button>
-                    </form>
-                  ` : `
-                    <!-- Display Assigned Card Number & Quick Update Option -->
-                    <div style="margin-bottom:12px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; background:#F8FAFC; border:1px solid #E2E8F0; padding:10px 14px; border-radius:10px;">
-                      <div style="font-size:13px; color:#334155;">
-                        💳 <strong>رقم البطاقة المعتمد:</strong> <span style="font-family:monospace; font-weight:800; font-size:14px; color:#047857; background:#ECFDF5; padding:2px 8px; border-radius:6px; border:1px solid #A7F3D0;">${escapeHtml(r.cardNumber || 'لم يحدد بعد')}</span>
-                      </div>
-                      <form method="GET" action="${basePath}" style="display:inline-flex; align-items:center; gap:6px;">
-                        <input type="hidden" name="tab" value="cards" />
-                        <input type="hidden" name="action" value="update_card_number" />
-                        <input type="hidden" name="phone" value="${escapeHtml(r.customerPhone)}" />
-                        <input type="text" name="card_number" placeholder="تعديل رقم البطاقة..." style="padding:5px 8px; border:1px solid #CBD5E1; border-radius:6px; font-size:11.5px; font-family:monospace; width:150px;" />
-                        <button type="submit" style="background:#F1F5F9; border:1px solid #CBD5E1; color:#334155; padding:5px 10px; border-radius:6px; font-size:11.5px; font-weight:700; cursor:pointer;">تعديل الرقم</button>
-                      </form>
-                    </div>
-                  `}
-
+                  <!-- Action Bar -->
                   <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
                     <div style="font-size:11.5px; color:#94A3B8;">
                       ${r.requestedAt ? `تاريخ الطلب: ${new Date(r.requestedAt).toLocaleString('ar-DZ')}` : ''}
                       ${r.approvedAt ? ` · <span style="color:#047857; font-weight:600;">تم الاعتماد: ${new Date(r.approvedAt).toLocaleDateString('ar-DZ')}</span>` : ''}
-                      ${r.disabledAt ? ` · <span style="color:#DC2626; font-weight:600;">تم التعطيل بواسطة الإدارة</span>` : ''}
                     </div>
+
                     <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                      ${isPending ? `
+                        <!-- Approve with custom initial points & card number -->
+                        <form method="GET" action="${basePath}" style="display:inline-flex; align-items:center; gap:6px; background:#F0FDF4; padding:6px 10px; border-radius:10px; border:1px solid #A7F3D0;">
+                          <input type="hidden" name="tab" value="cards" />
+                          <input type="hidden" name="action" value="approve_loyalty" />
+                          <input type="hidden" name="phone" value="${escapeHtml(r.customerPhone)}" />
+
+                          <label style="font-size:11px; font-weight:700; color:#065F46;">رقم البطاقة:</label>
+                          <input type="text" name="card_number" value="${escapeHtml(r.cardNumber || '')}" placeholder="03-XXXX-XXXX-XXXX" dir="ltr" style="width:130px; font-size:11.5px; font-family:monospace; padding:3px 6px; border:1px solid #A7F3D0; border-radius:6px;" required />
+
+                          <label style="font-size:11px; font-weight:700; color:#065F46;">النقاط الأولية:</label>
+                          <input type="number" name="points" value="50" min="0" style="width:60px; font-size:11.5px; font-family:monospace; padding:3px 6px; border:1px solid #A7F3D0; border-radius:6px; font-weight:700;" />
+
+                          <button type="submit" style="background:#059669; color:#fff; border:none; padding:4px 12px; border-radius:6px; font-weight:700; font-size:11.5px; cursor:pointer;">
+                            ✅ اعتماد وإصدار
+                          </button>
+                        </form>
+                      ` : ''}
+
                       <a href="tel:${escapeHtml(r.customerPhone)}" style="background:#F1F5F9; color:#334155; text-decoration:none; padding:7px 12px; border-radius:10px; font-size:12px; font-weight:700;">📞 اتصال</a>
 
                       ${(isActive || isApprovedPendingPin) ? `
-                        <a href="${basePath}?action=disable_loyalty&phone=${encodeURIComponent(r.customerPhone)}" onclick="return confirm('⚠️ هل أنت متأكد من تعطيل بطاقة الزبون (${escapeHtml(r.customerName)})؟ سيتم إيقافها فوراً ولن يتمكن من استخدامها أو إظهارها حتى تعيد تفعيلها.')" style="background:#FEF2F2; color:#DC2626; border:1px solid #FECACA; text-decoration:none; padding:7px 14px; border-radius:10px; font-size:12px; font-weight:700;">
-                          🚫 تعطيل البطاقة
+                        <a href="${basePath}?action=disable_loyalty&phone=${encodeURIComponent(r.customerPhone)}" onclick="return confirm('⚠️ هل أنت متأكد من تعطيل بطاقة الزبون (${escapeHtml(r.customerName)})؟')" style="background:#FEF2F2; color:#DC2626; border:1px solid #FECACA; text-decoration:none; padding:7px 12px; border-radius:10px; font-size:12px; font-weight:700;">
+                          🚫 تعطيل
                         </a>
                       ` : ''}
 
                       ${isDisabled ? `
-                        <a href="${basePath}?action=enable_loyalty&phone=${encodeURIComponent(r.customerPhone)}" style="background:#ECFDF5; color:#047857; border:1px solid #A7F3D0; text-decoration:none; padding:7px 14px; border-radius:10px; font-size:12px; font-weight:700;">
-                          🔄 إعادة تفعيل البطاقة
+                        <a href="${basePath}?action=enable_loyalty&phone=${encodeURIComponent(r.customerPhone)}" style="background:#ECFDF5; color:#047857; border:1px solid #A7F3D0; text-decoration:none; padding:7px 12px; border-radius:10px; font-size:12px; font-weight:700;">
+                          🔄 إعادة تفعيل
                         </a>
                       ` : ''}
 
-                      <a href="${basePath}?action=delete_loyalty&phone=${encodeURIComponent(r.customerPhone)}" onclick="return confirm('هل تريد حذف سجل هذه البطاقة نهائياً؟')" style="background:#F1F5F9; color:#94A3B8; text-decoration:none; padding:7px 12px; border-radius:10px; font-size:12px; font-weight:600;">
+                      <a href="${basePath}?action=delete_loyalty&phone=${encodeURIComponent(r.customerPhone)}" onclick="return confirm('هل تريد حذف سجل هذه البطاقة نهائياً؟')" style="background:#F1F5F9; color:#94A3B8; text-decoration:none; padding:7px 10px; border-radius:10px; font-size:12px;">
                         🗑️
                       </a>
                     </div>
@@ -2677,12 +3154,144 @@ export default {
         `;
       }
 
+      // ─── TAB 4: Logs Content (IP Access Records) ───────────────────────────
+      const isLogsCleared = url.searchParams.get('cleared') === '1';
+
+      const logsContent = `
+        ${isLogsCleared ? `
+          <div style="background:#ECFDF5; border:1.5px solid #10B981; color:#065F46; padding:12px 16px; border-radius:14px; margin-bottom:18px; font-weight:700; font-size:13px;">
+            ✅ تم مسح سجل عناوين IP بنجاح!
+          </div>
+        ` : ''}
+
+        <div style="background:#FFFFFF; border:1px solid #E2E8F0; border-radius:18px; padding:20px 22px; margin-bottom:20px; box-shadow:0 2px 8px rgba(0,0,0,0.02); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+          <div>
+            <h3 style="font-size:16px; font-weight:800; color:#0F172A; margin:0; display:flex; align-items:center; gap:8px;">
+              <span>🛡️ سجل محاولات الدخول وعناوين IP</span>
+              <span style="font-size:12px; background:#F1F5F9; color:#475569; padding:2px 8px; border-radius:12px;">${logsList.length} عملية مسجلة</span>
+            </h3>
+            <p style="font-size:12.5px; color:#64748B; margin-top:3px;">
+              يتم تسجيل عنوان IP، الدولة والمدينة، ونوع المتصفح والجهاز تلقائياً لحماية لوحة الإدارة ومنع محاولات الاختراق.
+            </p>
+          </div>
+          ${logsList.length > 0 ? `
+            <a href="${basePath}?tab=logs&action=clear_logs" onclick="return confirm('هل أنت متأكد من مسح سجل الدخول بالكامل؟')" style="background:#FEF2F2; color:#DC2626; border:1px solid #FECACA; text-decoration:none; padding:8px 16px; border-radius:10px; font-size:12px; font-weight:700;">
+              🗑️ مسح السجل
+            </a>
+          ` : ''}
+        </div>
+
+        ${logsList.length === 0 ? `
+          <div style="background:#FFFFFF; border:1px solid #E2E8F0; border-radius:18px; padding:48px 20px; text-align:center;">
+            <div style="font-size:40px; margin-bottom:12px;">🛡️</div>
+            <h3 style="color:#1E293B; font-size:17px; font-weight:bold; margin-bottom:6px;">السجل فارغ حالياً</h3>
+            <p style="color:#64748B; font-size:13.5px; max-width:380px; margin:0 auto; line-height:1.6;">
+              أي محاولة دخول ناجحة أو خاطئة أو حظر سيتم تدوينها هنا مع عنوان IP وتفاصيل الجهاز.
+            </p>
+          </div>
+        ` : `
+          <div style="display:flex; flex-direction:column; gap:10px;">
+            ${logsList.map((log) => {
+              const statusBadge =
+                log.status === 'success'
+                  ? '<span style="background:#ECFDF5; color:#047857; border:1px solid #A7F3D0; padding:3px 10px; border-radius:20px; font-weight:700; font-size:11.5px;">✅ دخول ناجح</span>'
+                  : log.status === 'failed'
+                  ? '<span style="background:#FEF2F2; color:#DC2626; border:1px solid #FECACA; padding:3px 10px; border-radius:20px; font-weight:700; font-size:11.5px;">❌ PIN خاطئ</span>'
+                  : '<span style="background:#450A0A; color:#FEF2F2; padding:3px 10px; border-radius:20px; font-weight:700; font-size:11.5px;">🚫 تم الحظر مؤقتاً</span>';
+
+              return `
+                <div style="background:#FFFFFF; border:1px solid #E2E8F0; border-radius:14px; padding:12px 16px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+                  <div style="display:flex; align-items:center; gap:12px;">
+                    <div>${statusBadge}</div>
+                    <div>
+                      <div style="font-family:monospace; font-weight:800; font-size:14px; color:#0F172A;">
+                        🌐 ${escapeHtml(log.ip)}
+                      </div>
+                      <div style="font-size:11.5px; color:#64748B; margin-top:2px;">
+                        📍 ${escapeHtml(log.country)} · ${escapeHtml(log.city)}
+                        <span> · </span>
+                        <span>${escapeHtml(log.userAgent)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style="font-size:12px; color:#64748B; font-family:monospace; direction:ltr; text-align:right;">
+                    ${log.timestamp ? new Date(log.timestamp).toLocaleString('ar-DZ') : ''}
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `}
+      `;
+
+      // ─── TAB 5: Store Phone / Settings Content ─────────────────────────────
+      const isStorePhoneSaved = url.searchParams.get('saved') === '1';
+
+      const settingsContent = `
+        ${isStorePhoneSaved ? `
+          <div style="background:#ECFDF5; border:1.5px solid #10B981; color:#065F46; padding:12px 16px; border-radius:14px; margin-bottom:18px; font-weight:700; font-size:13px;">
+            ✅ تم حفظ وتحديث رقم هاتف المتجر بنجاح! سيظهر لجميع الزبائن في المتجر.
+          </div>
+        ` : ''}
+
+        <div style="background:#FFFFFF; border:1px solid #E2E8F0; border-radius:18px; padding:24px 22px; box-shadow:0 2px 8px rgba(0,0,0,0.02); max-width:540px; margin:0 auto;">
+          <div style="display:flex; align-items:center; gap:10px; margin-bottom:16px; border-bottom:1px solid #F1F5F9; padding-bottom:12px;">
+            <div style="font-size:26px;">📞</div>
+            <div>
+              <h3 style="font-size:16px; font-weight:800; color:#0F172A; margin:0;">رقم هاتف المتجر الرسمي</h3>
+              <p style="font-size:12px; color:#64748B; margin-top:2px;">يظهر هذا الرقم للزبائن في أعلى وأسفل المتجر وعند الاتصال بالفرع.</p>
+            </div>
+          </div>
+
+          <form method="GET" action="${basePath}">
+            <input type="hidden" name="tab" value="settings" />
+            <input type="hidden" name="action" value="update_store_phone" />
+
+            <div style="margin-bottom:16px;">
+              <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:6px;">رقم الهاتف الحالي للمتجر:</label>
+              <input type="text" name="store_phone" value="${escapeHtml(storePhone.display)}" required dir="ltr" style="width:100%; box-sizing:border-box; padding:12px 14px; border:1.5px solid #CBD5E1; border-radius:10px; font-size:16px; font-family:monospace; font-weight:700; text-align:center; color:#0F172A;" />
+              <div style="font-size:11.5px; color:#94A3B8; margin-top:6px;">
+                يمكن كتابته بالصيغة المحلية (مثل: 0550 10 10 12) أو الدولية (+213 550 10 10 12).
+              </div>
+            </div>
+
+            <button type="submit" style="width:100%; background:#0F172A; color:#FFD100; border:none; padding:12px 20px; border-radius:12px; font-weight:800; font-size:14px; cursor:pointer; box-shadow:0 3px 10px rgba(15,23,42,0.15);">
+              💾 حفظ رقم الهاتف الجديد
+            </button>
+          </form>
+        </div>
+      `;
+
+      // Main container layout
+      const tabTitle =
+        currentTab === 'products'
+          ? '🛍️ إدارة المنتجات'
+          : currentTab === 'cards'
+          ? '💳 بطاقات الوفاء VIP'
+          : currentTab === 'logs'
+          ? '🛡️ سجل الـ IP'
+          : currentTab === 'settings'
+          ? '⚙️ هاتف المتجر'
+          : '📋 طلبات متجر تكنو';
+
+      const tabSubtitle =
+        currentTab === 'products'
+          ? `إجمالي المنتجات: <b>${productsList.length}</b> منتج`
+          : currentTab === 'cards'
+          ? `إجمالي البطاقات: <b>${reqs.length}</b> (${activeCardsCount} مفعلة · ${pendingCardsCount} بانتظار الاعتماد)`
+          : currentTab === 'logs'
+          ? `السجلات: <b>${logsList.length}</b> عملية دخول`
+          : currentTab === 'settings'
+          ? `هاتف المتجر: <b>${escapeHtml(storePhone.display)}</b>`
+          : `الطلبات المسجلة: <b>${ordersList.length}</b> طلب`;
+
       const html = `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>طلبات متجر تكنو الأغواط</title>
+  <title>${tabTitle} — لوحة تحكم تكنو الأغواط</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -2694,7 +3303,7 @@ export default {
       line-height: 1.5;
     }
     .container {
-      max-width: 620px;
+      max-width: 960px;
       margin: 0 auto;
     }
     .top-bar {
@@ -2705,16 +3314,21 @@ export default {
       padding: 16px 20px;
       border-radius: 18px;
       border: 1px solid #E2E8F0;
-      margin-bottom: 20px;
+      margin-bottom: 16px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+      flex-wrap: wrap;
+      gap: 12px;
     }
     .top-title {
-      font-size: 17px;
-      font-weight: 700;
+      font-size: 18px;
+      font-weight: 800;
       color: #0F172A;
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
     .top-subtitle {
-      font-size: 12px;
+      font-size: 12.5px;
       color: #64748B;
       margin-top: 2px;
     }
@@ -2738,10 +3352,47 @@ export default {
       background: #F1F5F9;
       color: #475569 !important;
       text-decoration: none;
-      padding: 8px 12px;
+      padding: 8px 14px;
       border-radius: 10px;
       font-size: 12px;
-      font-weight: 600;
+      font-weight: 700;
+    }
+    .nav-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+    .nav-tab {
+      flex: 1;
+      min-width: 130px;
+      text-align: center;
+      padding: 11px 14px;
+      border-radius: 14px;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 13.5px;
+      transition: all 0.2s;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .nav-tab.active {
+      background: #0F172A;
+      color: #FFD100;
+      box-shadow: 0 4px 12px rgba(15,23,42,0.15);
+    }
+    .nav-tab:not(.active) {
+      background: #FFFFFF;
+      color: #64748B;
+      border: 1px solid #E2E8F0;
+    }
+    .nav-tab:not(.active):hover {
+      background: #F1F5F9;
+      color: #0F172A;
     }
     .order-card {
       background: #FFFFFF;
@@ -2852,7 +3503,7 @@ export default {
     .total-highlight {
       font-size: 15px;
       font-weight: 700;
-      color: #B81D46;
+      color: #E30613;
     }
     .card-actions {
       display: flex;
@@ -2886,8 +3537,8 @@ export default {
   <div class="container">
     <div class="top-bar">
       <div>
-        <h1 class="top-title">${currentTab === 'cards' ? '💳 قسم بطاقات الوفاء VIP' : '📋 إدارة متجر تكنو الأغواط'}</h1>
-        <div class="top-subtitle">${currentTab === 'cards' ? `إجمالي البطاقات: <b>${reqs.length}</b> (${activeCardsCount} مفعلة · ${disabledCardsCount} معطلة)` : `الطلبات المسجلة: <b>${ordersList.length}</b> طلب`}</div>
+        <h1 class="top-title">${tabTitle}</h1>
+        <div class="top-subtitle">${tabSubtitle}</div>
       </div>
       <div class="top-actions">
         ${
@@ -2901,18 +3552,37 @@ export default {
       </div>
     </div>
 
-    <!-- Navigation Tabs between Orders and Cards -->
-    <div style="display:flex; gap:10px; margin-bottom:20px;">
-      <a href="${basePath}?tab=orders" style="flex:1; text-align:center; padding:12px; border-radius:14px; text-decoration:none; font-weight:700; font-size:14px; transition:all 0.2s; ${currentTab === 'orders' ? 'background:#0F172A; color:#FFFFFF; box-shadow:0 4px 12px rgba(15,23,42,0.15);' : 'background:#FFFFFF; color:#64748B; border:1px solid #E2E8F0;'}">
+    <!-- Navigation Tabs: 5 Sections -->
+    <div class="nav-tabs">
+      <a href="${basePath}?tab=orders" class="nav-tab ${currentTab === 'orders' ? 'active' : ''}">
         📦 الطلبات (${ordersList.length})
       </a>
-      <a href="${basePath}?tab=cards" style="flex:1; text-align:center; padding:12px; border-radius:14px; text-decoration:none; font-weight:700; font-size:14px; transition:all 0.2s; ${currentTab === 'cards' ? 'background:#0F172A; color:#FFFFFF; box-shadow:0 4px 12px rgba(15,23,42,0.15);' : 'background:#FFFFFF; color:#64748B; border:1px solid #E2E8F0;'}">
-        💳 قسم البطاقات (${reqs.length})
-        ${pendingCardsCount > 0 ? `<span style="background:#EF4444; color:#fff; font-size:10.5px; padding:2px 7px; border-radius:10px; margin-right:4px;">${pendingCardsCount} بانتظار الاعتماد</span>` : ''}
+      <a href="${basePath}?tab=products" class="nav-tab ${currentTab === 'products' ? 'active' : ''}">
+        🛍️ المنتجات (${productsList.length})
+      </a>
+      <a href="${basePath}?tab=cards" class="nav-tab ${currentTab === 'cards' ? 'active' : ''}">
+        💳 بطاقات الوفاء (${reqs.length})
+        ${pendingCardsCount > 0 ? `<span style="background:#EF4444; color:#fff; font-size:10px; padding:2px 6px; border-radius:10px;">${pendingCardsCount}</span>` : ''}
+      </a>
+      <a href="${basePath}?tab=logs" class="nav-tab ${currentTab === 'logs' ? 'active' : ''}">
+        🛡️ سجل الـ IP (${logsList.length})
+      </a>
+      <a href="${basePath}?tab=settings" class="nav-tab ${currentTab === 'settings' ? 'active' : ''}">
+        ⚙️ هاتف المتجر
       </a>
     </div>
 
-    ${currentTab === 'cards' ? cardsContent : mainContent}
+    ${
+      currentTab === 'products'
+        ? productsContent
+        : currentTab === 'cards'
+        ? cardsContent
+        : currentTab === 'logs'
+        ? logsContent
+        : currentTab === 'settings'
+        ? settingsContent
+        : ordersContent
+    }
   </div>
 </body>
 </html>`;

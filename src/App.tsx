@@ -178,6 +178,20 @@ export default function App() {
         } catch {
           // Keep cached or default packs
         }
+
+        // Sync Store Info (phone, etc.) from Backend
+        try {
+          const storeRes = await fetch(`${BACKEND_URL}/api/store-info`);
+          if (storeRes.ok) {
+            const storeData = await storeRes.json();
+            if (storeData?.phoneDisplay) {
+              STORE_INFO.phoneDisplay = storeData.phoneDisplay;
+              STORE_INFO.phoneHref = storeData.phoneHref || (`tel:${storeData.phoneDisplay.replace(/[^+\\d]/g, '')}`);
+            }
+          }
+        } catch {
+          // Keep default store info
+        }
       } catch {
         // Offline / unreachable backend: keep current storage
       } finally {
