@@ -583,13 +583,28 @@ export function retrieveCardByPhone(phone: string): {
   card?: LoyaltyCardData;
   status?: LoyaltyCardStatus;
 } {
-  const cleanPhone = phone.trim();
+  const cleanInput = phone.trim();
   const registry = getAllRegisteredCards();
-  let card = registry[cleanPhone];
+  let card = registry[cleanInput];
+
+  if (!card) {
+    // Also search registry by card number (with or without hyphens)
+    const allCards = Object.values(registry);
+    card = allCards.find(
+      (c) =>
+        c.cardNumber === cleanInput ||
+        c.cardNumber.replace(/[-\s]/g, '') === cleanInput.replace(/[-\s]/g, '')
+    );
+  }
 
   if (!card) {
     const current = getStoredLoyaltyCard();
-    if (current && current.customerPhone === cleanPhone) {
+    if (
+      current &&
+      (current.customerPhone === cleanInput ||
+        current.cardNumber === cleanInput ||
+        current.cardNumber.replace(/[-\s]/g, '') === cleanInput.replace(/[-\s]/g, ''))
+    ) {
       card = current;
     }
   }

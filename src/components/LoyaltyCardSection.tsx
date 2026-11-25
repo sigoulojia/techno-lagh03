@@ -436,24 +436,29 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
     e.preventDefault();
     setFeedback(null);
 
-    const cleanPhone = retrievalPhone.trim();
-    if (!/^(05|06|07)\d{8}$/.test(cleanPhone)) {
+    const cleanInput = retrievalPhone.trim();
+    if (!cleanInput) return;
+
+    const isPhone = /^(05|06|07)\d{8}$/.test(cleanInput);
+    const isCardNumber = /^03[- ]?\d{4}[- ]?\d{4}[- ]?\d{4}$/.test(cleanInput) || (cleanInput.startsWith('03') && cleanInput.length >= 10);
+
+    if (!isPhone && !isCardNumber) {
       setFeedback({
         type: 'error',
-        message: 'يرجى إدخال رقم هاتف جزائري صحيح يتكون من 10 أرقام (05 أو 06 أو 07)',
+        message: 'يرجى إدخال رقم هاتف جزائري صحيح (10 أرقام) أو رقم البطاقة المسلّمة لك (يبدأ بـ 03)',
       });
       return;
     }
 
     // 1. Check local registry
-    const res = retrieveCardByPhone(cleanPhone);
+    const res = retrieveCardByPhone(cleanInput);
 
     // 2. Also check real-time status from server
     let serverStatus: string | null = null;
     let serverRequestData: any = null;
     try {
       const serverRes = await fetch(
-        `https://techno-laghouat.pages.dev/api/loyalty/status?phone=${encodeURIComponent(cleanPhone)}&_t=${Date.now()}`,
+        `https://techno-laghouat.pages.dev/api/loyalty/status?phone=${encodeURIComponent(cleanInput)}&query=${encodeURIComponent(cleanInput)}&_t=${Date.now()}`,
         { cache: 'no-store' }
       );
       if (serverRes.ok) {
@@ -483,18 +488,24 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
     let targetCard = res.card;
     if (!targetCard && serverRequestData) {
       targetCard = {
-        cardNumber: serverRequestData.cardNumber || generateCardNumber(cleanPhone),
+        cardNumber: serverRequestData.cardNumber || (isCardNumber ? cleanInput : generateCardNumber(cleanInput)),
         customerName: serverRequestData.customerName || 'عضو نادي الوفاء',
-        customerPhone: cleanPhone,
-        status: effectiveStatus || 'pending',
-        points: WELCOME_BONUS_POINTS,
-        tier: 'classic',
+        customerPhone: serverRequestData.customerPhone || (isPhone ? cleanInput : ''),
+        status: effectiveStatus || 'active',
+        points: serverRequestData.points ?? WELCOME_BONUS_POINTS,
+        tier: serverRequestData.tier || (serverRequestData.points >= 1500 ? 'black_vip' : serverRequestData.points >= 600 ? 'gold' : serverRequestData.points >= 200 ? 'silver' : 'classic'),
         memberSince: formatCardDate(0),
         validThru: formatCardDate(3),
-        isPinProtected: false,
-        hasPurchased: serverRequestData.hasPurchased,
-        ordersCount: serverRequestData.ordersCount,
-        totalSpent: serverRequestData.totalSpent,
+        isPinProtected: !!serverRequestData.hasPin,
+        hasPurchased: serverRequestData.hasPurchased ?? true,
+        ordersCount: serverRequestData.ordersCount ?? 1,
+        totalSpent: serverRequestData.totalSpent ?? (serverRequestData.points ? serverRequestData.points * 100 : 0),
+        firstName: serverRequestData.firstName,
+        lastName: serverRequestData.lastName,
+        customerAddress: serverRequestData.customerAddress,
+        customerEmail: serverRequestData.customerEmail,
+        customerProfession: serverRequestData.customerProfession,
+        customerBirthDate: serverRequestData.customerBirthDate,
       };
       saveLoyaltyCard(targetCard);
     }
@@ -502,7 +513,7 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
     if (!targetCard) {
       setFeedback({
         type: 'error',
-        message: 'لم يتم العثور على بطاقة مسجلة بهذا الرقم. يمكنك طلب تفعيل بطاقة جديدة الآن.',
+        message: 'لم يتم العثور على بطاقة مسجلة بهذا الرقم أو الهاتف. إذا استلمت بطاقتك بالفرع يرجى التأكد من تسجيلها بالداشبورد أو طلب تفعيل بطاقة جديدة.',
       });
       return;
     }
@@ -541,13 +552,22 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
       return;
     }
 
-    // Card is active and secured by PIN: prompt for 6-digit PIN
-    setRetrievedCardTemp(targetCard);
-    setRetrievalPromptPin(true);
-    setFeedback({
-      type: 'info',
-      message: `أهلاً بك مجدداً ${targetCard.customerName}! يرجى إدخال رقمك السري (6 أرقام) لعرض بطاقتك:`,
-    });
+    // Card is active: if PIN protected, prompt for PIN; otherwise open immediately!
+    if (targetCard.isPinProtected) {
+      setRetrievedCardTemp(targetCard);
+      setRetrievalPromptPin(true);
+      setFeedback({
+        type: 'info',
+        message: `أهلاً بك مجدداً ${targetCard.customerName}! يرجى إدخال رقمك السري (6 أرقام) لعرض بطاقتك:`,
+      });
+    } else {
+      setCard(targetCard);
+      setViewMode('main');
+      setFeedback({
+        type: 'success',
+        message: `مرحباً بك مجدداً ${targetCard.customerName}! تم العثور على بطاقتك الافتراضية بنجاح وهي جاهزة للاستخدام الآن.`,
+      });
+    }
   };
 
   const handleUnlockWithPin = (e: React.FormEvent) => {
@@ -704,20 +724,20 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
                   /* Step 1: Enter Phone */
                   <form onSubmit={handleCheckPhoneForRetrieval} className="space-y-4">
                     <p className="text-xs text-stone-300 leading-relaxed">
-                      إذا كان لديك بطاقة مفعلة مسبقاً، أدخل رقم هاتفك المسجل وسيطلب منك إدخال رمزك السري لإظهارها كاملة:
+                      إذا كان لديك بطاقة مفعلة مسبقاً (أو مسلّمة لك بالفرع)، أدخل رقم هاتفك المسجل أو رقم بطاقتك لإظهارها فوراً:
                     </p>
 
                     <div>
                       <label className="block text-[11px] font-mono text-stone-400 mb-1.5">
-                        رقم الهاتف المسجل (10 أرقام)
+                        رقم الهاتف (10 أرقام) أو رقم البطاقة (مثال: 03-XXXX-XXXX-XXXX)
                       </label>
                       <input
-                        type="tel"
+                        type="text"
                         dir="ltr"
                         required
                         value={retrievalPhone}
                         onChange={(e) => setRetrievalPhone(e.target.value)}
-                        placeholder="رقم الهاتف"
+                        placeholder="06... أو 03-..."
                         className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-stone-100 text-xs font-mono focus:border-stone-600 focus:outline-none"
                       />
                     </div>

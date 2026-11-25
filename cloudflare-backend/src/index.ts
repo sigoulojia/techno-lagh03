@@ -2035,6 +2035,67 @@ export default {
           }
         }
 
+        // Action: Store owner manually adds a customer registered in the physical store
+        if (action === 'add_manual_loyalty') {
+          const fullName = (url.searchParams.get('customer_name') || '').trim();
+          const phone = (url.searchParams.get('phone') || '').trim();
+          let cardNumber = (url.searchParams.get('card_number') || '').trim();
+          let points = parseInt(url.searchParams.get('points') || '50', 10);
+          if (isNaN(points) || points < 0) points = 50;
+          const birthDate = (url.searchParams.get('birth_date') || '').trim();
+          const profession = (url.searchParams.get('profession') || '').trim();
+          const email = (url.searchParams.get('email') || '').trim();
+          const address = (url.searchParams.get('address') || '').trim();
+
+          if (phone) {
+            const rawReqs = await env.techno_products_kv.get('loyalty_requests');
+            let reqs = rawReqs ? JSON.parse(rawReqs) : [];
+            const existingIdx = reqs.findIndex((r: any) => r.customerPhone === phone);
+
+            // Auto-generate card number starting with 03 if not provided
+            if (!cardNumber) {
+              const num2 = Math.floor(1000 + Math.random() * 9000).toString();
+              const num3 = Math.floor(1000 + Math.random() * 9000).toString();
+              const num4 = (new Date().getFullYear() % 100).toString().padStart(2, '0') + Math.floor(10 + Math.random() * 90).toString();
+              cardNumber = `03-${num2}-${num3}-${num4}`;
+            }
+
+            const record = {
+              customerName: fullName || 'زبون تكنو المعتمد',
+              firstName: fullName.split(' ')[0] || '',
+              lastName: fullName.split(' ').slice(1).join(' ') || '',
+              customerPhone: phone,
+              cardNumber: cardNumber,
+              points: points,
+              tier: points >= 1500 ? 'black_vip' : points >= 600 ? 'gold' : points >= 200 ? 'silver' : 'classic',
+              status: 'active', // Immediately active so the customer finds their card on the site!
+              hasPurchased: true,
+              ordersCount: 1,
+              totalSpent: points * 100,
+              customerBirthDate: birthDate,
+              customerProfession: profession,
+              customerEmail: email,
+              customerAddress: address,
+              source: 'in_store_counter', // Registered physically in the shop
+              requestedAt: new Date().toISOString(),
+              approvedAt: new Date().toISOString(),
+              activatedAt: new Date().toISOString(),
+            };
+
+            if (existingIdx >= 0) {
+              reqs[existingIdx] = { ...reqs[existingIdx], ...record };
+            } else {
+              reqs.unshift(record);
+            }
+
+            await env.techno_products_kv.put('loyalty_requests', JSON.stringify(reqs));
+            return new Response(null, {
+              status: 302,
+              headers: { Location: `${basePath}?tab=cards&added=true`, ...responseHeaders },
+            });
+          }
+        }
+
         if (action === 'delete' && targetOrderId) {
           await env.techno_products_kv.delete(`order:${targetOrderId}`);
           ordersList = ordersList.filter((o: any) => o.orderId !== targetOrderId);
@@ -2375,19 +2436,85 @@ export default {
       const activeCardsCount = reqs.filter((r: any) => r.status === 'active' || r.status === 'approved_pending_pin').length;
       const disabledCardsCount = reqs.filter((r: any) => r.status === 'disabled').length;
 
+      const isCardAdded = url.searchParams.get('added') === 'true';
+      const addCardSuccessBanner = isCardAdded ? `
+        <div style="background:#ECFDF5; border:1.5px solid #10B981; color:#065F46; padding:14px 18px; border-radius:14px; margin-bottom:18px; font-weight:700; font-size:13.5px; display:flex; align-items:center; gap:10px; box-shadow:0 2px 8px rgba(16,185,129,0.15);">
+          <span style="font-size:22px;">🎉</span>
+          <div>
+            <strong>تم حفظ وإصدار بطاقة الوفاء بنجاح!</strong>
+            <div style="font-size:12px; font-weight:500; color:#047857; margin-top:2px;">الزبون الآن مسجل رسمياً ويمكنه الدخول إلى الموقع في أي وقت وإدخال رقم هاتفه أو رقم بطاقته لرؤية واستخدام بطاقته الافتراضية فوراً.</div>
+          </div>
+        </div>
+      ` : '';
+
+      const manualAddForm = `
+        <div style="background:#FFFFFF; border:1.5px solid #10B981; border-radius:18px; padding:20px; margin-bottom:20px; box-shadow:0 4px 14px rgba(16,185,129,0.08);">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px; flex-wrap:wrap; gap:8px;">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <span style="font-size:24px; background:#ECFDF5; padding:6px 10px; border-radius:12px; border:1px solid #A7F3D0;">🏪</span>
+              <div>
+                <h3 style="margin:0; font-size:16px; font-weight:800; color:#065F46;">إضافة زبون مسجل في المحل مباشرة (بطاقة ورقية / بلاستيكية)</h3>
+                <p style="margin:3px 0 0; font-size:12px; color:#047857; line-height:1.5;">أدخل بيانات الزبون ورقم البطاقة المسلّمة له بالفرع، حتى يجد بطاقته الافتراضية جاهزة فور دخوله للموقع ورؤيتها بكامل رصيدها.</p>
+              </div>
+            </div>
+          </div>
+
+          <form method="GET" action="${basePath}" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:12px;">
+            <input type="hidden" name="tab" value="cards" />
+            <input type="hidden" name="action" value="add_manual_loyalty" />
+
+            <div>
+              <label style="display:block; font-size:11.5px; font-weight:700; color:#334155; margin-bottom:4px;">👤 الاسم واللقب للزبون *</label>
+              <input type="text" name="customer_name" required placeholder="مثال: أحمد مسعودي" style="width:100%; box-sizing:border-box; padding:9px 12px; border:1px solid #CBD5E1; border-radius:10px; font-size:13px; font-weight:600;" />
+            </div>
+
+            <div>
+              <label style="display:block; font-size:11.5px; font-weight:700; color:#334155; margin-bottom:4px;">📞 رقم الهاتف (10 أرقام) *</label>
+              <input type="tel" name="phone" required placeholder="0661234567" dir="ltr" style="width:100%; box-sizing:border-box; padding:9px 12px; border:1px solid #CBD5E1; border-radius:10px; font-size:13px; font-family:monospace; font-weight:600;" />
+            </div>
+
+            <div>
+              <label style="display:block; font-size:11.5px; font-weight:700; color:#334155; margin-bottom:4px;">💳 رقم البطاقة المسلمة له *</label>
+              <input type="text" name="card_number" required placeholder="03-8542-1092-7741" dir="ltr" style="width:100%; box-sizing:border-box; padding:9px 12px; border:1.5px solid #10B981; border-radius:10px; font-size:13px; font-family:monospace; font-weight:700; color:#065F46; background:#F0FDF4;" />
+            </div>
+
+            <div>
+              <label style="display:block; font-size:11.5px; font-weight:700; color:#334155; margin-bottom:4px;">⭐ رصيد النقاط الأولي</label>
+              <input type="number" name="points" value="50" min="0" style="width:100%; box-sizing:border-box; padding:9px 12px; border:1px solid #CBD5E1; border-radius:10px; font-size:13px; font-family:monospace;" />
+            </div>
+
+            <div>
+              <label style="display:block; font-size:11.5px; font-weight:700; color:#334155; margin-bottom:4px;">💼 المهنة (اختياري)</label>
+              <input type="text" name="profession" placeholder="مثال: أستاذ / مهندس / طالب" style="width:100%; box-sizing:border-box; padding:9px 12px; border:1px solid #CBD5E1; border-radius:10px; font-size:13px;" />
+            </div>
+
+            <div>
+              <label style="display:block; font-size:11.5px; font-weight:700; color:#334155; margin-bottom:4px;">📍 الحي أو العنوان (اختياري)</label>
+              <input type="text" name="address" placeholder="مثال: حي المقام - الأغواط" style="width:100%; box-sizing:border-box; padding:9px 12px; border:1px solid #CBD5E1; border-radius:10px; font-size:13px;" />
+            </div>
+
+            <div style="grid-column: 1 / -1; display:flex; justify-content:flex-end; margin-top:4px;">
+              <button type="submit" style="background:#059669; color:#FFFFFF; border:none; padding:11px 24px; border-radius:12px; font-weight:800; font-size:13.5px; cursor:pointer; display:flex; align-items:center; gap:8px; box-shadow:0 2px 6px rgba(5,150,105,0.25);">
+                <span>✅ حفظ وإصدار البطاقة الافتراضية للزبون</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      `;
+
       // Cards View Content
-      let cardsContent = '';
+      let cardsContent = addCardSuccessBanner + manualAddForm;
       if (reqs.length === 0) {
-        cardsContent = `
+        cardsContent += `
           <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 18px; padding: 48px 20px; text-align: center;">
             <div style="font-size: 40px; margin-bottom: 12px;">💳</div>
             <h3 style="color: #1E293B; font-size: 17px; font-weight: bold; margin-bottom: 6px;">لا توجد أي بطاقات مسجلة حالياً</h3>
             <p style="color: #64748B; font-size: 13.5px; max-width: 380px; margin: 0 auto; line-height: 1.6;">
-              عندما يطلب أي زبون بطاقة وفاء VIP من الموقع، سيظهر طلبه هنا فوراً مع سجل مشترياته لاعتمادها أو تفعيلها أو تعطيلها.
+              يمكنك استخدام النموذج الأخضر أعلاه لإضافة أي زبون سلمتم له بطاقة في المحل، أو انتظار طلبات الزبائن الجديدة من الموقع.
             </p>
           </div>`;
       } else {
-        cardsContent = `
+        cardsContent += `
           <div style="margin-bottom:16px; display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap:10px;">
             <div style="background:#FFFFFF; border:1px solid #E2E8F0; border-radius:14px; padding:12px 14px; text-align:center;">
               <div style="font-size:11px; color:#64748B; font-weight:600;">إجمالي البطاقات</div>
@@ -2838,6 +2965,7 @@ export default {
     // 9a-loyalty. GET /api/loyalty/status
     if (url.pathname === '/api/loyalty/status' && request.method === 'GET') {
       const phone = (url.searchParams.get('phone') || '').trim();
+      const query = (url.searchParams.get('query') || url.searchParams.get('card_number') || '').trim();
       const statusHeaders = {
         'Content-Type': 'application/json; charset=utf-8',
         'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
@@ -2845,12 +2973,20 @@ export default {
         'Expires': '0',
         ...CORS_HEADERS,
       };
-      if (!phone || !env.techno_products_kv) {
+      if ((!phone && !query) || !env.techno_products_kv) {
         return new Response(JSON.stringify({ exists: false }), { headers: statusHeaders });
       }
       const rawReqs = await env.techno_products_kv.get('loyalty_requests');
       const reqs = rawReqs ? JSON.parse(rawReqs) : [];
-      const item = reqs.find((r: any) => r.customerPhone === phone);
+      const item = reqs.find((r: any) => {
+        if (phone && r.customerPhone === phone) return true;
+        if (query) {
+          if (r.customerPhone === query) return true;
+          if (r.cardNumber === query) return true;
+          if (r.cardNumber && r.cardNumber.replace(/[-\s]/g, '') === query.replace(/[-\s]/g, '')) return true;
+        }
+        return false;
+      });
       if (!item) return new Response(JSON.stringify({ exists: false }), { headers: statusHeaders });
       return new Response(JSON.stringify({ exists: true, status: item.status, request: item }), { headers: statusHeaders });
     }
