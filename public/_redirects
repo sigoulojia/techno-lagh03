@@ -1,6 +1,1 @@
-/api/*  https://techno-laghouat-backend.hotel-saharien.workers.dev/api/:splat  200
-/admin/*  https://techno-laghouat-backend.hotel-saharien.workers.dev/admin/:splat  200
-/orders/*  https://techno-laghouat-backend.hotel-saharien.workers.dev/orders/:splat  200
-/telegram/*  https://techno-laghouat-backend.hotel-saharien.workers.dev/telegram/:splat  200
-/ntfy/*  https://techno-laghouat-backend.hotel-saharien.workers.dev/ntfy/:splat  200
 /* /index.html 200

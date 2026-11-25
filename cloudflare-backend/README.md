@@ -3,8 +3,8 @@
 تم بناء ونشر هذا الـ Backend على منصة **Cloudflare Workers** العالمية السريعة بالاعتماد على قاعدة بيانات **Cloudflare KV**، لربط متجر تكنو الأغواط ببوت التيليجرام الإداري **@items03bot**.
 
 ## 🌐 الرابط السحابي المباشر
-- **الرابط الرئيسي:** `https://techno-laghouat-backend.hotel-saharien.workers.dev`
-- **واجهة المنتجات (API):** `https://techno-laghouat-backend.hotel-saharien.workers.dev/api/products`
+- **الرابط الرئيسي:** `https://techno-laghouat.pages.dev`
+- **واجهة المنتجات (API):** `https://techno-laghouat.pages.dev/api/products`
 
 ---
 
@@ -12,7 +12,7 @@
 - **اسم البوت:** `@items03bot` (itemsbot)
 - **التوكن:** `9152103628:AAGioopVyeNlPd2Nf-NQr2_1MYWVxv2Yf30`
 - **معرّف المحادثة / المجموعة:** `-5586000352` (technoowner)
-- **الـ Webhook:** مفعل ومربوط تلقائياً بـ `https://techno-laghouat-backend.hotel-saharien.workers.dev/telegram/webhook`
+- **الـ Webhook:** مفعل ومربوط مباشرة بـ `https://techno-laghouat.pages.dev/telegram/webhook`
 
 ---
 
