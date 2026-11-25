@@ -314,7 +314,7 @@ export async function downloadOrderReceipt(order: SavedOrder): Promise<void> {
 
     const targetElement = (container.querySelector('.receipt-card') as HTMLElement) || container;
 
-    const canvas = await html2canvas(targetElement, {
+    const canvas = await (html2canvas as any)(targetElement, {
       scale: 2, // High resolution (retina 2x) for razor sharp text
       useCORS: true,
       backgroundColor: '#FFFFFF',

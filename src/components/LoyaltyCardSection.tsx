@@ -485,13 +485,13 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
     }
 
     // Resolve target card data (from local registry or fallback to server request)
-    let targetCard = res.card;
+    let targetCard: LoyaltyCardData | undefined = res.card;
     if (!targetCard && serverRequestData) {
-      targetCard = {
+      const generatedCard: LoyaltyCardData = {
         cardNumber: serverRequestData.cardNumber || (isCardNumber ? cleanInput : generateCardNumber(cleanInput)),
         customerName: serverRequestData.customerName || 'عضو نادي الوفاء',
         customerPhone: serverRequestData.customerPhone || (isPhone ? cleanInput : ''),
-        status: effectiveStatus || 'active',
+        status: ((effectiveStatus as any) || 'active'),
         points: serverRequestData.points ?? WELCOME_BONUS_POINTS,
         tier: serverRequestData.tier || (serverRequestData.points >= 1500 ? 'black_vip' : serverRequestData.points >= 600 ? 'gold' : serverRequestData.points >= 200 ? 'silver' : 'classic'),
         memberSince: formatCardDate(0),
@@ -507,7 +507,8 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
         customerProfession: serverRequestData.customerProfession,
         customerBirthDate: serverRequestData.customerBirthDate,
       };
-      saveLoyaltyCard(targetCard);
+      targetCard = generatedCard;
+      saveLoyaltyCard(generatedCard);
     }
 
     if (!targetCard) {

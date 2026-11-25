@@ -55,6 +55,7 @@ export interface OrderTotals {
   remainingForFreeLaghouatDzd: number;
   totalDzd: number;
   grandTotalDzd?: number;
+  totalItemsCount?: number;
 }
 
 export interface SavedOrderLine {
@@ -198,7 +199,13 @@ export function getProductDisplayName(product: Product, variantId?: string): str
 export function getProductDisplayDescription(product: Product, variantId?: string): string {
   const variant = resolveProductVariant(product, variantId);
   if (variant?.description && variant.description.trim().length > 0) {
+    if (variant.dimensions && !variant.description.includes(variant.dimensions)) {
+      return `${variant.description.trim()} — (القياسات: ${variant.dimensions.trim()})`;
+    }
     return variant.description.trim();
+  }
+  if (variant?.dimensions) {
+    return `${product.description} — (القياسات: ${variant.dimensions.trim()})`;
   }
   return product.description;
 }

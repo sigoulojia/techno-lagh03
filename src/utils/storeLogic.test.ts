@@ -171,11 +171,11 @@ test('extractStoreCategories merges Telegram categories and product categories w
   assert.ok(merged.length >= 4);
   const watches = merged.find((c) => c.id === 'cat-watches');
   assert.ok(watches);
-  assert.equal(watches.count, 1);
+  assert.equal(watches!.count, 1);
 
   const bags = merged.find((c) => c.id === 'cat-bags');
   assert.ok(bags);
-  assert.equal(bags.count, 2);
+  assert.equal(bags!.count, 2);
 });
 
 test('multi-image helper and per-size variant pricing resolve correctly', () => {
@@ -375,7 +375,7 @@ test('extractProductIdFromLocation and buildProductPageUrl end cleanly with prod
 
   const found = findProductByIdOrSku(SAMPLE_PRODUCTS, '71640');
   assert.ok(found);
-  assert.equal(found.sku, '71640');
+  assert.equal(found!.sku, '71640');
 });
 
 test('extractCategoryIdFromLocation and buildCategoryPageUrl work for dedicated category pages', () => {
@@ -410,8 +410,8 @@ test('multi-shape product sync helpers link variants and images correctly', () =
     image: '/img-cat.jpg',
     images: ['/img-cat.jpg', '/img-dog.jpg'],
     variants: [
-      { id: 'v1', label: 'شكل قطة', name: 'شكل قطة', priceDzd: 2500, description: 'حقيبة بشكل قطة وردية', image: '/img-cat.jpg' },
-      { id: 'v2', label: 'شكل كلب', name: 'شكل كلب', priceDzd: 2600, description: 'حقيبة بشكل كلب بني', image: '/img-dog.jpg' },
+      { id: 'v1', label: 'شكل قطة', name: 'شكل قطة', priceDzd: 2500, description: 'حقيبة بشكل قطة وردية', image: '/img-cat.jpg', dimensions: '30x20 سم' },
+      { id: 'v2', label: 'شكل كلب', name: 'شكل كلب', priceDzd: 2600, description: 'حقيبة بشكل كلب بني', image: '/img-dog.jpg', dimensions: '35x25 سم' },
     ],
   };
 
@@ -424,13 +424,14 @@ test('multi-shape product sync helpers link variants and images correctly', () =
   assert.equal(getImageIndexForVariant(productWithShapes, 'v1'), 0);
   assert.equal(getImageIndexForVariant(productWithShapes, 'v2'), 1);
 
-  // Display name and description
+  // Display name and description with dimensions
   assert.equal(
     getProductDisplayName(productWithShapes, 'v1'),
     `${productWithShapes.name} — شكل قطة`,
   );
   assert.equal(
     getProductDisplayDescription(productWithShapes, 'v1'),
-    'حقيبة بشكل قطة وردية',
+    'حقيبة بشكل قطة وردية — (القياسات: 30x20 سم)',
   );
+  assert.equal(productWithShapes.variants![0].dimensions, '30x20 سم');
 });

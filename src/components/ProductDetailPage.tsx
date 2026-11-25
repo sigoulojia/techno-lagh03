@@ -567,6 +567,12 @@ export function ProductDetailPage({
                                 {variant.description}
                               </p>
                             )}
+                            {variant.dimensions && (
+                              <span className="inline-flex items-center gap-1 text-[10.5px] font-bold text-stone-700 bg-stone-100 border border-stone-200/80 px-2 py-0.5 rounded-md mt-1">
+                                <span>📏</span>
+                                <span>{variant.dimensions}</span>
+                              </span>
+                            )}
                           </div>
                         </button>
                       );

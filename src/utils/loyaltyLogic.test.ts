@@ -53,9 +53,13 @@ test('calculatePointsFromOrders awards 1 point per 100 DZD accurately', () => {
       },
       items: [],
       totals: {
+        itemCount: 3,
         subtotalDzd: 6500,
         shippingFeeDzd: 500,
         grandTotalDzd: 7000,
+        totalDzd: 7000,
+        isFreeShippingUnlocked: false,
+        remainingForFreeLaghouatDzd: 0,
         totalItemsCount: 3,
       },
     },
@@ -73,9 +77,13 @@ test('calculatePointsFromOrders awards 1 point per 100 DZD accurately', () => {
       },
       items: [],
       totals: {
+        itemCount: 5,
         subtotalDzd: 15400,
         shippingFeeDzd: 380,
         grandTotalDzd: 15780,
+        totalDzd: 15780,
+        isFreeShippingUnlocked: false,
+        remainingForFreeLaghouatDzd: 0,
         totalItemsCount: 5,
       },
     },
@@ -124,7 +132,7 @@ test('generateCode128Binary generates authentic Code 128 decodable by barcode sc
   }
 
   const reader = new Code128Reader();
-  const decoded = reader.decodeRow(0, bitArray, null);
+  const decoded = reader.decodeRow(0, bitArray, undefined);
   assert.equal(decoded.getText(), cardNum);
 });
 

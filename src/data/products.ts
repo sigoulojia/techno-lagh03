@@ -36,6 +36,7 @@ export interface ProductVariant {
   image?: string;
   name?: string;
   description?: string;
+  dimensions?: string;
 }
 
 export interface ProductSpec {

@@ -421,9 +421,9 @@ async function decryptCustomerData(env: Env, payload: string): Promise<any> {
       const iv = base64ToUint8(envelope.iv);
       const cipherBytes = base64ToUint8(envelope.data);
       const decryptedBuffer = await crypto.subtle.decrypt(
-        { name: 'AES-GCM', iv },
+        { name: 'AES-GCM', iv: iv as any },
         key,
-        cipherBytes,
+        cipherBytes as any,
       );
       const text = new TextDecoder().decode(decryptedBuffer);
       return JSON.parse(text);
@@ -1072,6 +1072,13 @@ interface WizardDraft {
   targetPhotoCount?: number;
   images?: string[];
   targetProductId?: string; // Used when appending photos to an existing product
+  currentShape?: {
+    image?: string;
+    name?: string;
+    priceDzd?: number;
+    description?: string;
+    dimensions?: string;
+  };
 }
 
 interface PackDraft {
@@ -1100,6 +1107,12 @@ interface BotSessionState {
     | 'prod_description'
     | 'prod_photo_count'
     | 'prod_photos'
+    | 'shape_photo'
+    | 'shape_name'
+    | 'shape_price'
+    | 'shape_desc'
+    | 'shape_dims'
+    | 'shape_ask_more'
     | 'existing_add_photos'
     | 'pack_name'
     | 'pack_desc'
@@ -2236,12 +2249,12 @@ export default {
           if (formAction === 'add_product') {
             const name = (form.get('name')?.toString() || '').trim();
             const categoryName = (form.get('category')?.toString() || 'أدوات مكتبية').trim();
-            const price = parseInt(form.get('price')?.toString() || '0', 10);
+            let price = parseInt(form.get('price')?.toString() || '0', 10);
             const description = (form.get('description')?.toString() || '').trim();
             const variantsRaw = (form.get('variants_raw')?.toString() || '').trim();
             const colorFamily = (form.get('color')?.toString() || 'black').trim();
 
-            const uploadedImages: string[] = [];
+            let uploadedImages: string[] = [];
 
             // 1. URLs from client-side compressor
             const hiddenUrls = form.getAll('uploaded_image_urls');
@@ -2283,11 +2296,48 @@ export default {
               uploadedImages.push('/assets/aistudio/photo_5767250388670156962_y__1__73abac5d.jpg');
             }
 
-            if (name && price > 0) {
+            // 4. Multi-Shape JSON from Interactive Dashboard Builder
+            let variantsFromJson: ProductVariant[] = [];
+            const rawJson = (form.get('variants_json')?.toString() || '').trim();
+            if (rawJson) {
+              try {
+                const arr = JSON.parse(rawJson);
+                if (Array.isArray(arr) && arr.length > 0) {
+                  variantsFromJson = arr.map((item: any, idx: number) => ({
+                    id: `var-${Date.now()}-${idx + 1}`,
+                    name: (item.name || `شكل ${idx + 1}`).trim(),
+                    label: (item.name || `شكل ${idx + 1}`).trim(),
+                    priceDzd: Number(item.priceDzd) || price || 1000,
+                    image: (item.image || '').trim(),
+                    description: (item.description || '').trim(),
+                    dimensions: (item.dimensions || '').trim(),
+                  }));
+                }
+              } catch {}
+            }
+
+            const parsedVariants =
+              variantsFromJson.length > 0
+                ? variantsFromJson
+                : (variantsRaw ? parseVariantsText(variantsRaw) : []);
+
+            if (parsedVariants.length > 0) {
+              if (price <= 0) {
+                price = Math.min(...parsedVariants.map((v) => v.priceDzd));
+              }
+              const shapeImages = parsedVariants.map((v) => v.image).filter(Boolean) as string[];
+              if (shapeImages.length > 0) {
+                uploadedImages = [...shapeImages, ...uploadedImages.filter((img) => !shapeImages.includes(img))];
+              }
+            }
+
+            if (name && (price > 0 || parsedVariants.length > 0)) {
+              if (price <= 0 && parsedVariants.length > 0) {
+                price = Math.min(...parsedVariants.map((v) => v.priceDzd));
+              }
               const products = await getProducts(env);
               const newId = await getNextNumericId(env, products);
               const catObj = await ensureCategory(env, categoryName);
-              const parsedVariants = variantsRaw ? parseVariantsText(variantsRaw) : [];
 
               // Link each uploaded image to its corresponding variant/shape
               const linkedVariants = parsedVariants.map((v, i) => ({
@@ -2295,6 +2345,12 @@ export default {
                 name: v.name || v.label,
                 image: v.image || uploadedImages[i] || uploadedImages[0],
               }));
+
+              const mainDesc =
+                description ||
+                (linkedVariants.length > 0 && linkedVariants[0].description
+                  ? linkedVariants[0].description
+                  : 'منتج أصلي معتمد متوفر في فرع تكنو الأغواط.');
 
               const newProduct: Product = {
                 id: newId,
@@ -2314,8 +2370,8 @@ export default {
                 images: uploadedImages,
                 ...(linkedVariants.length > 0 ? { variants: linkedVariants } : {}),
                 alt: `${name} — رقم المنتج ${newId}`,
-                summary: description || name,
-                description: description || 'منتج أصلي معتمد متوفر في فرع تكنو الأغواط.',
+                summary: mainDesc,
+                description: mainDesc,
                 availabilityText: 'متوفر في فرع الأغواط',
                 featuredRank: 1,
                 siblingIds: [],
@@ -2330,8 +2386,19 @@ export default {
                         },
                       ]
                     : []),
+                  ...(linkedVariants.some((v) => v.dimensions)
+                    ? [
+                        {
+                          label: 'القياسات المتوفرة',
+                          value: linkedVariants.map((v) => v.dimensions).filter(Boolean).join(' · '),
+                        },
+                      ]
+                    : []),
                 ],
-                highlights: ['منتج أصلي معتمد متوفر في فرع تكنو الأغواط'],
+                highlights: [
+                  'منتج أصلي معتمد متوفر في فرع تكنو الأغواط',
+                  'توصيل سريع للأغواط و54 ولاية عبر ZR Express والدفع عند الاستلام',
+                ],
               };
 
               await saveProducts(env, [newProduct, ...products]);
@@ -2885,6 +2952,18 @@ export default {
 
           <form method="POST" action="${basePath}" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:14px;">
             <input type="hidden" name="action" value="add_product" />
+            <input type="hidden" id="prod-mode" name="prod_mode" value="single" />
+            <input type="hidden" id="variants-json-input" name="variants_json" value="" />
+
+            <!-- Mode Selector Switcher -->
+            <div style="grid-column: 1 / -1; background:#F1F5F9; padding:5px; border-radius:12px; display:flex; gap:8px;">
+              <button type="button" id="tab-single-prod" onclick="switchProductMode('single')" style="flex:1; padding:9px 12px; border:none; border-radius:8px; font-weight:700; font-size:13px; cursor:pointer; background:#FFFFFF; color:#0F172A; box-shadow:0 1px 3px rgba(0,0,0,0.1); transition:all 0.2s;">
+                💰 منتج عادي (سعر واحد وصور عادية)
+              </button>
+              <button type="button" id="tab-multi-prod" onclick="switchProductMode('multi')" style="flex:1; padding:9px 12px; border:none; border-radius:8px; font-weight:700; font-size:13px; cursor:pointer; background:transparent; color:#64748B; transition:all 0.2s;">
+                🎨 منتج متعدد الأشكال والموديلات (لكل شكل صورته واسمه وسعره ووصفه وقياساته)
+              </button>
+            </div>
 
             <div style="grid-column: 1 / -1;">
               <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">🏷️ اسم المنتج *</label>
@@ -2905,9 +2984,9 @@ export default {
               </datalist>
             </div>
 
-            <div>
+            <div id="single-price-col">
               <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">💰 السعر بالدينار الجزائري (د.ج) *</label>
-              <input type="number" name="price" required min="10" placeholder="1800" style="width:100%; box-sizing:border-box; padding:10px 14px; border:1.5px solid #CBD5E1; border-radius:10px; font-size:13.5px; font-family:monospace; font-weight:700; color:#0F172A;" />
+              <input type="number" id="single-price-input" name="price" required min="10" placeholder="1800" style="width:100%; box-sizing:border-box; padding:10px 14px; border:1.5px solid #CBD5E1; border-radius:10px; font-size:13.5px; font-family:monospace; font-weight:700; color:#0F172A;" />
             </div>
 
             <div>
@@ -2922,7 +3001,8 @@ export default {
               </select>
             </div>
 
-            <div style="grid-column: 1 / -1;">
+            <!-- Single Product Photos Upload -->
+            <div id="single-photos-section" style="grid-column: 1 / -1;">
               <label style="display:block; font-size:12.5px; font-weight:700; color:#334155; margin-bottom:6px;">
                 📸 صور المنتج (رفع مباشر وضغط تلقائي للحجم مثل التيليغرام)
               </label>
@@ -2933,9 +3013,6 @@ export default {
                 <div style="font-weight: 800; font-size: 14.5px; color: #0F172A;">اضغط هنا لاختيار الصور من هاتفك أو جهازك (أو اسحبها إلى هنا)</div>
                 <div style="font-size: 12px; color: #64748B; margin-top: 4px;">
                   ⚡ يتم تقليل وضغط حجم الصور فورياً في متصفحك (مثل التيليغرام) لتصبح خفيفة وسريعة التحميل لزبائن المتجر.
-                </div>
-                <div style="font-size: 11.5px; color: #0284C7; font-weight: 700; margin-top: 6px;">
-                  💡 يمكنك اختيار صورة واحدة أو عدة صور (لكل شكل صورة بالترتيب).
                 </div>
               </div>
 
@@ -2955,20 +3032,35 @@ export default {
               </details>
             </div>
 
-            <div style="grid-column: 1 / -1;">
-              <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">
-                ✨ الأشكال المتعددة للمنتج (Multi-Shapes / Variants) — اختياري
-              </label>
-              <div style="font-size:11.5px; color:#64748B; margin-bottom:6px;">
-                إذا كان المنتج يحتوي على أشكال أو أحجام أو سعات مختلفة، اكتب كل شكل في سطر منفصل بالتنسيق: <code>اسم الشكل : السعر : الوصف</code>
+            <!-- Multi-Shapes / Multi-Models Interactive Builder -->
+            <div id="multi-shapes-section" style="grid-column: 1 / -1; display:none; background:#F8FAFC; border:1.5px solid #E2E8F0; border-radius:16px; padding:18px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px; border-bottom:1px solid #E2E8F0; padding-bottom:12px;">
+                <div>
+                  <h4 style="margin:0; font-size:15px; font-weight:800; color:#0F172A; display:flex; align-items:center; gap:8px;">
+                    <span>🎨 أشكال وموديلات المنتج</span>
+                    <span style="font-size:11px; background:#EFF6FF; color:#1D4ED8; padding:2px 8px; border-radius:12px; font-weight:700;">تسلسل تفاعلي كامل</span>
+                  </h4>
+                  <p style="margin:3px 0 0; font-size:12px; color:#64748B;">
+                    أدخل لكل شكل: <b>صورته</b> (مع ضغط الحجم)، ثم <b>اسمه</b>، ثم <b>سعره</b>، ثم <b>الوصف</b>، ثم <b>القياسات</b>.
+                  </p>
+                </div>
+                <button type="button" onclick="addNewShapeCard()" style="background:#0284C7; color:#FFFFFF; border:none; padding:9px 16px; border-radius:10px; font-size:13px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:6px; box-shadow:0 2px 6px rgba(2,132,199,0.2);">
+                  <span>➕ إضافة شكل آخر لهذا المنتج</span>
+                </button>
               </div>
-              <textarea name="variants_raw" rows="3" placeholder="مثال:
-شكل قطة كرتونية : 1800 : مبطنة بجيب إضافي
-شكل فضاء ونجوم : 2200 : سعة مضاعفة مع مقلمة صغيرة" style="width:100%; box-sizing:border-box; padding:10px 14px; border:1.5px solid #CBD5E1; border-radius:10px; font-size:13px; font-family:inherit;"></textarea>
+
+              <!-- Container for Shape Cards -->
+              <div id="shapes-cards-container" style="display:flex; flex-direction:column; gap:14px;"></div>
+
+              <div style="margin-top:14px; display:flex; justify-content:center;">
+                <button type="button" onclick="addNewShapeCard()" style="background:#FFFFFF; border:1.5px dashed #0284C7; color:#0284C7; padding:10px 20px; border-radius:12px; font-size:13px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:8px; width:100%; justify-content:center;">
+                  <span>➕ إضافة شكل جديد لهذا المنتج (صورة، اسم، سعر، وصف، قياسات)</span>
+                </button>
+              </div>
             </div>
 
             <div style="grid-column: 1 / -1;">
-              <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">📝 وصف ومميزات المنتج (اختياري)</label>
+              <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">📝 وصف ومميزات المنتج العامة (اختياري)</label>
               <textarea name="description" rows="2" placeholder="وصف موجز للمنتج، خامة الصنع، ومميزاته..." style="width:100%; box-sizing:border-box; padding:10px 14px; border:1.5px solid #CBD5E1; border-radius:10px; font-size:13px; font-family:inherit;"></textarea>
             </div>
 
@@ -3708,6 +3800,349 @@ export default {
         : ordersContent
     }
   </div>
+
+  <script>
+    // Product Mode Switcher (Single vs Multi-Shapes)
+    function switchProductMode(mode) {
+      var isMulti = mode === 'multi';
+      var singleBtn = document.getElementById('tab-single-prod');
+      var multiBtn = document.getElementById('tab-multi-prod');
+      var priceCol = document.getElementById('single-price-col');
+      var photosSec = document.getElementById('single-photos-section');
+      var multiSection = document.getElementById('multi-shapes-section');
+      var modeInput = document.getElementById('prod-mode');
+      var priceInput = document.getElementById('single-price-input');
+
+      if (modeInput) modeInput.value = mode;
+
+      if (isMulti) {
+        if (singleBtn) {
+          singleBtn.style.background = 'transparent';
+          singleBtn.style.color = '#64748B';
+          singleBtn.style.boxShadow = 'none';
+        }
+        if (multiBtn) {
+          multiBtn.style.background = '#FFFFFF';
+          multiBtn.style.color = '#0F172A';
+          multiBtn.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+        }
+        if (priceCol) priceCol.style.display = 'none';
+        if (photosSec) photosSec.style.display = 'none';
+        if (multiSection) multiSection.style.display = 'block';
+        if (priceInput) priceInput.removeAttribute('required');
+
+        var container = document.getElementById('shapes-cards-container');
+        if (container && container.children.length === 0) {
+          addNewShapeCard();
+        }
+      } else {
+        if (singleBtn) {
+          singleBtn.style.background = '#FFFFFF';
+          singleBtn.style.color = '#0F172A';
+          singleBtn.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+        }
+        if (multiBtn) {
+          multiBtn.style.background = 'transparent';
+          multiBtn.style.color = '#64748B';
+          multiBtn.style.boxShadow = 'none';
+        }
+        if (priceCol) priceCol.style.display = 'block';
+        if (photosSec) photosSec.style.display = 'block';
+        if (multiSection) multiSection.style.display = 'none';
+        if (priceInput) priceInput.setAttribute('required', 'true');
+      }
+    }
+
+    // Client-side Canvas Image Compressor (max dimension 1000px, 0.82 JPEG quality)
+    function compressImageFile(file, maxWidth, quality) {
+      maxWidth = maxWidth || 1000;
+      quality = quality || 0.82;
+      return new Promise(function(resolve, reject) {
+        if (!file || !file.type.startsWith('image/')) {
+          return reject(new Error('الملف المحدد ليس صورة صالحة.'));
+        }
+        var reader = new FileReader();
+        reader.onload = function(e) {
+          var img = new Image();
+          img.onload = function() {
+            var width = img.width;
+            var height = img.height;
+            if (width > maxWidth || height > maxWidth) {
+              if (width > height) {
+                height = Math.round((height * maxWidth) / width);
+                width = maxWidth;
+              } else {
+                width = Math.round((width * maxWidth) / height);
+                height = maxWidth;
+              }
+            }
+            var canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            var ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            canvas.toBlob(function(blob) {
+              if (blob) {
+                resolve({
+                  blob: blob,
+                  originalSize: file.size,
+                  compressedSize: blob.size,
+                  dataUrl: canvas.toDataURL('image/jpeg', quality)
+                });
+              } else {
+                reject(new Error('فشل ضغط الصورة'));
+              }
+            }, 'image/jpeg', quality);
+          };
+          img.onerror = reject;
+          img.src = e.target.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // Upload compressed image blob to /api/upload-image
+    function uploadCompressedImageBlob(blob) {
+      var formData = new FormData();
+      formData.append('file', blob, 'image.jpg');
+      return fetch('/api/upload-image', {
+        method: 'POST',
+        body: formData
+      }).then(function(res) {
+        if (!res.ok) throw new Error('فشل رفع الصورة للسحابة');
+        return res.json();
+      }).then(function(data) {
+        if (!data || !data.url) throw new Error('استجابة غير صحيحة من السيرفر');
+        return data.url;
+      });
+    }
+
+    function formatBytes(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+    }
+
+    // Handle single mode product files upload
+    function handleProductFiles(files) {
+      if (!files || files.length === 0) return;
+      var previewsContainer = document.getElementById('image-previews');
+      var hiddenContainer = document.getElementById('hidden-inputs');
+      var statusEl = document.getElementById('upload-status');
+      if (!previewsContainer || !hiddenContainer) return;
+
+      if (statusEl) {
+        statusEl.style.display = 'block';
+        statusEl.style.color = '#0284C7';
+        statusEl.textContent = '⏳ جاري ضغط ورفع ' + files.length + ' صور...';
+      }
+
+      var uploadPromises = [];
+      for (var i = 0; i < files.length; i++) {
+        (function(file) {
+          var p = compressImageFile(file, 1000, 0.82).then(function(res) {
+            return uploadCompressedImageBlob(res.blob).then(function(url) {
+              var card = document.createElement('div');
+              card.style.cssText = 'position:relative; border-radius:10px; overflow:hidden; border:1px solid #CBD5E1; background:#F8FAFC;';
+              card.innerHTML = '<img src="' + url + '" style="width:100%; height:90px; object-fit:cover;" />' +
+                '<div style="font-size:10px; color:#047857; padding:2px 4px; font-weight:700; text-align:center;">' + formatBytes(res.compressedSize) + ' (' + Math.round((1 - res.compressedSize / res.originalSize) * 100) + '%-)' + '</div>';
+              previewsContainer.appendChild(card);
+
+              var input = document.createElement('input');
+              input.type = 'hidden';
+              input.name = 'uploaded_images_urls';
+              input.value = url;
+              hiddenContainer.appendChild(input);
+            });
+          });
+          uploadPromises.push(p);
+        })(files[i]);
+      }
+
+      Promise.all(uploadPromises).then(function() {
+        if (statusEl) {
+          statusEl.style.color = '#047857';
+          statusEl.textContent = '✅ تم ضغط ورفع جميع الصور بنجاح بنسبة تصغير وتوفير عالية!';
+        }
+      }).catch(function(err) {
+        if (statusEl) {
+          statusEl.style.color = '#DC2626';
+          statusEl.textContent = '⚠️ حدث خطأ أثناء رفع الصور: ' + err.message;
+        }
+      });
+    }
+
+    // Trigger file dialog for a shape card
+    function triggerShapeFileInput(btn) {
+      var card = btn.closest('.shape-card');
+      if (!card) return;
+      var fileInput = card.querySelector('.shape-file-input');
+      if (fileInput) fileInput.click();
+    }
+
+    // Handle shape photo upload with auto-compression
+    function handleShapePhotoUpload(input) {
+      var file = input.files && input.files[0];
+      if (!file) return;
+      var card = input.closest('.shape-card');
+      if (!card) return;
+
+      var thumb = card.querySelector('.shape-thumb');
+      var label = card.querySelector('.shape-file-label');
+      var status = card.querySelector('.shape-file-status');
+      var hiddenUrl = card.querySelector('.shape-image-url');
+
+      if (label) label.textContent = '⏳ جاري ضغط ورفع الصورة...';
+      if (status) status.textContent = 'جاري تقليل الحجم لسرعة التحميل';
+
+      compressImageFile(file, 1000, 0.82).then(function(res) {
+        if (thumb) thumb.src = res.dataUrl;
+        return uploadCompressedImageBlob(res.blob).then(function(url) {
+          if (hiddenUrl) hiddenUrl.value = url;
+          if (label) label.textContent = '✅ تم إرفاق الصورة بنجاح';
+          if (status) {
+            var savedPct = Math.round((1 - res.compressedSize / res.originalSize) * 100);
+            status.textContent = 'تم تقليل الحجم من ' + formatBytes(res.originalSize) + ' إلى ' + formatBytes(res.compressedSize) + ' (' + savedPct + '%-)';
+          }
+          syncShapesToJson();
+        });
+      }).catch(function(err) {
+        if (label) label.textContent = '⚠️ فشل الرفع';
+        if (status) status.textContent = err.message;
+      });
+    }
+
+    // Add new shape card
+    function addNewShapeCard() {
+      var container = document.getElementById('shapes-cards-container');
+      if (!container) return;
+      var index = container.children.length + 1;
+
+      var card = document.createElement('div');
+      card.className = 'shape-card';
+      card.style.cssText = 'background:#FFFFFF; border:1.5px solid #CBD5E1; border-radius:14px; padding:16px; position:relative; box-shadow:0 1px 4px rgba(0,0,0,0.03);';
+      card.innerHTML =
+        '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1px solid #F1F5F9; padding-bottom:8px;">' +
+          '<span style="font-weight:800; font-size:13.5px; color:#0F172A;">الشكل <span class="shape-num">' + index + '</span></span>' +
+          '<button type="button" onclick="removeShapeCard(this)" class="remove-shape-btn" style="background:#FEE2E2; color:#DC2626; border:none; padding:4px 10px; border-radius:6px; font-size:11.5px; font-weight:700; cursor:pointer;' + (index === 1 ? 'display:none;' : '') + '">🗑️ حذف هذا الشكل</button>' +
+        '</div>' +
+        '<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px;">' +
+          '<div style="grid-column: 1 / -1;">' +
+            '<label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">📸 1. صورة هذا الشكل (اضغط لاختيار صورة وسيتم تقليل حجمها تلقائياً) *</label>' +
+            '<div class="shape-dropzone" onclick="triggerShapeFileInput(this)" style="border:2px dashed #94A3B8; border-radius:10px; padding:12px 16px; text-align:center; cursor:pointer; background:#F8FAFC; display:flex; align-items:center; gap:12px;">' +
+              '<img class="shape-thumb" src="/assets/aistudio/photo_5767250388670156962_y__1__73abac5d.jpg" style="width:48px; height:48px; object-fit:cover; border-radius:8px; border:1px solid #CBD5E1; flex-shrink:0;" />' +
+              '<div style="text-align:right;">' +
+                '<div style="font-size:12.5px; font-weight:700; color:#0F172A;" class="shape-file-label">اضغط لاختيار صورة هذا الشكل</div>' +
+                '<div style="font-size:11px; color:#64748B;" class="shape-file-status">يتم تقليل وضغط الحجم تلقائياً (مثل التيليغرام)</div>' +
+              '</div>' +
+            '</div>' +
+            '<input type="file" accept="image/*" class="shape-file-input" style="display:none;" onchange="handleShapePhotoUpload(this)" />' +
+            '<input type="hidden" class="shape-image-url" value="" />' +
+          '</div>' +
+          '<div>' +
+            '<label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">🏷️ 2. اسم الشكل أو الموديل *</label>' +
+            '<input type="text" class="shape-name" placeholder="مثال: شكل قطة كرتونية / أزرق ملكي" style="width:100%; box-sizing:border-box; padding:8px 12px; border:1px solid #CBD5E1; border-radius:8px; font-size:13px; font-weight:600;" oninput="syncShapesToJson()" />' +
+          '</div>' +
+          '<div>' +
+            '<label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">💰 3. سعر هذا الشكل (د.ج) *</label>' +
+            '<input type="number" class="shape-price" min="10" placeholder="مثال: 1800" style="width:100%; box-sizing:border-box; padding:8px 12px; border:1px solid #CBD5E1; border-radius:8px; font-size:13px; font-family:monospace; font-weight:700; color:#0F172A;" oninput="syncShapesToJson()" />' +
+          '</div>' +
+          '<div>' +
+            '<label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">📝 4. وصف ومميزات هذا الشكل (اختياري)</label>' +
+            '<input type="text" class="shape-desc" placeholder="مثال: مبطنة بجيب إضافي" style="width:100%; box-sizing:border-box; padding:8px 12px; border:1px solid #CBD5E1; border-radius:8px; font-size:13px;" oninput="syncShapesToJson()" />' +
+          '</div>' +
+          '<div>' +
+            '<label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">📏 5. قياسات أو أبعاد هذا الشكل (اختياري)</label>' +
+            '<input type="text" class="shape-dims" placeholder="مثال: 30x20 سم / A4 / 500 مل" style="width:100%; box-sizing:border-box; padding:8px 12px; border:1px solid #CBD5E1; border-radius:8px; font-size:13px;" oninput="syncShapesToJson()" />' +
+          '</div>' +
+        '</div>';
+
+      container.appendChild(card);
+      updateShapeNumbers();
+      syncShapesToJson();
+    }
+
+    // Remove shape card
+    function removeShapeCard(btn) {
+      var card = btn.closest('.shape-card');
+      if (!card) return;
+      card.remove();
+      updateShapeNumbers();
+      syncShapesToJson();
+    }
+
+    // Renumber shape cards
+    function updateShapeNumbers() {
+      var container = document.getElementById('shapes-cards-container');
+      if (!container) return;
+      var cards = container.querySelectorAll('.shape-card');
+      cards.forEach(function(card, idx) {
+        var numSpan = card.querySelector('.shape-num');
+        if (numSpan) numSpan.textContent = idx + 1;
+        var removeBtn = card.querySelector('.remove-shape-btn');
+        if (removeBtn) {
+          removeBtn.style.display = cards.length > 1 ? 'inline-block' : 'none';
+        }
+      });
+    }
+
+    // Sync shapes cards data into hidden variants_json field
+    function syncShapesToJson() {
+      var container = document.getElementById('shapes-cards-container');
+      var jsonInput = document.getElementById('variants-json-input');
+      var priceInput = document.getElementById('single-price-input');
+      var modeInput = document.getElementById('prod-mode');
+      if (!container || !jsonInput) return;
+
+      var cards = container.querySelectorAll('.shape-card');
+      var list = [];
+      var minPrice = 0;
+
+      cards.forEach(function(card, idx) {
+        var nameInput = card.querySelector('.shape-name');
+        var priceIn = card.querySelector('.shape-price');
+        var descInput = card.querySelector('.shape-desc');
+        var dimsInput = card.querySelector('.shape-dims');
+        var imgInput = card.querySelector('.shape-image-url');
+
+        var name = (nameInput && nameInput.value || '').trim();
+        var price = parseFloat(priceIn && priceIn.value || '0');
+        var desc = (descInput && descInput.value || '').trim();
+        var dims = (dimsInput && dimsInput.value || '').trim();
+        var image = (imgInput && imgInput.value || '').trim();
+
+        if (name || price > 0 || image) {
+          list.push({
+            name: name || ('شكل ' + (idx + 1)),
+            priceDzd: price || 1000,
+            description: desc,
+            dimensions: dims,
+            image: image
+          });
+          if (price > 0) {
+            if (minPrice === 0 || price < minPrice) minPrice = price;
+          }
+        }
+      });
+
+      jsonInput.value = list.length > 0 ? JSON.stringify(list) : '';
+
+      if (modeInput && modeInput.value === 'multi' && priceInput) {
+        priceInput.value = minPrice > 0 ? minPrice : 1000;
+      }
+    }
+
+    // Attach submit listener
+    document.addEventListener('DOMContentLoaded', function() {
+      var form = document.querySelector('form[action*="add_product"]') || document.querySelector('form');
+      if (form) {
+        form.addEventListener('submit', function() {
+          syncShapesToJson();
+        });
+      }
+    });
+  </script>
 </body>
 </html>`;
 
@@ -4180,6 +4615,73 @@ export default {
   },
 };
 
+// Helper: Finalize a shape during interactive wizard and ask if user wants to add another shape
+async function finalizeShapeAndPromptNext(
+  env: Env,
+  botToken: string,
+  chatId: any,
+  session: BotSessionState,
+  editMessageId?: number,
+): Promise<void> {
+  const cur = session.draft.currentShape || {};
+  const variants = session.draft.variants || [];
+  const shapeIndex = variants.length + 1;
+  const shapeName = (cur.name || `شكل ${shapeIndex}`).trim();
+  const shapePrice = cur.priceDzd || session.draft.priceDzd || 1000;
+
+  const newVariant: ProductVariant = {
+    id: `var-${Date.now()}-${shapeIndex}`,
+    name: shapeName,
+    label: shapeName,
+    priceDzd: shapePrice,
+    image: cur.image,
+    description: (cur.description || '').trim(),
+    dimensions: (cur.dimensions || '').trim(),
+  };
+
+  variants.push(newVariant);
+  session.draft.variants = variants;
+  if (cur.image) {
+    session.draft.images = [...(session.draft.images || []), cur.image];
+  }
+  session.draft.currentShape = undefined;
+
+  await setSession(env, chatId, {
+    step: 'shape_ask_more',
+    draft: session.draft,
+    updatedAt: Date.now(),
+  });
+
+  const msgText =
+    `🎉 <b>تم حفظ الشكل (${shapeIndex}) بنجاح!</b>\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n` +
+    `🏷️ <b>الاسم:</b> ${escapeHtml(newVariant.name || newVariant.label)}\n` +
+    `💰 <b>السعر:</b> ${newVariant.priceDzd.toLocaleString()} د.ج\n` +
+    (newVariant.description ? `📝 <b>الوصف:</b> ${escapeHtml(newVariant.description)}\n` : '') +
+    (newVariant.dimensions ? `📏 <b>القياسات:</b> ${escapeHtml(newVariant.dimensions)}\n` : '') +
+    `📸 <b>الصورة:</b> ${newVariant.image ? 'تم إرفاقها ومزامنتها بنجاح' : 'افتراضية'}\n\n` +
+    `📦 <b>إجمالي الأشكال المضافة لهذا المنتج:</b> ${variants.length} أشكال\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n` +
+    `ماذا تريد أن تفعل الآن؟`;
+
+  const keyboard = [
+    [{ text: '➕ إضافة شكل آخر لهذا المنتج', callback_data: 'wiz:shape_add_another' }],
+    [{ text: '✅ إنهاء ونشر المنتج الآن في المتجر', callback_data: 'wiz:shape_finish_publish' }],
+    [{ text: '❌ إلغاء العملية', callback_data: 'wiz:cancel' }],
+  ];
+
+  if (editMessageId) {
+    await sendOrEditMessage(botToken, chatId, editMessageId, msgText, keyboard);
+  } else {
+    await callTelegram(botToken, 'sendMessage', {
+      chat_id: chatId,
+      text: msgText,
+      parse_mode: 'HTML',
+      reply_markup: { inline_keyboard: keyboard },
+    });
+  }
+}
+
 // Helper: Finalize & publish a product from the interactive wizard draft
 async function publishWizardDraft(
   env: Env,
@@ -4211,6 +4713,12 @@ async function publishWizardDraft(
     image: v.image || images[i] || images[0],
   }));
 
+  const mainDesc =
+    draft.description ||
+    (linkedVariants.length > 0 && linkedVariants[0].description
+      ? linkedVariants[0].description
+      : 'منتج أصلي معتمد متوفر في فرع تكنو الأغواط.');
+
   const newProduct: Product = {
     id: newId,
     sku: newSku,
@@ -4229,8 +4737,8 @@ async function publishWizardDraft(
     images,
     ...(linkedVariants.length > 0 ? { variants: linkedVariants } : {}),
     alt: `${draft.name || 'منتج'} — رقم المنتج ${newSku}`,
-    summary: draft.description || 'منتج أصلي معتمد متوفر في فرع تكنو الأغواط.',
-    description: draft.description || 'منتج أصلي معتمد متوفر في فرع تكنو الأغواط.',
+    summary: mainDesc,
+    description: mainDesc,
     availabilityText: 'متوفر في فرع الأغواط',
     featuredRank: 1,
     siblingIds: [],
@@ -4240,8 +4748,19 @@ async function publishWizardDraft(
       ...(linkedVariants.length > 0
         ? [
             {
-              label: 'الأشكال / القياسات المتوفرة',
+              label: 'الأشكال المتوفرة',
               value: linkedVariants.map((v) => `${v.name || v.label} (${v.priceDzd.toLocaleString()} د.ج)`).join(' · '),
+            },
+          ]
+        : []),
+      ...(linkedVariants.some((v) => v.dimensions)
+        ? [
+            {
+              label: 'القياسات المتوفرة',
+              value: linkedVariants
+                .map((v) => v.dimensions)
+                .filter(Boolean)
+                .join(' · '),
             },
           ]
         : []),
@@ -4548,22 +5067,80 @@ async function handleTelegramUpdate(
     } else if (data === 'wiz:price_variants') {
       const session = await getSession(env, chatId);
       if (session) {
+        session.draft.variants = [];
+        session.draft.images = [];
+        session.draft.currentShape = {};
         await setSession(env, chatId, {
-          step: 'prod_variants',
-          draft: { ...session.draft, variants: session.draft.variants || [] },
+          step: 'shape_photo',
+          draft: session.draft,
           updatedAt: Date.now(),
         });
         await sendOrEditMessage(
           botToken,
           chatId,
           messageId,
-          `📏 <b>إضافة القياسات وأسعارها</b>\n` +
+          `🎨 <b>إضافة أشكال وموديلات المنتج — الشكل (1)</b>\n` +
             `━━━━━━━━━━━━━━━━━━━━\n` +
-            `أرسل كل قياس وسعره في سطر (يمكنك إرسالها كلها في رسالة واحدة أو قياساً تلو الآخر):\n\n` +
-            `<i>مثال:</i>\n` +
-            `<code>صغير : 1800\nمتوسط : 2500\nكبير : 3400</code>`,
+            `📸 <b>الخطوة 1:</b> أرسل الآن <b>صورة</b> هذا الشكل أو الموديل:\n\n` +
+            `<i>(سيرشدك البوت خطوة بخطوة: صورة ➔ اسمها ➔ سعرها ➔ الوصف ➔ القياسات)</i>`,
           [[{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }]],
         );
+      }
+    } else if (data === 'wiz:shape_skip_desc') {
+      const session = await getSession(env, chatId);
+      if (session && session.step === 'shape_desc') {
+        if (!session.draft.currentShape) session.draft.currentShape = {};
+        session.draft.currentShape.description = '';
+        await setSession(env, chatId, {
+          step: 'shape_dims',
+          draft: session.draft,
+          updatedAt: Date.now(),
+        });
+        const shapeIdx = (session.draft.variants?.length || 0) + 1;
+        await sendOrEditMessage(
+          botToken,
+          chatId,
+          messageId,
+          `📏 <b>الخطوة 5 للشكل (${shapeIdx}) — القياسات أو الأبعاد:</b>\n` +
+            `━━━━━━━━━━━━━━━━━━━━\n` +
+            `أرسل أبعاد أو قياسات هذا الشكل (مثال: <code>40x60 سم</code> أو <code>A4</code> أو <code>سعة 500 مل</code>) أو اضغط «تخطي القياسات»:`,
+          [
+            [{ text: '⏭️ تخطي القياسات', callback_data: 'wiz:shape_skip_dims' }],
+            [{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }],
+          ],
+        );
+      }
+    } else if (data === 'wiz:shape_skip_dims') {
+      const session = await getSession(env, chatId);
+      if (session && session.step === 'shape_dims') {
+        if (!session.draft.currentShape) session.draft.currentShape = {};
+        session.draft.currentShape.dimensions = '';
+        await finalizeShapeAndPromptNext(env, botToken, chatId, session, messageId);
+      }
+    } else if (data === 'wiz:shape_add_another') {
+      const session = await getSession(env, chatId);
+      if (session) {
+        session.draft.currentShape = {};
+        await setSession(env, chatId, {
+          step: 'shape_photo',
+          draft: session.draft,
+          updatedAt: Date.now(),
+        });
+        const nextIdx = (session.draft.variants?.length || 0) + 1;
+        await sendOrEditMessage(
+          botToken,
+          chatId,
+          messageId,
+          `📸 <b>الخطوة 1 للشكل (${nextIdx}):</b>\n` +
+            `━━━━━━━━━━━━━━━━━━━━\n` +
+            `أرسل الآن <b>صورة</b> هذا الشكل الجديد:`,
+          [[{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }]],
+        );
+      }
+    } else if (data === 'wiz:shape_finish_publish') {
+      const session = await getSession(env, chatId);
+      if (session && session.draft.variants && session.draft.variants.length > 0) {
+        await publishWizardDraft(env, botToken, chatId, session.draft);
       }
     } else if (data === 'wiz:variants_done') {
       const session = await getSession(env, chatId);
@@ -4942,6 +5519,30 @@ async function handleTelegramUpdate(
       const bestPhoto = selectOptimalWebPhoto(msg.photo) || msg.photo[msg.photo.length - 1];
       const imageUrl = await downloadTelegramPhoto(env, botToken, bestPhoto.file_id, origin);
 
+      if (session.step === 'shape_photo') {
+        if (!session.draft.currentShape) session.draft.currentShape = {};
+        session.draft.currentShape.image = imageUrl;
+        await setSession(env, chatId, {
+          step: 'shape_name',
+          draft: session.draft,
+          updatedAt: Date.now(),
+        });
+        const shapeIdx = (session.draft.variants?.length || 0) + 1;
+        await callTelegram(botToken, 'sendMessage', {
+          chat_id: chatId,
+          text:
+            `✅ <b>تم استلام صورة الشكل (${shapeIdx}) بنجاح!</b>\n` +
+            `━━━━━━━━━━━━━━━━━━━━\n` +
+            `🏷️ <b>الخطوة 2 للشكل (${shapeIdx}):</b> أرسل الآن <b>اسم هذا الشكل أو الموديل</b>\n` +
+            `(مثال: <code>شكل قطة كرتونية</code> أو <code>أزرق ملكي</code> أو <code>موديل جلدي 3 سحابات</code>):`,
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [[{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }]],
+          },
+        });
+        return;
+      }
+
       if (session.step === 'prod_photos') {
         const nextImages = [...(session.draft.images || []), imageUrl];
         session.draft.images = nextImages;
@@ -5299,6 +5900,128 @@ async function handleTelegramUpdate(
             inline_keyboard: [
               [{ text: '⏭️ تخطي الوصف', callback_data: 'wiz:skip_desc' }],
               [{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }],
+            ],
+          },
+        });
+        return;
+      }
+
+      if (session.step === 'shape_photo') {
+        await callTelegram(botToken, 'sendMessage', {
+          chat_id: chatId,
+          text: '📸 <b>يرجى إرسال صورة للشكل</b> للمتابعة (أو اضغط إلغاء أدناه):',
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [[{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }]],
+          },
+        });
+        return;
+      }
+
+      if (session.step === 'shape_name') {
+        if (!session.draft.currentShape) session.draft.currentShape = {};
+        session.draft.currentShape.name = text.trim();
+        await setSession(env, chatId, {
+          step: 'shape_price',
+          draft: session.draft,
+          updatedAt: Date.now(),
+        });
+        const shapeIdx = (session.draft.variants?.length || 0) + 1;
+        await callTelegram(botToken, 'sendMessage', {
+          chat_id: chatId,
+          text:
+            `✅ اسم الشكل: <b>${escapeHtml(text.trim())}</b>\n` +
+            `━━━━━━━━━━━━━━━━━━━━\n` +
+            `💰 <b>الخطوة 3 للشكل (${shapeIdx}):</b> أرسل <b>سعر هذا الشكل</b> بالدينار الجزائري (أرقام فقط، مثال: <code>2500</code>):`,
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [[{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }]],
+          },
+        });
+        return;
+      }
+
+      if (session.step === 'shape_price') {
+        const price = parseInt(text.replace(/[^0-9]/g, ''), 10);
+        if (!price || price <= 0) {
+          await callTelegram(botToken, 'sendMessage', {
+            chat_id: chatId,
+            text: '⚠️ يرجى إدخال سعر صحيح بالأرقام (مثال: <code>2500</code>).',
+            parse_mode: 'HTML',
+            reply_markup: {
+              inline_keyboard: [[{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }]],
+            },
+          });
+          return;
+        }
+        if (!session.draft.currentShape) session.draft.currentShape = {};
+        session.draft.currentShape.priceDzd = price;
+        await setSession(env, chatId, {
+          step: 'shape_desc',
+          draft: session.draft,
+          updatedAt: Date.now(),
+        });
+        const shapeIdx = (session.draft.variants?.length || 0) + 1;
+        await callTelegram(botToken, 'sendMessage', {
+          chat_id: chatId,
+          text:
+            `✅ السعر: <b>${price.toLocaleString()} د.ج</b>\n` +
+            `━━━━━━━━━━━━━━━━━━━━\n` +
+            `📝 <b>الخطوة 4 للشكل (${shapeIdx}):</b> أرسل <b>وصف ومميزات هذا الشكل</b> أو اضغط «تخطي الوصف»:`,
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '⏭️ تخطي الوصف', callback_data: 'wiz:shape_skip_desc' }],
+              [{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }],
+            ],
+          },
+        });
+        return;
+      }
+
+      if (session.step === 'shape_desc') {
+        if (!session.draft.currentShape) session.draft.currentShape = {};
+        session.draft.currentShape.description = text.trim();
+        await setSession(env, chatId, {
+          step: 'shape_dims',
+          draft: session.draft,
+          updatedAt: Date.now(),
+        });
+        const shapeIdx = (session.draft.variants?.length || 0) + 1;
+        await callTelegram(botToken, 'sendMessage', {
+          chat_id: chatId,
+          text:
+            `✅ الوصف: <b>${escapeHtml(text.trim())}</b>\n` +
+            `━━━━━━━━━━━━━━━━━━━━\n` +
+            `📏 <b>الخطوة 5 للشكل (${shapeIdx}):</b> أرسل <b>قياسات أو أبعاد هذا الشكل</b> (مثال: <code>40x60 سم</code> أو <code>A4</code> أو <code>سعة 500 مل</code>) أو اضغط «تخطي القياسات»:`,
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '⏭️ تخطي القياسات', callback_data: 'wiz:shape_skip_dims' }],
+              [{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }],
+            ],
+          },
+        });
+        return;
+      }
+
+      if (session.step === 'shape_dims') {
+        if (!session.draft.currentShape) session.draft.currentShape = {};
+        session.draft.currentShape.dimensions = text.trim();
+        await finalizeShapeAndPromptNext(env, botToken, chatId, session);
+        return;
+      }
+
+      if (session.step === 'shape_ask_more') {
+        await callTelegram(botToken, 'sendMessage', {
+          chat_id: chatId,
+          text: '👇 يرجى اختيار أحد الأزرار أدناه للمتابعة:',
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '➕ إضافة شكل آخر لهذا المنتج', callback_data: 'wiz:shape_add_another' }],
+              [{ text: '✅ إنهاء ونشر المنتج الآن في المتجر', callback_data: 'wiz:shape_finish_publish' }],
+              [{ text: '❌ إلغاء العملية', callback_data: 'wiz:cancel' }],
             ],
           },
         });

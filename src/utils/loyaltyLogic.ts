@@ -585,7 +585,7 @@ export function retrieveCardByPhone(phone: string): {
 } {
   const cleanInput = phone.trim();
   const registry = getAllRegisteredCards();
-  let card = registry[cleanInput];
+  let card: LoyaltyCardData | undefined = registry[cleanInput];
 
   if (!card) {
     // Also search registry by card number (with or without hyphens)

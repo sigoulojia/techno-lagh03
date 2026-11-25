@@ -22,6 +22,7 @@ export interface ProductVariant {
   name?: string;
   description?: string;
   image?: string;
+  dimensions?: string;
 }
 
 export interface ProductSpec {
