@@ -1078,6 +1078,12 @@ interface WizardDraft {
     priceDzd?: number;
     description?: string;
     dimensions?: string;
+    subSizes?: Array<{
+      label: string;
+      priceDzd: number;
+      description?: string;
+      dimensions?: string;
+    }>;
   };
 }
 
@@ -1109,7 +1115,9 @@ interface BotSessionState {
     | 'prod_photos'
     | 'shape_photo'
     | 'shape_name'
+    | 'shape_pricing_choice'
     | 'shape_price'
+    | 'shape_multi_sizes'
     | 'shape_desc'
     | 'shape_dims'
     | 'shape_ask_more'
@@ -2303,15 +2311,39 @@ export default {
               try {
                 const arr = JSON.parse(rawJson);
                 if (Array.isArray(arr) && arr.length > 0) {
-                  variantsFromJson = arr.map((item: any, idx: number) => ({
-                    id: `var-${Date.now()}-${idx + 1}`,
-                    name: (item.name || `شكل ${idx + 1}`).trim(),
-                    label: (item.name || `شكل ${idx + 1}`).trim(),
-                    priceDzd: Number(item.priceDzd) || price || 1000,
-                    image: (item.image || '').trim(),
-                    description: (item.description || '').trim(),
-                    dimensions: (item.dimensions || '').trim(),
-                  }));
+                  for (let idx = 0; idx < arr.length; idx++) {
+                    const item = arr[idx];
+                    const shapeName = (item.name || `شكل ${idx + 1}`).trim();
+                    const shapeImg = (item.image || '').trim();
+                    const shapeDesc = (item.description || '').trim();
+                    const shapeDims = (item.dimensions || '').trim();
+                    const basePrice = Number(item.priceDzd) || price || 1000;
+
+                    const subParsed = shapeDims ? parseVariantsText(shapeDims) : [];
+                    if (subParsed.length > 0) {
+                      for (const sub of subParsed) {
+                        variantsFromJson.push({
+                          id: `var-${Date.now()}-${variantsFromJson.length + 1}`,
+                          name: `${shapeName} (${sub.label})`,
+                          label: sub.label,
+                          priceDzd: sub.priceDzd,
+                          image: shapeImg || uploadedImages[idx] || uploadedImages[0],
+                          description: (sub.description || shapeDesc).trim(),
+                          dimensions: (sub.dimensions || sub.label).trim(),
+                        });
+                      }
+                    } else {
+                      variantsFromJson.push({
+                        id: `var-${Date.now()}-${variantsFromJson.length + 1}`,
+                        name: shapeName,
+                        label: shapeName,
+                        priceDzd: basePrice,
+                        image: shapeImg || uploadedImages[idx] || uploadedImages[0],
+                        description: shapeDesc,
+                        dimensions: shapeDims,
+                      });
+                    }
+                  }
                 }
               } catch {}
             }
@@ -4045,16 +4077,16 @@ export default {
             '<input type="text" class="shape-name" placeholder="مثال: شكل قطة كرتونية / أزرق ملكي" style="width:100%; box-sizing:border-box; padding:8px 12px; border:1px solid #CBD5E1; border-radius:8px; font-size:13px; font-weight:600;" oninput="syncShapesToJson()" />' +
           '</div>' +
           '<div>' +
-            '<label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">💰 3. سعر هذا الشكل (د.ج) *</label>' +
-            '<input type="number" class="shape-price" min="10" placeholder="مثال: 1800" style="width:100%; box-sizing:border-box; padding:8px 12px; border:1px solid #CBD5E1; border-radius:8px; font-size:13px; font-family:monospace; font-weight:700; color:#0F172A;" oninput="syncShapesToJson()" />' +
+            '<label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">💰 3. سعر هذا الشكل (د.ج) <span style="font-size:11px; font-weight:400; color:#64748B;">(أو اتركه وحدد أسعار القياسات بالأسفل)</span></label>' +
+            '<input type="number" class="shape-price" min="0" placeholder="مثال: 1800" style="width:100%; box-sizing:border-box; padding:8px 12px; border:1px solid #CBD5E1; border-radius:8px; font-size:13px; font-family:monospace; font-weight:700; color:#0F172A;" oninput="syncShapesToJson()" />' +
           '</div>' +
           '<div>' +
             '<label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">📝 4. وصف ومميزات هذا الشكل (اختياري)</label>' +
             '<input type="text" class="shape-desc" placeholder="مثال: مبطنة بجيب إضافي" style="width:100%; box-sizing:border-box; padding:8px 12px; border:1px solid #CBD5E1; border-radius:8px; font-size:13px;" oninput="syncShapesToJson()" />' +
           '</div>' +
           '<div>' +
-            '<label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">📏 5. قياسات أو أبعاد هذا الشكل (اختياري)</label>' +
-            '<input type="text" class="shape-dims" placeholder="مثال: 30x20 سم / A4 / 500 مل" style="width:100%; box-sizing:border-box; padding:8px 12px; border:1px solid #CBD5E1; border-radius:8px; font-size:13px;" oninput="syncShapesToJson()" />' +
+            '<label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">📏 5. قياسات هذا الشكل (أو عدة قياسات بأسعارها)</label>' +
+            '<textarea class="shape-dims" rows="2" placeholder="قياس واحد: 40x60 سم أو A4&#10;أو كل قياس بسعره (سطر لكل قياس):&#10;صغير : 1800&#10;متوسط : 2500&#10;كبير : 3400" style="width:100%; box-sizing:border-box; padding:8px 12px; border:1px solid #CBD5E1; border-radius:8px; font-size:12px; line-height:1.4;" oninput="syncShapesToJson()"></textarea>' +
           '</div>' +
         '</div>';
 
@@ -4112,10 +4144,10 @@ export default {
         var dims = (dimsInput && dimsInput.value || '').trim();
         var image = (imgInput && imgInput.value || '').trim();
 
-        if (name || price > 0 || image) {
+        if (name || price > 0 || dims || image) {
           list.push({
             name: name || ('شكل ' + (idx + 1)),
-            priceDzd: price || 1000,
+            priceDzd: price || 0,
             description: desc,
             dimensions: dims,
             image: image
@@ -4627,22 +4659,43 @@ async function finalizeShapeAndPromptNext(
   const variants = session.draft.variants || [];
   const shapeIndex = variants.length + 1;
   const shapeName = (cur.name || `شكل ${shapeIndex}`).trim();
-  const shapePrice = cur.priceDzd || session.draft.priceDzd || 1000;
+  const shapeImage = cur.image;
+  const shapeDesc = (cur.description || '').trim();
 
-  const newVariant: ProductVariant = {
-    id: `var-${Date.now()}-${shapeIndex}`,
-    name: shapeName,
-    label: shapeName,
-    priceDzd: shapePrice,
-    image: cur.image,
-    description: (cur.description || '').trim(),
-    dimensions: (cur.dimensions || '').trim(),
-  };
+  // If subSizes exist (e.g. صغير: 1800, متوسط: 2500, كبير: 3400)
+  if (Array.isArray(cur.subSizes) && cur.subSizes.length > 0) {
+    for (let sIdx = 0; sIdx < cur.subSizes.length; sIdx++) {
+      const sub = cur.subSizes[sIdx];
+      const vId = `var-${Date.now()}-${variants.length + 1}`;
+      const vName = `${shapeName} (${sub.label})`;
+      variants.push({
+        id: vId,
+        name: vName,
+        label: sub.label,
+        priceDzd: sub.priceDzd,
+        image: shapeImage,
+        description: (sub.description || shapeDesc).trim(),
+        dimensions: (sub.dimensions || sub.label).trim(),
+      });
+    }
+  } else {
+    // Single variant for this shape
+    const shapePrice = cur.priceDzd || session.draft.priceDzd || 1000;
+    const vId = `var-${Date.now()}-${variants.length + 1}`;
+    variants.push({
+      id: vId,
+      name: shapeName,
+      label: shapeName,
+      priceDzd: shapePrice,
+      image: shapeImage,
+      description: shapeDesc,
+      dimensions: (cur.dimensions || '').trim(),
+    });
+  }
 
-  variants.push(newVariant);
   session.draft.variants = variants;
-  if (cur.image) {
-    session.draft.images = [...(session.draft.images || []), cur.image];
+  if (shapeImage && (!session.draft.images || !session.draft.images.includes(shapeImage))) {
+    session.draft.images = [...(session.draft.images || []), shapeImage];
   }
   session.draft.currentShape = undefined;
 
@@ -4652,15 +4705,28 @@ async function finalizeShapeAndPromptNext(
     updatedAt: Date.now(),
   });
 
+  // Build nice summary message
+  let summaryDetails = '';
+  if (cur.subSizes && cur.subSizes.length > 0) {
+    summaryDetails =
+      `📏 <b>القياسات والأسعار المعتمدة لهذا الشكل (${cur.subSizes.length}):</b>\n` +
+      cur.subSizes.map((s) => `  • ${escapeHtml(s.label)} — <b>${s.priceDzd.toLocaleString()} د.ج</b>`).join('\n') +
+      '\n';
+  } else {
+    const singleV = variants[variants.length - 1];
+    summaryDetails =
+      `💰 <b>السعر:</b> ${singleV.priceDzd.toLocaleString()} د.ج\n` +
+      (singleV.dimensions ? `📏 <b>القياسات:</b> ${escapeHtml(singleV.dimensions)}\n` : '');
+  }
+
   const msgText =
-    `🎉 <b>تم حفظ الشكل (${shapeIndex}) بنجاح!</b>\n` +
+    `🎉 <b>تم حفظ هذا الشكل بنجاح!</b>\n` +
     `━━━━━━━━━━━━━━━━━━━━\n` +
-    `🏷️ <b>الاسم:</b> ${escapeHtml(newVariant.name || newVariant.label)}\n` +
-    `💰 <b>السعر:</b> ${newVariant.priceDzd.toLocaleString()} د.ج\n` +
-    (newVariant.description ? `📝 <b>الوصف:</b> ${escapeHtml(newVariant.description)}\n` : '') +
-    (newVariant.dimensions ? `📏 <b>القياسات:</b> ${escapeHtml(newVariant.dimensions)}\n` : '') +
-    `📸 <b>الصورة:</b> ${newVariant.image ? 'تم إرفاقها ومزامنتها بنجاح' : 'افتراضية'}\n\n` +
-    `📦 <b>إجمالي الأشكال المضافة لهذا المنتج:</b> ${variants.length} أشكال\n` +
+    `🏷️ <b>الشكل:</b> ${escapeHtml(shapeName)}\n` +
+    summaryDetails +
+    (shapeDesc ? `📝 <b>الوصف:</b> ${escapeHtml(shapeDesc)}\n` : '') +
+    `📸 <b>الصورة:</b> ${shapeImage ? 'تم إرفاقها ومزامنتها بنجاح لجميع القياسات' : 'افتراضية'}\n\n` +
+    `📦 <b>إجمالي الخيارات المسجلة لهذا المنتج:</b> ${variants.length} خيارات\n` +
     `━━━━━━━━━━━━━━━━━━━━\n` +
     `ماذا تريد أن تفعل الآن؟`;
 
@@ -5086,6 +5152,45 @@ async function handleTelegramUpdate(
           [[{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }]],
         );
       }
+    } else if (data === 'wiz:shape_p_single') {
+      const session = await getSession(env, chatId);
+      if (session) {
+        await setSession(env, chatId, {
+          step: 'shape_price',
+          draft: session.draft,
+          updatedAt: Date.now(),
+        });
+        const shapeIdx = (session.draft.variants?.length || 0) + 1;
+        await sendOrEditMessage(
+          botToken,
+          chatId,
+          messageId,
+          `💰 <b>أدخل سعر هذا الشكل بالدينار الجزائري</b> (أرقام فقط، مثال: <code>2500</code>):`,
+          [[{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }]],
+        );
+      }
+    } else if (data === 'wiz:shape_p_sizes') {
+      const session = await getSession(env, chatId);
+      if (session) {
+        await setSession(env, chatId, {
+          step: 'shape_multi_sizes',
+          draft: session.draft,
+          updatedAt: Date.now(),
+        });
+        await sendOrEditMessage(
+          botToken,
+          chatId,
+          messageId,
+          `📏 <b>إضافة قياسات هذا الشكل وأسعارها</b>\n` +
+            `━━━━━━━━━━━━━━━━━━━━\n` +
+            `أرسل كل قياس وسعره في سطر (يمكنك إرسالها كلها في رسالة واحدة أو قياساً تلو الآخر):\n\n` +
+            `<i>مثال:</i>\n` +
+            `<code>صغير : 1800\nمتوسط : 2500\nكبير : 3400</code>\n` +
+            `<i>أو:</i>\n` +
+            `<code>A5 : 450\nA4 : 750\nA3 : 1300</code>`,
+          [[{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }]],
+        );
+      }
     } else if (data === 'wiz:shape_skip_desc') {
       const session = await getSession(env, chatId);
       if (session && session.step === 'shape_desc') {
@@ -5103,7 +5208,9 @@ async function handleTelegramUpdate(
           messageId,
           `📏 <b>الخطوة 5 للشكل (${shapeIdx}) — القياسات أو الأبعاد:</b>\n` +
             `━━━━━━━━━━━━━━━━━━━━\n` +
-            `أرسل أبعاد أو قياسات هذا الشكل (مثال: <code>40x60 سم</code> أو <code>A4</code> أو <code>سعة 500 مل</code>) أو اضغط «تخطي القياسات»:`,
+            `أرسل أبعاد هذا الشكل (مثال: <code>40x60 سم</code> أو <code>سعة 500 مل</code>)\n` +
+            `أو أرسل قياسات بأسعارها (مثال: <code>صغير : 1800\nمتوسط : 2500\nكبير : 3400</code>)\n` +
+            `أو اضغط «تخطي القياسات»:`,
           [
             [{ text: '⏭️ تخطي القياسات', callback_data: 'wiz:shape_skip_dims' }],
             [{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }],
@@ -5922,7 +6029,7 @@ async function handleTelegramUpdate(
         if (!session.draft.currentShape) session.draft.currentShape = {};
         session.draft.currentShape.name = text.trim();
         await setSession(env, chatId, {
-          step: 'shape_price',
+          step: 'shape_pricing_choice',
           draft: session.draft,
           updatedAt: Date.now(),
         });
@@ -5932,30 +6039,78 @@ async function handleTelegramUpdate(
           text:
             `✅ اسم الشكل: <b>${escapeHtml(text.trim())}</b>\n` +
             `━━━━━━━━━━━━━━━━━━━━\n` +
-            `💰 <b>الخطوة 3 للشكل (${shapeIdx}):</b> أرسل <b>سعر هذا الشكل</b> بالدينار الجزائري (أرقام فقط، مثال: <code>2500</code>):`,
+            `💰 <b>الخطوة 3 للشكل (${shapeIdx}): نوع التسعير والقياسات</b>\n` +
+            `هل لهذا الشكل:\n` +
+            `1️⃣ <b>سعر موحد</b> (مثال: <code>2500</code> د.ج)\n` +
+            `2️⃣ أم <b>عدة قياسات بأسعار مختلفة</b> (مثل: صغير: 1800، متوسط: 2500، كبير: 3400)؟\n\n` +
+            `<i>اضغط على أحد الزرين، أو اكتب السعر/القياسات مباشرة في رسالتك:</i>`,
           parse_mode: 'HTML',
           reply_markup: {
-            inline_keyboard: [[{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }]],
+            inline_keyboard: [
+              [{ text: '💰 سعر واحد موحد لهذا الشكل', callback_data: 'wiz:shape_p_single' }],
+              [{ text: '📏 عدة قياسات بأسعارها (صغير، متوسط...)', callback_data: 'wiz:shape_p_sizes' }],
+              [{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }],
+            ],
           },
         });
         return;
       }
 
-      if (session.step === 'shape_price') {
-        const price = parseInt(text.replace(/[^0-9]/g, ''), 10);
-        if (!price || price <= 0) {
+      if (session.step === 'shape_pricing_choice' || session.step === 'shape_price') {
+        const parsed = parseVariantsText(text);
+        if (parsed.length > 1 || (parsed.length === 1 && !/^\d+$/.test(text.trim()))) {
+          if (!session.draft.currentShape) session.draft.currentShape = {};
+          session.draft.currentShape.subSizes = parsed;
+          session.draft.currentShape.priceDzd = Math.min(...parsed.map((v) => v.priceDzd));
+          await setSession(env, chatId, {
+            step: 'shape_desc',
+            draft: session.draft,
+            updatedAt: Date.now(),
+          });
+          const shapeIdx = (session.draft.variants?.length || 0) + 1;
+          const listStr = parsed
+            .map((v) => `  • ${escapeHtml(v.label)} — <b>${v.priceDzd.toLocaleString()} د.ج</b>`)
+            .join('\n');
           await callTelegram(botToken, 'sendMessage', {
             chat_id: chatId,
-            text: '⚠️ يرجى إدخال سعر صحيح بالأرقام (مثال: <code>2500</code>).',
+            text:
+              `✅ <b>تم تسجيل قياسات وأسعار هذا الشكل (${parsed.length}):</b>\n${listStr}\n\n` +
+              `━━━━━━━━━━━━━━━━━━━━\n` +
+              `📝 <b>الخطوة 4 للشكل (${shapeIdx}):</b> أرسل <b>وصف ومميزات هذا الشكل</b> أو اضغط «تخطي الوصف»:`,
             parse_mode: 'HTML',
             reply_markup: {
-              inline_keyboard: [[{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }]],
+              inline_keyboard: [
+                [{ text: '⏭️ تخطي الوصف', callback_data: 'wiz:shape_skip_desc' }],
+                [{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }],
+              ],
             },
           });
           return;
         }
+
+        const price = parseInt(text.replace(/[^0-9]/g, ''), 10);
+        if (!price || price <= 0) {
+          await callTelegram(botToken, 'sendMessage', {
+            chat_id: chatId,
+            text:
+              '⚠️ يرجى إدخال سعر صحيح بالأرقام (مثال: <code>2500</code>)\n' +
+              'أو إدخال القياسات وأسعارها:\n' +
+              '<code>صغير : 1800\nمتوسط : 2500\nكبير : 3400</code>',
+            parse_mode: 'HTML',
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '💰 سعر واحد موحد لهذا الشكل', callback_data: 'wiz:shape_p_single' }],
+                [{ text: '📏 عدة قياسات بأسعارها', callback_data: 'wiz:shape_p_sizes' }],
+                [{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }],
+              ],
+            },
+          });
+          return;
+        }
+
         if (!session.draft.currentShape) session.draft.currentShape = {};
         session.draft.currentShape.priceDzd = price;
+        session.draft.currentShape.subSizes = undefined;
         await setSession(env, chatId, {
           step: 'shape_desc',
           draft: session.draft,
@@ -5966,6 +6121,55 @@ async function handleTelegramUpdate(
           chat_id: chatId,
           text:
             `✅ السعر: <b>${price.toLocaleString()} د.ج</b>\n` +
+            `━━━━━━━━━━━━━━━━━━━━\n` +
+            `📝 <b>الخطوة 4 للشكل (${shapeIdx}):</b> أرسل <b>وصف ومميزات هذا الشكل</b> أو اضغط «تخطي الوصف»:`,
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '⏭️ تخطي الوصف', callback_data: 'wiz:shape_skip_desc' }],
+              [{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }],
+            ],
+          },
+        });
+        return;
+      }
+
+      if (session.step === 'shape_multi_sizes') {
+        const parsed = parseVariantsText(text);
+        if (parsed.length === 0) {
+          await callTelegram(botToken, 'sendMessage', {
+            chat_id: chatId,
+            text:
+              '⚠️ لم أتمكن من قراءة القياسات والأسعار.\n' +
+              'يرجى كتابتها بهذا الشكل:\n' +
+              '<code>صغير : 1800\nمتوسط : 2500\nكبير : 3400</code>\n' +
+              '<i>أو بالأبعاد:</i>\n' +
+              '<code>A5 : 450\nA4 : 750</code>',
+            parse_mode: 'HTML',
+            reply_markup: {
+              inline_keyboard: [[{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }]],
+            },
+          });
+          return;
+        }
+
+        if (!session.draft.currentShape) session.draft.currentShape = {};
+        const merged = [...(session.draft.currentShape.subSizes || []), ...parsed];
+        session.draft.currentShape.subSizes = merged;
+        session.draft.currentShape.priceDzd = Math.min(...merged.map((v) => v.priceDzd));
+        await setSession(env, chatId, {
+          step: 'shape_desc',
+          draft: session.draft,
+          updatedAt: Date.now(),
+        });
+        const shapeIdx = (session.draft.variants?.length || 0) + 1;
+        const listStr = merged
+          .map((v) => `  • ${escapeHtml(v.label)} — <b>${v.priceDzd.toLocaleString()} د.ج</b>`)
+          .join('\n');
+        await callTelegram(botToken, 'sendMessage', {
+          chat_id: chatId,
+          text:
+            `✅ <b>تم تسجيل قياسات وأسعار هذا الشكل بنجاح (${merged.length}):</b>\n${listStr}\n\n` +
             `━━━━━━━━━━━━━━━━━━━━\n` +
             `📝 <b>الخطوة 4 للشكل (${shapeIdx}):</b> أرسل <b>وصف ومميزات هذا الشكل</b> أو اضغط «تخطي الوصف»:`,
           parse_mode: 'HTML',
@@ -5993,7 +6197,9 @@ async function handleTelegramUpdate(
           text:
             `✅ الوصف: <b>${escapeHtml(text.trim())}</b>\n` +
             `━━━━━━━━━━━━━━━━━━━━\n` +
-            `📏 <b>الخطوة 5 للشكل (${shapeIdx}):</b> أرسل <b>قياسات أو أبعاد هذا الشكل</b> (مثال: <code>40x60 سم</code> أو <code>A4</code> أو <code>سعة 500 مل</code>) أو اضغط «تخطي القياسات»:`,
+            `📏 <b>الخطوة 5 للشكل (${shapeIdx}):</b> أرسل <b>قياسات أو أبعاد هذا الشكل</b> (مثال: <code>40x60 سم</code> أو <code>سعة 500 مل</code>)\n` +
+            `أو أرسل قياسات بأسعارها (مثال: <code>صغير : 1800\nمتوسط : 2500\nكبير : 3400</code>)\n` +
+            `أو اضغط «تخطي القياسات»:`,
           parse_mode: 'HTML',
           reply_markup: {
             inline_keyboard: [
@@ -6007,7 +6213,13 @@ async function handleTelegramUpdate(
 
       if (session.step === 'shape_dims') {
         if (!session.draft.currentShape) session.draft.currentShape = {};
-        session.draft.currentShape.dimensions = text.trim();
+        const parsed = parseVariantsText(text);
+        if (parsed.length > 0) {
+          session.draft.currentShape.subSizes = parsed;
+          session.draft.currentShape.priceDzd = Math.min(...parsed.map((v) => v.priceDzd));
+        } else {
+          session.draft.currentShape.dimensions = text.trim();
+        }
         await finalizeShapeAndPromptNext(env, botToken, chatId, session);
         return;
       }
