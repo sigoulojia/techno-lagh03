@@ -859,6 +859,7 @@ export default function App() {
           const elem = document.getElementById('collection');
           if (elem) elem.scrollIntoView({ behavior: 'smooth' });
         }}
+        onOpenCategoryPage={handleOpenCategoryPage}
       />
 
       {/* Product Detail Modal */}

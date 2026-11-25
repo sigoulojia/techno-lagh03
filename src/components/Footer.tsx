@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import {
   MapPin,
   Phone,
@@ -12,13 +13,30 @@ import { STORE_INFO, DEFAULT_CATEGORIES } from '../data/products';
 import { TechnoLogo } from './TechnoLogo';
 
 export interface FooterProps {
-  categories?: Array<{ id: string; name: string }>;
+  categories?: Array<{ id: string; name: string; createdAt?: string }>;
   onSelectCategory?: (category: string) => void;
+  onOpenCategoryPage?: (categoryId: string) => void;
 }
 
-export function Footer({ categories = [], onSelectCategory }: FooterProps) {
-  // Use synced store categories (from Telegram / backend) if available, or default categories, max 6 items
-  const displayedCategories = (categories.length > 0 ? categories : DEFAULT_CATEGORIES).slice(0, 6);
+export function Footer({ categories = [], onSelectCategory, onOpenCategoryPage }: FooterProps) {
+  // Show the latest 6 categories added (newest first)
+  const displayedCategories = useMemo(() => {
+    const list = categories && categories.length > 0 ? categories : DEFAULT_CATEGORIES;
+
+    // If categories have createdAt timestamps, sort descending
+    const withTimestamps = list.filter((c) => Boolean(c.createdAt));
+    if (withTimestamps.length > 0) {
+      const sorted = [...list].sort((a, b) => {
+        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return timeB - timeA;
+      });
+      return sorted.slice(0, 6);
+    }
+
+    // If no timestamps, reverse list order so the most recently appended categories appear first
+    return [...list].reverse().slice(0, 6);
+  }, [categories]);
 
   return (
     <footer className="relative text-white overflow-hidden border-t-2 border-[#FFD100]/60 bg-[#060D17]">
@@ -241,10 +259,12 @@ export function Footer({ categories = [], onSelectCategory }: FooterProps) {
                   {displayedCategories.map((cat) => (
                     <li key={cat.id || cat.name}>
                       <a
-                        href="#collection"
+                        href={`/c/${encodeURIComponent(cat.id || cat.name)}`}
                         onClick={(e) => {
-                          if (onSelectCategory) {
-                            e.preventDefault();
+                          e.preventDefault();
+                          if (onOpenCategoryPage) {
+                            onOpenCategoryPage(cat.id || cat.name);
+                          } else if (onSelectCategory) {
                             onSelectCategory(cat.id || cat.name);
                             const elem = document.getElementById('collection');
                             if (elem) elem.scrollIntoView({ behavior: 'smooth' });
