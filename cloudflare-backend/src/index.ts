@@ -1035,8 +1035,8 @@ function buildCleanProductUrl(siteUrl: string, productNumber: string): string {
 }
 
 // Helper: Parse size/shape/variant lines such as:
-// "شكل قطة : 2500 : مبطنة بجيب إضافي" OR "صغير : 1800\nمتوسط : 2500\nكبير : 3400"
-function parseVariantsText(raw: string): ProductVariant[] {
+// "شكل قطة : 2500 : مبطنة بجيب إضافي" OR "صغير : 1800\nمتوسط : 2500\nكبير : 3400" OR "40x60 سم\n50x70 سم"
+function parseVariantsText(raw: string, defaultPrice = 0): ProductVariant[] {
   const variants: ProductVariant[] = [];
   const chunks = raw
     .split(/[\n,،]+/)
@@ -1063,6 +1063,7 @@ function parseVariantsText(raw: string): ProductVariant[] {
           priceDzd: price,
           sku,
           description: desc,
+          dimensions: label,
         });
         return;
       }
@@ -1079,6 +1080,7 @@ function parseVariantsText(raw: string): ProductVariant[] {
           label,
           name: label,
           priceDzd: price,
+          dimensions: label,
         });
         return;
       }
@@ -1095,8 +1097,21 @@ function parseVariantsText(raw: string): ProductVariant[] {
           label,
           name: label,
           priceDzd: price,
+          dimensions: label,
         });
+        return;
       }
+    }
+
+    // Multiple dimensions/sizes without individual prices (e.g. "40x60 سم\n50x70 سم\n70x100 سم")
+    if (chunks.length > 1 && chunk) {
+      variants.push({
+        id: `v-${index + 1}-${Date.now().toString(36).slice(-3)}`,
+        label: chunk,
+        name: chunk,
+        priceDzd: defaultPrice > 0 ? defaultPrice : 0,
+        dimensions: chunk,
+      });
     }
   });
 
@@ -2133,8 +2148,10 @@ export default {
       const tokenParam = url.searchParams.get('token') || '';
       let isPinWrong = false;
 
-      // Handle PIN Submission via POST
-      if (request.method === 'POST') {
+      const isSessionAuthorized = await verifyAdminSession(env, cookieHeader);
+
+      // Handle PIN Submission via POST (ONLY when session is not already authorized)
+      if (!isSessionAuthorized && request.method === 'POST') {
         try {
           const formData = await request.formData();
           const submittedPin = formData.get('pin')?.toString() || '';
@@ -2174,8 +2191,6 @@ export default {
           }
         } catch {}
       }
-
-      const isSessionAuthorized = await verifyAdminSession(env, cookieHeader);
 
       // Lookup requested single order if orderIdParam is passed (Decrypted in memory)
       let singleOrder: any = null;
@@ -2321,7 +2336,32 @@ export default {
             const singleDims = (form.get('dimensions')?.toString() || '').trim();
             const description = (form.get('description')?.toString() || '').trim();
             const variantsRaw = (form.get('variants_raw')?.toString() || '').trim();
-            const colorFamily = (form.get('color')?.toString() || 'black').trim();
+            const customColor = (form.get('color')?.toString() || '').trim();
+            let colorFamily: ProductColorFamily = 'black';
+            let colorHex = '#1F2024';
+            let colorName = customColor || 'قياسي';
+            if (customColor) {
+              const lowerColor = customColor.toLowerCase();
+              if (lowerColor.includes('احمر') || lowerColor.includes('أحمر') || lowerColor.includes('red')) {
+                colorFamily = 'red';
+                colorHex = '#E30613';
+              } else if (lowerColor.includes('ازرق') || lowerColor.includes('أزرق') || lowerColor.includes('blue')) {
+                colorFamily = 'blue';
+                colorHex = '#2563EB';
+              } else if (lowerColor.includes('اخضر') || lowerColor.includes('أخضر') || lowerColor.includes('green')) {
+                colorFamily = 'green';
+                colorHex = '#15803D';
+              } else if (lowerColor.includes('بني') || lowerColor.includes('brown')) {
+                colorFamily = 'brown';
+                colorHex = '#6F3119';
+              } else if (lowerColor.includes('اسود') || lowerColor.includes('أسود') || lowerColor.includes('black')) {
+                colorFamily = 'black';
+                colorHex = '#1F2024';
+              } else {
+                colorFamily = 'other';
+                colorHex = '#4B5563';
+              }
+            }
 
             if (!name) {
               return new Response(null, {
@@ -2431,7 +2471,9 @@ export default {
             const parsedVariants =
               variantsFromJson.length > 0
                 ? variantsFromJson
-                : (variantsRaw ? parseVariantsText(variantsRaw) : []);
+                : (variantsRaw
+                    ? parseVariantsText(variantsRaw, price)
+                    : (singleDims ? parseVariantsText(singleDims, price) : []));
 
             if (parsedVariants.length > 0) {
               const validPrices = parsedVariants.map((v) => v.priceDzd).filter((p) => p > 0);
@@ -2485,8 +2527,8 @@ export default {
               categoryId: catObj.id,
               categoryName: catObj.name,
               colorFamily,
-              colorName: colorFamily === 'red' ? 'أحمر' : colorFamily === 'blue' ? 'أزرق' : 'قياسي',
-              colorHex: colorFamily === 'red' ? '#E30613' : colorFamily === 'blue' ? '#2563EB' : '#1F2024',
+              colorName,
+              colorHex,
               priceDzd: price,
               image: (linkedVariants.length > 0 && linkedVariants[0].image) ? linkedVariants[0].image : uploadedImages[0],
               images: uploadedImages,
@@ -3180,21 +3222,18 @@ export default {
               <input type="number" id="single-price-input" name="price" required min="10" placeholder="1800" style="width:100%; box-sizing:border-box; height:42px; padding:8px 14px; border:1px solid #CBD5E1; border-radius:8px; font-size:13.5px; font-family:monospace; font-weight:700; color:#0F172A; outline:none;" />
             </div>
 
-            <div id="single-dims-col">
-              <label style="display:block; font-size:12px; font-weight:600; color:#334155; margin-bottom:5px;">القياسات والأبعاد <span style="font-size:11px; font-weight:400; color:#64748B;">(اختياري)</span></label>
-              <input type="text" name="dimensions" placeholder="مثال: 40x60 سم أو A4 أو سعة 500 مل" style="width:100%; box-sizing:border-box; height:42px; padding:8px 14px; border:1px solid #CBD5E1; border-radius:8px; font-size:13px; outline:none;" />
+            <div id="single-dims-col" style="grid-column: 1 / -1;">
+              <label style="display:block; font-size:12px; font-weight:600; color:#334155; margin-bottom:5px;">
+                القياسات والأبعاد والأحجام <span style="font-size:11px; font-weight:400; color:#64748B;">(اختياري — قياس واحد أو عدة قياسات سطر لكل قياس، ويمكنك كتابة سعر كل قياس بجانبه إن أردت)</span>
+              </label>
+              <textarea name="dimensions" rows="3" placeholder="يمكنك كتابة قياس واحد أو عدة قياسات (سطر لكل قياس):&#10;مثال 1: 40x60 سم&#10;مثال 2 (عدة قياسات):&#10;صغير : 1800&#10;متوسط : 2500&#10;كبير : 3400" style="width:100%; box-sizing:border-box; padding:10px 14px; border:1px solid #CBD5E1; border-radius:8px; font-size:13px; font-family:inherit; outline:none; line-height:1.5;"></textarea>
             </div>
 
             <div>
-              <label style="display:block; font-size:12px; font-weight:600; color:#334155; margin-bottom:5px;">اللون الرئيسي</label>
-              <select name="color" style="width:100%; box-sizing:border-box; height:42px; padding:8px 14px; border:1px solid #CBD5E1; border-radius:8px; font-size:13px; background:#fff; outline:none;">
-                <option value="black">أسود / قياسي</option>
-                <option value="red">أحمر تكنو</option>
-                <option value="blue">أزرق</option>
-                <option value="green">أخضر</option>
-                <option value="brown">بني</option>
-                <option value="other">متعدد الألوان</option>
-              </select>
+              <label style="display:block; font-size:12px; font-weight:600; color:#334155; margin-bottom:5px;">
+                اللون الرئيسي <span style="font-size:11px; font-weight:400; color:#64748B;">(اختياري)</span>
+              </label>
+              <input type="text" name="color" placeholder="اكتب اللون مثلاً: أزرق ملكي، أسود، ذهبي... (أو اتركه فارغاً)" style="width:100%; box-sizing:border-box; height:42px; padding:8px 14px; border:1px solid #CBD5E1; border-radius:8px; font-size:13px; outline:none;" />
             </div>
 
             <!-- Single Product Photos Upload -->
@@ -3216,6 +3255,10 @@ export default {
               <!-- Images Preview Gallery -->
               <div id="upload-status" style="margin-top:10px; font-size:12.5px; font-weight:600; color:#047857; display:none;"></div>
               <div id="image-previews" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(130px, 1fr)); gap:10px; margin-top:12px;"></div>
+              <div id="single-photos-actions" style="margin-top:10px; display:none; gap:10px; flex-wrap:wrap;">
+                <button type="button" onclick="document.getElementById('product-file-input').click()" style="background:#F1F5F9; color:#0F172A; border:1px solid #CBD5E1; padding:7px 14px; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer;">🔄 إضافة أو تغيير صور</button>
+                <button type="button" onclick="clearAllSingleProductImages()" style="background:#FEF2F2; color:#DC2626; border:1px solid #FECACA; padding:7px 14px; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer;">🗑️ حذف جميع الصور</button>
+              </div>
               <div id="hidden-inputs"></div>
 
               <!-- Optional manual URL fallback -->
@@ -4158,6 +4201,7 @@ export default {
       var previewsContainer = document.getElementById('image-previews');
       var hiddenContainer = document.getElementById('hidden-inputs');
       var statusEl = document.getElementById('upload-status');
+      var actionsBar = document.getElementById('single-photos-actions');
       if (!previewsContainer || !hiddenContainer) return;
 
       if (statusEl) {
@@ -4172,9 +4216,11 @@ export default {
           var p = compressImageFile(file, 1000, 0.82).then(function(res) {
             return uploadCompressedImageBlob(res.blob, res.dataUrl).then(function(url) {
               var card = document.createElement('div');
+              card.className = 'single-img-card';
               card.style.cssText = 'position:relative; border-radius:8px; overflow:hidden; border:1px solid #CBD5E1; background:#F8FAFC;';
               card.innerHTML = '<img src="' + url + '" style="width:100%; height:90px; object-fit:cover;" />' +
-                '<div style="font-size:10px; color:#047857; padding:2px 4px; font-weight:600; text-align:center;">' + formatBytes(res.compressedSize) + ' (' + Math.round((1 - res.compressedSize / res.originalSize) * 100) + '% توفير)</div>';
+                '<div style="font-size:10px; color:#047857; padding:2px 4px; font-weight:600; text-align:center;">' + formatBytes(res.compressedSize) + ' (' + Math.round((1 - res.compressedSize / res.originalSize) * 100) + '% توفير)</div>' +
+                '<button type="button" onclick="deleteSingleProductImage(this, \'' + url + '\')" style="position:absolute; top:4px; right:4px; background:#DC2626; color:#fff; border:none; border-radius:6px; padding:3px 8px; font-size:11px; font-weight:700; cursor:pointer; box-shadow:0 1px 3px rgba(0,0,0,0.2);" title="حذف هذه الصورة">🗑️ حذف</button>';
               previewsContainer.appendChild(card);
 
               var input = document.createElement('input');
@@ -4182,6 +4228,8 @@ export default {
               input.name = 'uploaded_image_urls';
               input.value = url;
               hiddenContainer.appendChild(input);
+
+              if (actionsBar) actionsBar.style.display = 'flex';
             });
           });
           uploadPromises.push(p);
@@ -4193,6 +4241,7 @@ export default {
           statusEl.style.color = '#047857';
           statusEl.textContent = 'تم ضغط ورفع جميع الصور بنجاح.';
         }
+        if (actionsBar) actionsBar.style.display = 'flex';
       }).catch(function(err) {
         if (statusEl) {
           statusEl.style.color = '#DC2626';
@@ -4201,12 +4250,69 @@ export default {
       });
     }
 
+    function deleteSingleProductImage(btn, url) {
+      var card = btn.closest('.single-img-card');
+      if (card) card.remove();
+      var hiddenContainer = document.getElementById('hidden-inputs');
+      if (hiddenContainer && url) {
+        var inputs = hiddenContainer.querySelectorAll('input[name="uploaded_image_urls"]');
+        inputs.forEach(function(inp) {
+          if (inp.value === url) inp.remove();
+        });
+      }
+      var previewsContainer = document.getElementById('image-previews');
+      var actionsBar = document.getElementById('single-photos-actions');
+      if (previewsContainer && previewsContainer.children.length === 0 && actionsBar) {
+        actionsBar.style.display = 'none';
+      }
+    }
+
+    function clearAllSingleProductImages() {
+      var previewsContainer = document.getElementById('image-previews');
+      var hiddenContainer = document.getElementById('hidden-inputs');
+      var actionsBar = document.getElementById('single-photos-actions');
+      var statusEl = document.getElementById('upload-status');
+      var fileInput = document.getElementById('product-file-input');
+      if (previewsContainer) previewsContainer.innerHTML = '';
+      if (hiddenContainer) hiddenContainer.innerHTML = '';
+      if (actionsBar) actionsBar.style.display = 'none';
+      if (statusEl) statusEl.style.display = 'none';
+      if (fileInput) fileInput.value = '';
+    }
+
     // Trigger file dialog for a shape card
     function triggerShapeFileInput(btn) {
       var card = btn.closest('.shape-card');
       if (!card) return;
       var fileInput = card.querySelector('.shape-file-input');
       if (fileInput) fileInput.click();
+    }
+
+    // Delete photo from shape card
+    function deleteShapePhoto(btn) {
+      var card = btn.closest('.shape-card');
+      if (!card) return;
+      var thumb = card.querySelector('.shape-thumb');
+      var placeholder = card.querySelector('.shape-icon-placeholder');
+      var label = card.querySelector('.shape-file-label');
+      var status = card.querySelector('.shape-file-status');
+      var hiddenUrl = card.querySelector('.shape-image-url');
+      var fileInput = card.querySelector('.shape-file-input');
+      var actionsBar = card.querySelector('.shape-actions-bar');
+
+      if (thumb) {
+        thumb.src = '';
+        thumb.style.display = 'none';
+      }
+      if (placeholder) {
+        placeholder.style.display = 'flex';
+      }
+      if (hiddenUrl) hiddenUrl.value = '';
+      if (fileInput) fileInput.value = '';
+      if (label) label.textContent = 'اضغط لاختيار صورة هذا الموديل';
+      if (status) status.textContent = 'يتم تقليل وضغط الحجم تلقائياً لتسريع التصفح';
+      if (actionsBar) actionsBar.style.display = 'none';
+      syncShapesToJson();
     }
 
     // Handle shape photo upload with auto-compression
@@ -4221,6 +4327,7 @@ export default {
       var label = card.querySelector('.shape-file-label');
       var status = card.querySelector('.shape-file-status');
       var hiddenUrl = card.querySelector('.shape-image-url');
+      var actionsBar = card.querySelector('.shape-actions-bar');
 
       if (label) label.textContent = 'جاري ضغط ورفع الصورة...';
       if (status) status.textContent = 'تقليل الحجم لسرعة التحميل';
@@ -4233,6 +4340,9 @@ export default {
         if (placeholder) {
           placeholder.style.display = 'none';
         }
+        if (actionsBar) {
+          actionsBar.style.display = 'flex';
+        }
         if (hiddenUrl) {
           hiddenUrl.value = res.dataUrl;
           syncShapesToJson();
@@ -4244,6 +4354,7 @@ export default {
             var savedPct = Math.round((1 - res.compressedSize / res.originalSize) * 100);
             status.textContent = 'الحجم: ' + formatBytes(res.compressedSize) + ' (تم تقليل ' + savedPct + '%)';
           }
+          if (actionsBar) actionsBar.style.display = 'flex';
           syncShapesToJson();
         });
       }).catch(function(err) {
@@ -4276,6 +4387,10 @@ export default {
                 '<div style="font-size:13px; font-weight:600; color:#0F172A;" class="shape-file-label">اضغط لاختيار صورة هذا الموديل</div>' +
                 '<div style="font-size:11.5px; color:#64748B;" class="shape-file-status">يتم تقليل وضغط الحجم تلقائياً لتسريع التصفح</div>' +
               '</div>' +
+            '</div>' +
+            '<div class="shape-actions-bar" style="display:none; margin-top:8px; gap:8px;">' +
+              '<button type="button" class="change-shape-photo-btn" onclick="triggerShapeFileInput(this)" style="background:#F1F5F9; color:#0F172A; border:1px solid #CBD5E1; padding:5px 12px; border-radius:6px; font-size:11.5px; font-weight:600; cursor:pointer;">🔄 تغيير الصورة</button>' +
+              '<button type="button" class="delete-shape-photo-btn" onclick="deleteShapePhoto(this)" style="background:#FEF2F2; color:#DC2626; border:1px solid #FECACA; padding:5px 12px; border-radius:6px; font-size:11.5px; font-weight:600; cursor:pointer;">🗑️ حذف الصورة</button>' +
             '</div>' +
             '<input type="file" accept="image/*" class="shape-file-input" style="display:none;" onchange="handleShapePhotoUpload(this)" />' +
             '<input type="hidden" class="shape-image-url" value="" />' +
