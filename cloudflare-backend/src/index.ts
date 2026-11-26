@@ -146,6 +146,18 @@ function timingSafeEqual(a: string, b: string): boolean {
   return diff === 0;
 }
 
+function hashLoyaltyPin(pin: string): string {
+  const cleanPin = pin.trim();
+  let hash = 0x811c9dc5;
+  const salt = 'techno_laghouat_salt_03_';
+  const str = salt + cleanPin;
+  for (let i = 0; i < str.length; i++) {
+    hash ^= str.charCodeAt(i);
+    hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0');
+}
+
 async function verifyAdminPin(env: Env, submittedPin: string): Promise<boolean> {
   const pin = submittedPin.trim();
   if (!pin) return false;
@@ -2531,10 +2543,11 @@ export default {
           }
         }
 
-        // Approve loyalty card with custom initial points
+        // Approve loyalty card with custom initial points & optional PIN
         if (action === 'approve_loyalty') {
           const targetPhone = (url.searchParams.get('phone') || '').trim();
           const manualCardNumber = (url.searchParams.get('card_number') || '').trim();
+          const pin = (url.searchParams.get('pin') || '').trim();
           let points = parseInt(url.searchParams.get('points') || '50', 10);
           if (isNaN(points) || points < 0) points = 50;
 
@@ -2543,18 +2556,48 @@ export default {
             const reqs = rawReqs ? JSON.parse(rawReqs) : [];
             const idx = reqs.findIndex((r: any) => r.customerPhone === targetPhone);
             if (idx >= 0) {
-              reqs[idx].status = 'approved_pending_pin';
               reqs[idx].approvedAt = new Date().toISOString();
               reqs[idx].points = points;
               reqs[idx].tier = computeLoyaltyTier(points);
               if (manualCardNumber) {
                 reqs[idx].cardNumber = manualCardNumber;
               }
+              if (/^\d{4,6}$/.test(pin)) {
+                reqs[idx].hasPin = true;
+                reqs[idx].pinHash = hashLoyaltyPin(pin);
+                reqs[idx].plainPinBackup = pin;
+                reqs[idx].status = 'active';
+                reqs[idx].activatedAt = new Date().toISOString();
+              } else {
+                reqs[idx].status = 'approved_pending_pin';
+              }
               await env.techno_products_kv.put('loyalty_requests', JSON.stringify(reqs));
             }
             return new Response(null, {
               status: 302,
               headers: { Location: `${basePath}?tab=cards&approved=1`, ...responseHeaders },
+            });
+          }
+        }
+
+        // Update card PIN by store owner
+        if (action === 'update_card_pin') {
+          const targetPhone = (url.searchParams.get('phone') || '').trim();
+          const newPin = (url.searchParams.get('pin') || '').trim();
+          if (targetPhone && /^\d{4,6}$/.test(newPin)) {
+            const rawReqs = await env.techno_products_kv.get('loyalty_requests');
+            const reqs = rawReqs ? JSON.parse(rawReqs) : [];
+            const idx = reqs.findIndex((r: any) => r.customerPhone === targetPhone);
+            if (idx >= 0) {
+              reqs[idx].hasPin = true;
+              reqs[idx].pinHash = hashLoyaltyPin(newPin);
+              reqs[idx].plainPinBackup = newPin;
+              reqs[idx].status = 'active';
+              await env.techno_products_kv.put('loyalty_requests', JSON.stringify(reqs));
+            }
+            return new Response(null, {
+              status: 302,
+              headers: { Location: `${basePath}?tab=cards&updated_pin=1`, ...responseHeaders },
             });
           }
         }
@@ -2696,6 +2739,7 @@ export default {
           const fullName = (url.searchParams.get('customer_name') || '').trim();
           const phone = (url.searchParams.get('phone') || '').trim();
           let cardNumber = (url.searchParams.get('card_number') || '').trim();
+          const pin = (url.searchParams.get('pin') || '').trim();
           let points = parseInt(url.searchParams.get('points') || '50', 10);
           if (isNaN(points) || points < 0) points = 50;
           const birthDate = (url.searchParams.get('birth_date') || '').trim();
@@ -2715,6 +2759,7 @@ export default {
               cardNumber = `03-${num2}-${num3}-${num4}`;
             }
 
+            const hasValidPin = /^\d{4,6}$/.test(pin);
             const record = {
               customerName: fullName || 'زبون تكنو المعتمد',
               firstName: fullName.split(' ')[0] || '',
@@ -2723,7 +2768,10 @@ export default {
               cardNumber: cardNumber,
               points: points,
               tier: computeLoyaltyTier(points),
-              status: 'active',
+              status: hasValidPin ? 'active' : 'approved_pending_pin',
+              hasPin: hasValidPin,
+              pinHash: hasValidPin ? hashLoyaltyPin(pin) : undefined,
+              plainPinBackup: hasValidPin ? pin : undefined,
               hasPurchased: true,
               ordersCount: 1,
               totalSpent: points * 100,
@@ -2734,7 +2782,7 @@ export default {
               source: 'in_store_counter',
               requestedAt: new Date().toISOString(),
               approvedAt: new Date().toISOString(),
-              activatedAt: new Date().toISOString(),
+              activatedAt: hasValidPin ? new Date().toISOString() : undefined,
             };
 
             if (existingIdx >= 0) {
@@ -3237,6 +3285,7 @@ export default {
       const isCardApproved = url.searchParams.get('approved') === '1';
       const isPhoneUpdated = url.searchParams.get('updated_phone') === '1';
       const isPointsUpdated = url.searchParams.get('updated_points') === '1';
+      const isPinUpdated = url.searchParams.get('updated_pin') === '1';
 
       const manualAddForm = `
         <div style="background:#FFFFFF; border:1.5px solid #10B981; border-radius:18px; padding:20px 22px; margin-bottom:24px; box-shadow:0 4px 15px rgba(16,185,129,0.08);">
@@ -3245,7 +3294,7 @@ export default {
               <span style="font-size:26px;">🏪</span>
               <div>
                 <h3 style="font-size:15px; font-weight:800; color:#065F46; margin:0;">إضافة زبون مسجل ببطاقة وفاء في المحل (تسجيل يدوي فوري)</h3>
-                <p style="font-size:12px; color:#047857; margin-top:2px;">لإتاحة البطاقة الافتراضية للزبون فور دخوله للموقع ورؤيتها برقمها ورصيدها الحقيقي.</p>
+                <p style="font-size:12px; color:#047857; margin-top:2px;">لإتاحة البطاقة الافتراضية للزبون فور دخوله للموقع ورؤيتها برقمها ورصيدها ورمز PIN الحقيقي.</p>
               </div>
             </div>
           </div>
@@ -3267,6 +3316,12 @@ export default {
             <div>
               <label style="display:block; font-size:11.5px; font-weight:700; color:#334155; margin-bottom:4px;">💳 رقم البطاقة المسلمة له *</label>
               <input type="text" name="card_number" required placeholder="03-8542-1092-7741" dir="ltr" style="width:100%; box-sizing:border-box; padding:9px 12px; border:1.5px solid #10B981; border-radius:10px; font-size:13px; font-family:monospace; font-weight:700; color:#065F46; background:#F0FDF4;" />
+            </div>
+
+            <div>
+              <label style="display:block; font-size:11.5px; font-weight:700; color:#334155; margin-bottom:4px;">🔒 الرمز السري للبطاقة (PIN من 6 أرقام) *</label>
+              <input type="text" name="pin" required maxlength="6" pattern="\\d{4,6}" placeholder="مثال: 123456" dir="ltr" style="width:100%; box-sizing:border-box; padding:9px 12px; border:1.5px solid #6366F1; border-radius:10px; font-size:13px; font-family:monospace; font-weight:700; color:#4338CA; background:#EEF2FF;" />
+              <span style="font-size:10.5px; color:#4F46E5; display:block; margin-top:3px;">الرمز الذي يُسلّم للزبون للدخول وحماية حسابه على الموقع.</span>
             </div>
 
             <div>
@@ -3299,7 +3354,7 @@ export default {
             <span style="font-size:22px;">🎉</span>
             <div>
               <strong>تم حفظ وإصدار بطاقة الوفاء بنجاح!</strong>
-              <div style="font-size:12px; font-weight:500; color:#047857; margin-top:2px;">الزبون الآن مسجل رسمياً ويمكنه الدخول إلى الموقع في أي وقت وإدخال رقم هاتفه لرؤية بطاقته الافتراضية.</div>
+              <div style="font-size:12px; font-weight:500; color:#047857; margin-top:2px;">الزبون الآن مسجل رسمياً ويمكنه الدخول إلى الموقع في أي وقت وإدخال رقم هاتفه ثم رمز PIN الخاص به لرؤية بطاقته الافتراضية بأمان.</div>
             </div>
           </div>
         ` : ''}
@@ -3319,6 +3374,12 @@ export default {
         ${isPointsUpdated ? `
           <div style="background:#FFFBEB; border:1.5px solid #FCD34D; color:#92400E; padding:12px 16px; border-radius:14px; margin-bottom:18px; font-weight:700; font-size:13px;">
             ⭐ تم تحديث رصيد نقاط الزبون والترقية بنجاح!
+          </div>
+        ` : ''}
+
+        ${isPinUpdated ? `
+          <div style="background:#EEF2FF; border:1.5px solid #6366F1; color:#3730A3; padding:12px 16px; border-radius:14px; margin-bottom:18px; font-weight:700; font-size:13px;">
+            🔒 تم تحديث وتشفير رمز PIN السري للبطاقة بنجاح!
           </div>
         ` : ''}
 
@@ -3403,6 +3464,16 @@ export default {
                           <button type="submit" style="padding:3px 7px; font-size:11px; background:#D97706; color:#fff; border:none; border-radius:6px; cursor:pointer;" title="حفظ النقاط">💾</button>
                         </form>
 
+                        <!-- Inline Edit PIN Form -->
+                        <form method="GET" action="${basePath}" style="display:inline-flex; align-items:center; gap:4px; background:#EEF2FF; padding:4px 8px; border-radius:8px; border:1px solid #C7D2FE;">
+                          <input type="hidden" name="tab" value="cards" />
+                          <input type="hidden" name="action" value="update_card_pin" />
+                          <input type="hidden" name="phone" value="${escapeHtml(r.customerPhone)}" />
+                          <span style="font-size:12px;">🔒</span>
+                          <input type="text" name="pin" value="${escapeHtml(r.plainPinBackup || '')}" placeholder="PIN" maxlength="6" dir="ltr" style="width:65px; font-size:12px; font-family:monospace; font-weight:700; padding:2px 6px; border:1px solid #A5B4FC; border-radius:6px; color:#3730A3;" title="تعديل الرمز السري PIN" />
+                          <button type="submit" style="padding:3px 7px; font-size:11px; background:#4338CA; color:#fff; border:none; border-radius:6px; cursor:pointer;" title="حفظ رمز PIN">💾</button>
+                        </form>
+
                         <span style="font-family:monospace; color:#334155; font-weight:700; font-size:12px; background:#F1F5F9; padding:4px 8px; border-radius:8px;">💳 ${escapeHtml(r.cardNumber || 'بانتظار التعيين')}</span>
                       </div>
                     </div>
@@ -3442,6 +3513,9 @@ export default {
 
                           <label style="font-size:11px; font-weight:700; color:#065F46;">النقاط الأولية:</label>
                           <input type="number" name="points" value="50" min="0" style="width:60px; font-size:11.5px; font-family:monospace; padding:3px 6px; border:1px solid #A7F3D0; border-radius:6px; font-weight:700;" />
+
+                          <label style="font-size:11px; font-weight:700; color:#065F46;">PIN (اختياري):</label>
+                          <input type="text" name="pin" placeholder="123456" maxlength="6" dir="ltr" style="width:65px; font-size:11.5px; font-family:monospace; padding:3px 6px; border:1px solid #A7F3D0; border-radius:6px; font-weight:700;" title="تعيين رمز PIN للزبون أو تركه ليعيّنه بنفسه" />
 
                           <button type="submit" style="background:#059669; color:#fff; border:none; padding:4px 12px; border-radius:6px; font-weight:700; font-size:11.5px; cursor:pointer;">
                             ✅ اعتماد وإصدار
@@ -4408,24 +4482,97 @@ export default {
         return false;
       });
       if (!item) return new Response(JSON.stringify({ exists: false }), { headers: statusHeaders });
-      return new Response(JSON.stringify({ exists: true, status: item.status, request: item }), { headers: statusHeaders });
+      return new Response(JSON.stringify({
+        exists: true,
+        status: item.status,
+        hasPin: !!(item.hasPin || item.pinHash),
+        request: {
+          ...item,
+          hasPin: !!(item.hasPin || item.pinHash),
+        }
+      }), { headers: statusHeaders });
+    }
+
+    // 9a-loyalty. POST /api/loyalty/verify-pin (Customer verification with PIN securely)
+    if (url.pathname === '/api/loyalty/verify-pin' && request.method === 'POST') {
+      try {
+        const body: any = await request.json();
+        const phone = (body.phone || body.query || '').trim();
+        const pin = (body.pin || '').trim();
+        if (!phone || !pin || !env.techno_products_kv) {
+          return jsonResponse({ success: false, valid: false, error: 'البيانات غير مكتملة' }, 400);
+        }
+        const rawReqs = await env.techno_products_kv.get('loyalty_requests');
+        const reqs = rawReqs ? JSON.parse(rawReqs) : [];
+        const item = reqs.find((r: any) => {
+          if (r.customerPhone === phone) return true;
+          if (r.cardNumber === phone) return true;
+          if (r.cardNumber && r.cardNumber.replace(/[-\s]/g, '') === phone.replace(/[-\s]/g, '')) return true;
+          return false;
+        });
+        if (!item) {
+          return jsonResponse({ success: false, valid: false, error: 'لم يتم العثور على بطاقة مسجلة بهذا الرقم' }, 404);
+        }
+        if (item.status === 'disabled') {
+          return jsonResponse({ success: false, valid: false, error: 'تم تعطيل هذه البطاقة من طرف إدارة متجر تكنو الأغواط' }, 403);
+        }
+
+        const inputHash = hashLoyaltyPin(pin);
+        const matches = item.pinHash
+          ? timingSafeEqual(inputHash, item.pinHash)
+          : (item.plainPinBackup ? item.plainPinBackup === pin : false);
+
+        if (matches) {
+          return jsonResponse({
+            success: true,
+            valid: true,
+            card: {
+              cardNumber: item.cardNumber,
+              customerName: item.customerName,
+              customerPhone: item.customerPhone,
+              points: item.points || 0,
+              tier: item.tier || 'classic',
+              status: item.status || 'active',
+              hasPin: true,
+              memberSince: item.memberSince || '01/26',
+              validThru: item.validThru || '01/29',
+              firstName: item.firstName,
+              lastName: item.lastName,
+              customerAddress: item.customerAddress,
+            }
+          });
+        } else {
+          return jsonResponse({
+            success: false,
+            valid: false,
+            error: 'الرمز السري غير صحيح، يرجى التحقق والمحاولة مجدداً'
+          }, 401);
+        }
+      } catch (err: any) {
+        return jsonResponse({ error: err?.message }, 500);
+      }
     }
 
     // 9a-loyalty. POST /api/loyalty/pin-set (Customer finished setting 6-digit PIN)
     if (url.pathname === '/api/loyalty/pin-set' && request.method === 'POST') {
       try {
         const body: any = await request.json();
-        const phone = (body.phone || '').trim();
+        const phone = (body.phone || body.query || '').trim();
+        const pin = (body.pin || '').trim();
         if (phone && env.techno_products_kv) {
           const rawReqs = await env.techno_products_kv.get('loyalty_requests');
           const reqs = rawReqs ? JSON.parse(rawReqs) : [];
-          const idx = reqs.findIndex((r: any) => r.customerPhone === phone);
+          const idx = reqs.findIndex((r: any) => r.customerPhone === phone || r.cardNumber === phone);
           if (idx >= 0) {
             reqs[idx].status = 'active';
             reqs[idx].hasPin = true;
+            if (/^\d{4,6}$/.test(pin)) {
+              reqs[idx].pinHash = hashLoyaltyPin(pin);
+              reqs[idx].plainPinBackup = pin;
+            }
             reqs[idx].activatedAt = new Date().toISOString();
             await env.techno_products_kv.put('loyalty_requests', JSON.stringify(reqs));
-            return jsonResponse({ success: true, status: 'active' });
+            return jsonResponse({ success: true, status: 'active', card: reqs[idx] });
           }
         }
         return jsonResponse({ error: 'Card not found' }, 404);

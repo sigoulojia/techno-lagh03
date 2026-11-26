@@ -29,6 +29,7 @@ import {
   activateCardWithSixDigitPin,
   retrieveCardByPhone,
   unlockCardWithPin,
+  hashPin,
   downloadCardCredentialsDocument,
 } from '../utils/loyaltyLogic';
 import { sendLoyaltyCardRequestNotification } from '../utils/notificationService';
@@ -456,6 +457,7 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
     // 2. Also check real-time status from server
     let serverStatus: string | null = null;
     let serverRequestData: any = null;
+    let serverHasPin = false;
     try {
       const serverRes = await fetch(
         `https://techno-laghouat.pages.dev/api/loyalty/status?phone=${encodeURIComponent(cleanInput)}&query=${encodeURIComponent(cleanInput)}&_t=${Date.now()}`,
@@ -466,6 +468,7 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
         if (sData?.exists && sData.status) {
           serverStatus = sData.status;
           serverRequestData = sData.request;
+          serverHasPin = !!(sData.hasPin || sData.request?.hasPin || sData.request?.pinHash);
         }
       }
     } catch {}
@@ -493,10 +496,12 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
         customerPhone: serverRequestData.customerPhone || (isPhone ? cleanInput : ''),
         status: ((effectiveStatus as any) || 'active'),
         points: serverRequestData.points ?? WELCOME_BONUS_POINTS,
-        tier: serverRequestData.tier || (serverRequestData.points >= 1500 ? 'black_vip' : serverRequestData.points >= 600 ? 'gold' : serverRequestData.points >= 200 ? 'silver' : 'classic'),
+        tier: serverRequestData.tier || (serverRequestData.points >= 800 ? 'black_vip' : serverRequestData.points >= 400 ? 'gold' : serverRequestData.points >= 150 ? 'silver' : 'classic'),
         memberSince: formatCardDate(0),
         validThru: formatCardDate(3),
-        isPinProtected: !!serverRequestData.hasPin,
+        isPinProtected: serverHasPin || !!serverRequestData.hasPin || !!serverRequestData.pinHash,
+        pinHash: serverRequestData.pinHash,
+        plainPinBackup: serverRequestData.plainPinBackup,
         hasPurchased: serverRequestData.hasPurchased ?? true,
         ordersCount: serverRequestData.ordersCount ?? 1,
         totalSpent: serverRequestData.totalSpent ?? (serverRequestData.points ? serverRequestData.points * 100 : 0),
@@ -509,12 +514,22 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
       };
       targetCard = generatedCard;
       saveLoyaltyCard(generatedCard);
+    } else if (targetCard && serverRequestData) {
+      targetCard = {
+        ...targetCard,
+        points: serverRequestData.points ?? targetCard.points,
+        tier: serverRequestData.tier || targetCard.tier,
+        isPinProtected: serverHasPin || targetCard.isPinProtected || !!serverRequestData.hasPin,
+        pinHash: serverRequestData.pinHash || targetCard.pinHash,
+        plainPinBackup: serverRequestData.plainPinBackup || targetCard.plainPinBackup,
+      };
+      saveLoyaltyCard(targetCard);
     }
 
     if (!targetCard) {
       setFeedback({
         type: 'error',
-        message: 'لم يتم العثور على بطاقة مسجلة بهذا الرقم أو الهاتف. إذا استلمت بطاقتك بالفرع يرجى التأكد من تسجيلها بالداشبورد أو طلب تفعيل بطاقة جديدة.',
+        message: 'لم يتم العثور على بطاقة مسجلة بهذا الرقم أو الهاتف. يرجى التأكد من الرقم المسجل بالفرع أو تقديم طلب جديد.',
       });
       return;
     }
@@ -529,49 +544,34 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
       return;
     }
 
-    if (effectiveStatus === 'approved_pending_pin') {
-      const approvedCard: LoyaltyCardData = {
-        ...targetCard,
-        cardNumber: serverRequestData?.cardNumber || targetCard.cardNumber,
-        customerName: serverRequestData?.customerName || targetCard.customerName,
-        firstName: serverRequestData?.firstName || targetCard.firstName,
-        lastName: serverRequestData?.lastName || targetCard.lastName,
-        customerAddress: serverRequestData?.customerAddress || targetCard.customerAddress,
-        customerEmail: serverRequestData?.customerEmail || targetCard.customerEmail,
-        customerProfession: serverRequestData?.customerProfession || targetCard.customerProfession,
-        customerBirthDate: serverRequestData?.customerBirthDate || targetCard.customerBirthDate,
-        status: 'approved_pending_pin',
-        approvedAt: serverRequestData?.approvedAt || targetCard.approvedAt || new Date().toISOString(),
-      };
-      saveLoyaltyCard(approvedCard);
-      setCard(approvedCard);
-      setViewMode('main');
-      setFeedback({
-        type: 'success',
-        message: 'تمت موافقة الإدارة وتعيين رقم بطاقتك بنجاح! يرجى الآن تعيين رمزك السري (6 أرقام) لإظهارها كاملة.',
-      });
-      return;
-    }
+    // Check if PIN has been set
+    const hasPinSet = serverHasPin || !!targetCard.pinHash || !!targetCard.plainPinBackup;
 
-    // Card is active: if PIN protected, prompt for PIN; otherwise open immediately!
-    if (targetCard.isPinProtected) {
+    if (hasPinSet) {
+      // PROMPT FOR PIN - EXACT REQUIREMENT
       setRetrievedCardTemp(targetCard);
       setRetrievalPromptPin(true);
       setFeedback({
         type: 'info',
-        message: `أهلاً بك مجدداً ${targetCard.customerName}! يرجى إدخال رقمك السري (6 أرقام) لعرض بطاقتك:`,
+        message: `أهلاً بك مجدداً ${targetCard.customerName}! من أجل الأمان وحماية بياناتك، يرجى إدخال رمز PIN السري لبطاقتك (6 أرقام) لعرضها:`,
       });
     } else {
-      setCard(targetCard);
+      // Registered by admin but no PIN set yet -> require setting PIN before viewing
+      const pendingPinCard: LoyaltyCardData = {
+        ...targetCard,
+        status: 'approved_pending_pin',
+      };
+      saveLoyaltyCard(pendingPinCard);
+      setCard(pendingPinCard);
       setViewMode('main');
       setFeedback({
         type: 'success',
-        message: `مرحباً بك مجدداً ${targetCard.customerName}! تم العثور على بطاقتك الافتراضية بنجاح وهي جاهزة للاستخدام الآن.`,
+        message: `تم العثور على بطاقتك المسجلة (${targetCard.customerName})! من أجل الأمان، يرجى تعيين رمز PIN جديد مكون من 6 أرقام الآن لتأمين بطاقتك وإظهارها كاملة.`,
       });
     }
   };
 
-  const handleUnlockWithPin = (e: React.FormEvent) => {
+  const handleUnlockWithPin = async (e: React.FormEvent) => {
     e.preventDefault();
     setFeedback(null);
 
@@ -583,19 +583,52 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
       return;
     }
 
-    const unlock = unlockCardWithPin(cleanPhone, cleanPin);
-    if (!unlock.success || !unlock.card) {
-      setFeedback({
-        type: 'error',
-        message: unlock.error || 'الرمز السري غير صحيح، يرجى إعادة المحاولة',
+    // 1. Verify with server if reachable
+    let verifiedViaServer = false;
+    try {
+      const vRes = await fetch('https://techno-laghouat.pages.dev/api/loyalty/verify-pin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: cleanPhone, pin: cleanPin }),
       });
-      return;
+      if (vRes.ok) {
+        const vData: any = await vRes.json();
+        if (vData?.valid) {
+          verifiedViaServer = true;
+          if (vData.card && retrievedCardTemp) {
+            retrievedCardTemp.points = vData.card.points ?? retrievedCardTemp.points;
+            retrievedCardTemp.tier = vData.card.tier ?? retrievedCardTemp.tier;
+          }
+        } else {
+          setFeedback({
+            type: 'error',
+            message: vData?.error || 'الرمز السري غير صحيح، يرجى التحقق وإعادة المحاولة',
+          });
+          return;
+        }
+      }
+    } catch {}
+
+    // 2. Offline / local verification fallback
+    if (!verifiedViaServer) {
+      const unlock = unlockCardWithPin(cleanPhone, cleanPin, retrievedCardTemp || undefined);
+      if (!unlock.success || !unlock.card) {
+        setFeedback({
+          type: 'error',
+          message: unlock.error || 'الرمز السري غير صحيح، يرجى التحقق وإعادة المحاولة',
+        });
+        return;
+      }
     }
 
     const activeUnlockedCard: LoyaltyCardData = {
-      ...unlock.card,
+      ...(retrievedCardTemp || card),
       status: 'active',
+      isPinProtected: true,
+      pinHash: retrievedCardTemp?.pinHash || hashPin(cleanPin),
+      plainPinBackup: cleanPin,
     };
+    saveLoyaltyCard(activeUnlockedCard);
     setCard(activeUnlockedCard);
     setViewMode('main');
     setRetrievalPromptPin(false);
@@ -603,7 +636,7 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
     setRetrievalPin('');
     setFeedback({
       type: 'success',
-      message: `مرحباً بك مجدداً ${activeUnlockedCard.customerName}! تم إلغاء القفل وإظهار بطاقتك كاملة بنجاح.`,
+      message: `مرحباً بك مجدداً ${activeUnlockedCard.customerName}! تم التحقق من هويتك وإلغاء القفل بنجاح، بطاقتك جاهزة للاستخدام الآن.`,
     });
   };
 
@@ -700,6 +733,33 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
             ═════════════════════════════════════════════════════════════════════ */}
         {!showCard ? (
           <div className="max-w-2xl mx-auto mt-10 space-y-6">
+            {/* Top Switcher: Have a card (enter PIN) vs New application */}
+            <div className="flex items-center gap-2 p-1.5 rounded-2xl bg-stone-900 border border-stone-800 shadow-md">
+              <button
+                type="button"
+                onClick={() => { setViewMode('retrieve'); setRetrievalPromptPin(false); setFeedback(null); }}
+                className={`flex-1 py-3 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                  viewMode === 'retrieve'
+                    ? 'bg-[#D4AF37] text-stone-950 shadow-md ring-1 ring-amber-300/40'
+                    : 'text-stone-300 hover:text-white hover:bg-stone-800'
+                }`}
+              >
+                <KeyRound className="w-4 h-4 text-[#B45309]" />
+                <span>💳 لدي بطاقة مسجلة (دخول بالـ PIN)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setViewMode('main'); setRetrievalPromptPin(false); setFeedback(null); }}
+                className={`flex-1 py-3 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                  viewMode === 'main'
+                    ? 'bg-[#D4AF37] text-stone-950 shadow-md ring-1 ring-amber-300/40'
+                    : 'text-stone-300 hover:text-white hover:bg-stone-800'
+                }`}
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>📝 طلب إصدار بطاقة جديدة</span>
+              </button>
+            </div>
             
             {/* 1. RETRIEVE MODE: Returning customer looking up existing card */}
             {viewMode === 'retrieve' ? (
@@ -708,7 +768,7 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
                   <div className="flex items-center gap-2">
                     <KeyRound className="w-4 h-4 text-[#D4AF37]" />
                     <h3 className="font-bold text-sm text-stone-100">
-                      استرجاع وإظهار بطاقتك السابقة
+                      استرجاع وإظهار بطاقتك المسجلة بأمان
                     </h3>
                   </div>
                   <button
@@ -716,7 +776,7 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
                     onClick={() => { setViewMode('main'); setRetrievalPromptPin(false); setFeedback(null); }}
                     className="text-xs text-stone-400 hover:text-stone-200 flex items-center gap-1 cursor-pointer"
                   >
-                    <span>العودة لطلب تفعيل بطاقة جديدة</span>
+                    <span>طلب إصدار بطاقة جديدة</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -758,19 +818,20 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
                         مرحباً بك، {retrievedCardTemp?.customerName}!
                       </p>
                       <p className="text-[11px] text-stone-400 mt-0.5">
-                        البطاقة مسجلة برقم الهاتف ({retrievalPhone}). يرجى إدخال رقمك السري (6 أرقام) لإظهارها كاملة:
+                        البطاقة مسجلة برقم الهاتف ({retrievalPhone}). يرجى إدخال رمز PIN السري لبطاقتك (6 أرقام) من أجل الأمان:
                       </p>
                     </div>
 
                     <div>
                       <label className="block text-[11px] font-mono text-stone-400 mb-1.5">
-                        الرمز السري الخاص بالبطاقة (6 أرقام)
+                        الرمز السري الخاص بالبطاقة (PIN من 6 أرقام)
                       </label>
                       <input
                         type="password"
                         dir="ltr"
                         maxLength={6}
                         required
+                        autoFocus
                         value={retrievalPin}
                         onChange={(e) => setRetrievalPin(e.target.value)}
                         placeholder="••••••"
@@ -783,7 +844,7 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
                         type="submit"
                         className="flex-1 py-2.5 rounded-xl bg-[#D4AF37] hover:bg-[#C29D26] text-stone-950 font-bold text-xs transition-colors cursor-pointer shadow-sm"
                       >
-                        إلغاء القفل وإظهار البطاقة كاملة
+                        🔒 تأكيد الرمز السري وإظهار البطاقة بأمان
                       </button>
 
                       <button

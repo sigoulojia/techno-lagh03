@@ -171,4 +171,30 @@ test('isValidSixDigitPin and 6-digit PIN activation flow', () => {
   assert.equal(unlockSuccess.card?.customerName, 'أحمد زكي');
 });
 
+test('unlockCardWithPin works with cardOverride for remote cards from store owner', () => {
+  const remoteCard = {
+    cardNumber: '03-8815-4602-2614',
+    customerName: 'فاطمة بن علي',
+    customerPhone: '0555987654',
+    status: 'active' as const,
+    points: 150,
+    tier: 'silver' as const,
+    memberSince: '11/26',
+    validThru: '11/29',
+    isPinProtected: true,
+    pinHash: hashPin('884210'),
+    plainPinBackup: '884210',
+  };
+
+  // Wrong PIN fails
+  const failRes = unlockCardWithPin('0555987654', '111111', remoteCard);
+  assert.equal(failRes.success, false);
+
+  // Correct PIN succeeds and activates
+  const successRes = unlockCardWithPin('0555987654', '884210', remoteCard);
+  assert.equal(successRes.success, true);
+  assert.equal(successRes.card?.customerName, 'فاطمة بن علي');
+  assert.equal(successRes.card?.isPinProtected, true);
+});
+
 

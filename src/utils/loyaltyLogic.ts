@@ -625,14 +625,17 @@ export function retrieveCardByPhone(phone: string): {
  */
 export function unlockCardWithPin(
   phone: string,
-  pin: string
+  pin: string,
+  cardOverride?: LoyaltyCardData
 ): { success: boolean; card?: LoyaltyCardData; error?: string } {
-  const retrieval = retrieveCardByPhone(phone);
-  if (!retrieval.exists || !retrieval.card) {
+  let card = cardOverride;
+  if (!card) {
+    const retrieval = retrieveCardByPhone(phone);
+    card = retrieval.card;
+  }
+  if (!card) {
     return { success: false, error: 'لا توجد بطاقة مسجلة بهذا الرقم' };
   }
-
-  const card = retrieval.card;
 
   // If card is disabled by admin
   if (card.status === 'disabled') {
@@ -652,7 +655,7 @@ export function unlockCardWithPin(
   }
 
   // If card is approved but awaiting PIN creation
-  if (card.status === 'approved_pending_pin') {
+  if (card.status === 'approved_pending_pin' && !card.pinHash && !card.plainPinBackup) {
     return {
       success: false,
       card,
@@ -660,12 +663,18 @@ export function unlockCardWithPin(
     };
   }
 
-  // Validate PIN against stored hash
-  const isValid = verifyPin(pin.trim(), card.pinHash);
+  // Validate PIN against stored hash or plainPinBackup
+  const cleanPin = pin.trim();
+  const isValid = card.pinHash
+    ? verifyPin(cleanPin, card.pinHash)
+    : card.plainPinBackup
+      ? cleanPin === card.plainPinBackup
+      : false;
+
   if (!isValid) {
     return {
       success: false,
-      error: 'الرقم السري غير صحيح، يرجى التحقق وإعادة المحاولة',
+      error: 'الرمز السري غير صحيح، يرجى التحقق وإعادة المحاولة',
     };
   }
 
@@ -673,7 +682,9 @@ export function unlockCardWithPin(
   const unlockedCard: LoyaltyCardData = {
     ...card,
     status: 'active',
-    plainPinBackup: pin.trim(), // Restored for download pass
+    isPinProtected: true,
+    pinHash: card.pinHash || hashPin(cleanPin),
+    plainPinBackup: cleanPin, // Restored for download pass
   };
   saveLoyaltyCard(unlockedCard);
   return { success: true, card: unlockedCard };

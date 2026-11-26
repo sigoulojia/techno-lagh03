@@ -4,7 +4,9 @@ import {
   ArrowRight,
   CheckCircle2,
   Copy,
+  CreditCard,
   Download,
+  KeyRound,
   Loader2,
   Minus,
   Plus,
@@ -37,6 +39,7 @@ import {
 } from '../utils/storeLogic';
 import { sendOrderNotifications } from '../utils/notificationService';
 import { downloadOrderReceipt, printOrderReceipt } from '../utils/receiptGenerator';
+import { unlockCardWithPin } from '../utils/loyaltyLogic';
 import { ProductImage } from './ProductImage';
 import { DeliverySelector } from './DeliverySelector';
 
@@ -84,6 +87,50 @@ export function CartDrawer({
   const [honeypot, setHoneypot] = useState('');
   const [formOpenTime] = useState(() => (typeof performance !== 'undefined' ? performance.now() : Date.now()));
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [hasLoyaltyCard, setHasLoyaltyCard] = useState(false);
+  const [loyaltyPin, setLoyaltyPin] = useState('');
+  const [isVerifyingLoyalty, setIsVerifyingLoyalty] = useState(false);
+  const [loyaltyVerifyError, setLoyaltyVerifyError] = useState<string | null>(null);
+  const [verifiedLoyaltyCard, setVerifiedLoyaltyCard] = useState<any | null>(null);
+
+  const handleVerifyLoyaltyInCart = async () => {
+    const phone = form.phone.trim();
+    const pin = loyaltyPin.trim();
+    if (!phone) {
+      setLoyaltyVerifyError('يرجى كتابة رقم هاتفك أعلاه أولاً للتحقق من البطاقة');
+      return;
+    }
+    if (!pin || pin.length < 4) {
+      setLoyaltyVerifyError('يرجى إدخال رمز PIN المكون من 6 أرقام');
+      return;
+    }
+    setIsVerifyingLoyalty(true);
+    setLoyaltyVerifyError(null);
+    try {
+      const res = await fetch('https://techno-laghouat.pages.dev/api/loyalty/verify-pin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, pin }),
+      });
+      const data = await res.json();
+      if (res.ok && data.valid && data.card) {
+        setVerifiedLoyaltyCard(data.card);
+        setLoyaltyVerifyError(null);
+      } else {
+        setLoyaltyVerifyError(data.error || 'الرمز السري غير صحيح، يرجى التحقق والمحاولة مجدداً');
+      }
+    } catch {
+      const localUnlock = unlockCardWithPin(phone, pin);
+      if (localUnlock.success && localUnlock.card) {
+        setVerifiedLoyaltyCard(localUnlock.card);
+        setLoyaltyVerifyError(null);
+      } else {
+        setLoyaltyVerifyError('الرمز السري PIN غير صحيح أو تعذر الاتصال بالخادم');
+      }
+    } finally {
+      setIsVerifyingLoyalty(false);
+    }
+  };
 
   const handleDownloadPdf = async (order: SavedOrder) => {
     setIsGeneratingPdf(true);
@@ -135,6 +182,17 @@ export function CartDrawer({
     (order as any).formDurationMs = Math.round(
       typeof performance !== 'undefined' ? performance.now() - formOpenTime : 3000,
     );
+    if (verifiedLoyaltyCard) {
+      (order as any).loyaltyCard = {
+        cardNumber: verifiedLoyaltyCard.cardNumber,
+        customerName: verifiedLoyaltyCard.customerName,
+        tier: verifiedLoyaltyCard.tier,
+      };
+      const loyaltyTag = `[بطاقة وفاء VIP: ${verifiedLoyaltyCard.cardNumber} - ${verifiedLoyaltyCard.customerName}]`;
+      if (!order.customer.notes || !order.customer.notes.includes(verifiedLoyaltyCard.cardNumber)) {
+        order.customer.notes = order.customer.notes ? `${order.customer.notes} · ${loyaltyTag}` : loyaltyTag;
+      }
+    }
 
     try {
       const res = await sendOrderNotifications(order);
@@ -153,6 +211,10 @@ export function CartDrawer({
     onChangeStep('confirmed');
     setForm(INITIAL_FORM);
     setErrors({});
+    setHasLoyaltyCard(false);
+    setLoyaltyPin('');
+    setVerifiedLoyaltyCard(null);
+    setLoyaltyVerifyError(null);
     setIsSubmitting(false);
 
     downloadOrderReceipt(order);
@@ -426,6 +488,77 @@ export function CartDrawer({
                     {errors.phone}
                   </p>
                 ) : null}
+              </div>
+
+              {/* Optional Loyalty Card Verification in Cart Checkout */}
+              <div className="p-3.5 rounded-xl border border-amber-200/90 bg-gradient-to-r from-amber-50/80 to-emerald-50/60 shadow-2xs space-y-2.5">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={hasLoyaltyCard}
+                    onChange={(e) => {
+                      setHasLoyaltyCard(e.target.checked);
+                      if (!e.target.checked) {
+                        setVerifiedLoyaltyCard(null);
+                        setLoyaltyPin('');
+                        setLoyaltyVerifyError(null);
+                      }
+                    }}
+                    className="w-4 h-4 rounded text-[#D4AF37] accent-[#B45309] cursor-pointer"
+                  />
+                  <span className="text-xs font-bold text-[#18181B] flex items-center gap-1.5">
+                    <CreditCard className="w-3.5 h-3.5 text-[#B45309]" />
+                    <span>هل لديك بطاقة وفاء VIP مسلّمة لك بالفرع؟</span>
+                  </span>
+                </label>
+
+                {hasLoyaltyCard && !verifiedLoyaltyCard && (
+                  <div className="pt-2 border-t border-amber-200/70 space-y-2">
+                    <p className="text-[11px] text-stone-600 leading-snug">
+                      أدخل رمز PIN السري لبطاقتك (6 أرقام) لتأمين حسابك وتطبيق مزايا عضويتك:
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="password"
+                        maxLength={6}
+                        placeholder="رمز PIN (6 أرقام)"
+                        value={loyaltyPin}
+                        onChange={(e) => { setLoyaltyPin(e.target.value); setLoyaltyVerifyError(null); }}
+                        className="flex-1 px-3 py-2 rounded-lg border border-stone-300 text-xs font-mono tracking-widest text-center bg-white focus:outline-none focus:border-[#D4AF37]"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleVerifyLoyaltyInCart}
+                        disabled={isVerifyingLoyalty || !loyaltyPin}
+                        className="px-3.5 py-2 rounded-lg bg-[#18181B] text-white text-xs font-bold hover:bg-[#E30613] disabled:opacity-50 transition-colors cursor-pointer whitespace-nowrap"
+                      >
+                        {isVerifyingLoyalty ? 'جارٍ التحقق...' : 'تأكيد الـ PIN'}
+                      </button>
+                    </div>
+                    {loyaltyVerifyError && (
+                      <p className="text-[11px] text-red-600 font-medium">{loyaltyVerifyError}</p>
+                    )}
+                  </div>
+                )}
+
+                {verifiedLoyaltyCard && (
+                  <div className="pt-2 border-t border-emerald-200 text-xs text-emerald-800 flex items-center justify-between gap-2">
+                    <span className="font-bold flex items-center gap-1.5">
+                      <KeyRound className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>تم التحقق: {verifiedLoyaltyCard.customerName}</span>
+                      <span className="px-1.5 py-0.5 rounded bg-emerald-100 text-[10px] text-emerald-900 font-mono">
+                        {verifiedLoyaltyCard.cardNumber}
+                      </span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => { setVerifiedLoyaltyCard(null); setLoyaltyPin(''); }}
+                      className="text-[10px] text-stone-500 hover:text-stone-800 underline cursor-pointer"
+                    >
+                      إلغاء
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Reusable 54-Wilaya + 24-Commune ZR Express Delivery Selector */}
