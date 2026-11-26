@@ -60,6 +60,7 @@ export interface Product {
   priceDzd: number;
   image: string;
   images?: string[];
+  dimensions?: string;
   variants?: ProductVariant[];
   alt: string;
   summary: string;

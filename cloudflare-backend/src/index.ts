@@ -1874,8 +1874,9 @@ export default {
         const imageUrl = `/api/images/${imageId}`;
         return jsonResponse({
           success: true,
-          imageId,
+          url: imageUrl,
           imageUrl,
+          imageId,
           sizeKb: Math.round(imageBytes.byteLength / 1024),
         });
       } catch (err: any) {
@@ -2265,19 +2266,23 @@ export default {
           if (formAction === 'add_product') {
             const name = (form.get('name')?.toString() || '').trim();
             const categoryName = (form.get('category')?.toString() || 'أدوات مكتبية').trim();
+            const customSku = (form.get('sku')?.toString() || '').trim();
             let price = parseInt(form.get('price')?.toString() || '0', 10);
+            const singleDims = (form.get('dimensions')?.toString() || '').trim();
             const description = (form.get('description')?.toString() || '').trim();
             const variantsRaw = (form.get('variants_raw')?.toString() || '').trim();
             const colorFamily = (form.get('color')?.toString() || 'black').trim();
 
             let uploadedImages: string[] = [];
 
-            // 1. URLs from client-side compressor
-            const hiddenUrls = form.getAll('uploaded_image_urls');
+            // 1. URLs from client-side compressor (check both singular and plural parameter names)
+            const hiddenUrls = [...form.getAll('uploaded_image_urls'), ...form.getAll('uploaded_images_urls')];
             if (hiddenUrls && hiddenUrls.length > 0) {
               for (const u of hiddenUrls) {
                 const s = u?.toString().trim();
-                if (s && s.startsWith('/api/images/')) uploadedImages.push(s);
+                if (s && (s.startsWith('/api/images/') || s.startsWith('data:image/') || s.startsWith('http'))) {
+                  uploadedImages.push(s);
+                }
               }
             }
 
@@ -2379,7 +2384,9 @@ export default {
                 price = Math.min(...parsedVariants.map((v) => v.priceDzd));
               }
               const products = await getProducts(env);
-              const newId = await getNextNumericId(env, products);
+              const generatedId = await getNextNumericId(env, products);
+              const finalSku = customSku || generatedId;
+              const finalId = customSku && !products.some((p) => p.id === customSku) ? customSku : generatedId;
               const catObj = await ensureCategory(env, categoryName);
 
               // Link each uploaded image to its corresponding variant/shape
@@ -2396,8 +2403,8 @@ export default {
                   : 'منتج أصلي معتمد متوفر في فرع تكنو الأغواط.');
 
               const newProduct: Product = {
-                id: newId,
-                sku: newId,
+                id: finalId,
+                sku: finalSku,
                 name,
                 shortName: name,
                 brand: 'TECHNO STATIONERY',
@@ -2411,16 +2418,18 @@ export default {
                 priceDzd: price,
                 image: uploadedImages[0],
                 images: uploadedImages,
+                ...(singleDims ? { dimensions: singleDims } : {}),
                 ...(linkedVariants.length > 0 ? { variants: linkedVariants } : {}),
-                alt: `${name} — رقم المنتج ${newId}`,
+                alt: `${name} — رقم المنتج ${finalSku}`,
                 summary: mainDesc,
                 description: mainDesc,
                 availabilityText: 'متوفر في فرع الأغواط',
                 featuredRank: 1,
                 siblingIds: [],
                 specs: [
-                  { label: 'رقم المنتج', value: newId },
+                  { label: 'رقم المنتج', value: finalSku },
                   { label: 'القسم', value: catObj.name },
+                  ...(singleDims ? [{ label: 'القياسات والأبعاد', value: singleDims }] : []),
                   ...(linkedVariants.length > 0
                     ? [
                         {
@@ -2820,10 +2829,10 @@ export default {
 
         const statusBadge =
           status === 'confirmed'
-            ? `<span class="badge badge-confirmed">✅ تم استلام وتأكيد الطلب</span>`
+            ? `<span class="badge badge-confirmed">مؤكد</span>`
             : status === 'cancelled'
-            ? `<span class="badge badge-cancelled">❌ تم إلغاء الطلب</span>`
-            : `<span class="badge badge-pending">⏳ تم استلام الطلب وهو تحت المعالجة</span>`;
+            ? `<span class="badge badge-cancelled">ملغي</span>`
+            : `<span class="badge badge-pending">قيد المعالجة</span>`;
 
         return `
         <div class="order-card ${status}">
@@ -2840,17 +2849,17 @@ export default {
           <div class="order-card-body">
             <div class="customer-info">
               <div class="info-line">
-                <span class="info-label">👤 الزبون:</span>
+                <span class="info-label">الزبون:</span>
                 <span class="info-val"><b>${escapeHtml(order.customer?.fullName || '')}</b></span>
               </div>
               <div class="info-line">
-                <span class="info-label">🚚 الاستلام:</span>
+                <span class="info-label">الاستلام:</span>
                 <span class="info-val">${escapeHtml(deliveryMethod)} — <b>${escapeHtml(wilaya)}</b>${commune ? ` (${escapeHtml(commune)})` : ''}</span>
               </div>
               ${
                 order.customer?.address
                   ? `<div class="info-line">
-                      <span class="info-label">🏠 العنوان:</span>
+                      <span class="info-label">العنوان:</span>
                       <span class="info-val">${escapeHtml(order.customer.address)}</span>
                     </div>`
                   : ''
@@ -2858,7 +2867,7 @@ export default {
               ${
                 order.customer?.notes
                   ? `<div class="info-line">
-                      <span class="info-label">📝 ملاحظات:</span>
+                      <span class="info-label">ملاحظات:</span>
                       <span class="info-val"><i>${escapeHtml(order.customer.notes)}</i></span>
                     </div>`
                   : ''
@@ -2868,13 +2877,13 @@ export default {
             ${
               cleanPhone
                 ? `<a href="tel:${cleanPhone}" class="btn-call">
-                    📞 اتصال مباشر بالزبون (${escapeHtml(rawPhone)})
+                    اتصال بالزبون (${escapeHtml(rawPhone)})
                   </a>`
                 : ''
             }
 
             <div class="items-list">
-              <div class="items-title">📦 المنتجات (${order.items?.length || 1}):</div>
+              <div class="items-title">المنتجات (${order.items?.length || 1}):</div>
               ${(order.items || [])
                 .map(
                   (item: any) => `
@@ -2889,28 +2898,28 @@ export default {
 
             <div class="totals-line">
               <span>رسوم التوصيل: ${Number(order.totals?.shippingFeeDzd || 0) === 0 ? 'مجاني' : Number(order.totals?.shippingFeeDzd || 0).toLocaleString() + ' د.ج'}</span>
-              <span class="total-highlight">المبلغ المطلوب: ${Number(order.totals?.totalDzd || 0).toLocaleString()} د.ج</span>
+              <span class="total-highlight">المبلغ الإجمالي: ${Number(order.totals?.totalDzd || 0).toLocaleString()} د.ج</span>
             </div>
 
             <div class="card-actions">
               ${
                 status !== 'confirmed'
                   ? `<a href="${basePath}?action=confirm&orderId=${encodeURIComponent(order.orderId)}" class="btn-action btn-confirm">
-                      ✅ تأكيد الطلب
+                      تأكيد الطلب
                     </a>`
                   : `<a href="${basePath}?action=reset_status&orderId=${encodeURIComponent(order.orderId)}" class="btn-action btn-neutral">
-                      🔄 إعادة لقيد المعالجة
+                      إعادة لقيد المعالجة
                     </a>`
               }
               ${
                 status !== 'cancelled'
                   ? `<a href="${basePath}?action=cancel&orderId=${encodeURIComponent(order.orderId)}" class="btn-action btn-cancel">
-                      ❌ إلغاء الطلب
+                      إلغاء الطلب
                     </a>`
                   : ''
               }
               <a href="${basePath}?action=delete&orderId=${encodeURIComponent(order.orderId)}" onclick="return confirm('هل تريد حذف هذا الطلب نهائياً؟')" class="btn-action btn-delete">
-                🗑️ حذف
+                حذف
               </a>
               ${!isSingle ? `<a href="${basePath}?order=${encodeURIComponent(order.orderId)}" class="btn-action btn-link">صفحة مستقلة »</a>` : ''}
             </div>
@@ -2924,13 +2933,12 @@ export default {
         if (!order) {
           ordersContent = `
             <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 16px; padding: 32px; text-align: center;">
-              <div style="font-size: 32px; margin-bottom: 8px;">⚠️</div>
               <h3 style="color: #1E293B; font-size: 16px; margin-bottom: 8px;">الطلب غير موجود</h3>
               <p style="color: #64748B; font-size: 13px; margin-bottom: 16px;">
                 لم يتم العثور على طلب برقم: <code>#${escapeHtml(orderIdParam)}</code>
               </p>
               <a href="${basePath}?tab=orders" class="btn-action btn-neutral" style="display: inline-block;">
-                📋 العودة لجميع الطلبات (${ordersList.length})
+                العودة لجميع الطلبات (${ordersList.length})
               </a>
             </div>`;
         } else {
@@ -2947,11 +2955,10 @@ export default {
       } else {
         if (ordersList.length === 0) {
           ordersContent = `
-            <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 18px; padding: 48px 20px; text-align: center;">
-              <div style="font-size: 40px; margin-bottom: 12px;">📭</div>
-              <h3 style="color: #1E293B; font-size: 17px; font-weight: bold; margin-bottom: 6px;">لا توجد أي طلبات حالياً</h3>
-              <p style="color: #64748B; font-size: 13.5px; max-width: 380px; margin: 0 auto; line-height: 1.6;">
-                عندما يؤكد أي زبون طلبه من المتجر، سيظهر هنا فوراً مع إمكانية تأكيد الطلب، الاتصال به مباشرة، وتتبع حالته.
+            <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 14px; padding: 44px 20px; text-align: center;">
+              <h3 style="color: #1E293B; font-size: 16px; font-weight: 700; margin-bottom: 6px;">لا توجد طلبات مسجلة حالياً</h3>
+              <p style="color: #64748B; font-size: 13px; max-width: 380px; margin: 0 auto; line-height: 1.6;">
+                عندما يؤكد أي زبون طلبه من المتجر، سيظهر هنا فوراً مع بيانات الاتصال ومحتويات السلة.
               </p>
             </div>`;
         } else {
@@ -2968,54 +2975,49 @@ export default {
 
       const productsContent = `
         ${isProductAdded ? `
-          <div style="background:#ECFDF5; border:1.5px solid #10B981; color:#065F46; padding:14px 18px; border-radius:14px; margin-bottom:18px; font-weight:700; font-size:13.5px; display:flex; align-items:center; gap:10px;">
-            <span style="font-size:22px;">🎉</span>
-            <div>
-              <strong>تم نشر وحفظ المنتج الجديد بنجاح في المتجر!</strong>
-              <div style="font-size:12px; font-weight:500; color:#047857; margin-top:2px;">المنتج متاح الآن فوراً لجميع الزبائن في المتجر ويمكن طلبه مباشرة.</div>
-            </div>
+          <div style="background:#ECFDF5; border:1px solid #10B981; color:#065F46; padding:14px 18px; border-radius:12px; margin-bottom:18px; font-weight:600; font-size:13.5px;">
+            <strong>تم حفظ ونشر المنتج الجديد بنجاح في المتجر</strong>
+            <div style="font-size:12px; color:#047857; margin-top:2px;">المنتج متاح الآن لجميع زوار المتجر مع إمكانية الطلب المباشر.</div>
           </div>
         ` : ''}
 
         ${isProductDeleted ? `
-          <div style="background:#FEF2F2; border:1.5px solid #F87171; color:#991B1B; padding:12px 16px; border-radius:14px; margin-bottom:18px; font-weight:700; font-size:13px;">
-            🗑️ تم حذف المنتج من المتجر بنجاح.
+          <div style="background:#FEF2F2; border:1px solid #F87171; color:#991B1B; padding:12px 16px; border-radius:12px; margin-bottom:18px; font-weight:600; font-size:13px;">
+            تم حذف المنتج من المتجر بنجاح.
           </div>
         ` : ''}
 
         <!-- Add Product Form Card -->
-        <div style="background:#FFFFFF; border:1px solid #E2E8F0; border-radius:18px; padding:22px 20px; margin-bottom:24px; box-shadow:0 2px 10px rgba(0,0,0,0.03);">
-          <div style="display:flex; align-items:center; gap:10px; margin-bottom:16px; border-bottom:1px solid #F1F5F9; padding-bottom:12px;">
-            <div style="font-size:24px;">➕</div>
-            <div>
-              <h3 style="font-size:16px; font-weight:800; color:#0F172A; margin:0;">إضافة منتج جديد للمتجر مباشرة</h3>
-              <p style="font-size:12px; color:#64748B; margin-top:2px;">أضف المنتج من هنا بسهولة بدون الحاجة لتيليغرام. سيظهر فوراً للزبائن في المتجر.</p>
-            </div>
+        <div style="background:#FFFFFF; border:1px solid #E2E8F0; border-radius:16px; padding:24px 22px; margin-bottom:24px; box-shadow:0 1px 4px rgba(0,0,0,0.04);">
+          <div style="margin-bottom:18px; border-bottom:1px solid #F1F5F9; padding-bottom:14px;">
+            <h3 style="font-size:16px; font-weight:700; color:#0F172A; margin:0;">إضافة منتج جديد</h3>
+            <p style="font-size:12.5px; color:#64748B; margin-top:3px;">حدد نمط المنتج (منتج منفرد ببياناته أو مجموعة موديلات وأشكال) لتنظيم العرض في المتجر.</p>
           </div>
 
-          <form method="POST" action="${basePath}" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:14px;">
+          <form method="POST" action="${basePath}" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:16px;">
             <input type="hidden" name="action" value="add_product" />
             <input type="hidden" id="prod-mode" name="prod_mode" value="single" />
             <input type="hidden" id="variants-json-input" name="variants_json" value="" />
 
             <!-- Mode Selector Switcher -->
-            <div style="grid-column: 1 / -1; background:#F1F5F9; padding:5px; border-radius:12px; display:flex; gap:8px;">
-              <button type="button" id="tab-single-prod" onclick="switchProductMode('single')" style="flex:1; padding:9px 12px; border:none; border-radius:8px; font-weight:700; font-size:13px; cursor:pointer; background:#FFFFFF; color:#0F172A; box-shadow:0 1px 3px rgba(0,0,0,0.1); transition:all 0.2s;">
-                💰 منتج عادي (سعر واحد وصور عادية)
+            <div style="grid-column: 1 / -1; background:#F1F5F9; padding:4px; border-radius:10px; display:flex; gap:6px;">
+              <button type="button" id="tab-single-prod" onclick="switchProductMode('single')" style="flex:1; padding:9px 12px; border:none; border-radius:8px; font-weight:700; font-size:13px; cursor:pointer; background:#FFFFFF; color:#0F172A; box-shadow:0 1px 2px rgba(0,0,0,0.06); transition:all 0.2s;">
+                منتج منفرد (سعر، رقم تسلسلي، قياسات وصور)
               </button>
               <button type="button" id="tab-multi-prod" onclick="switchProductMode('multi')" style="flex:1; padding:9px 12px; border:none; border-radius:8px; font-weight:700; font-size:13px; cursor:pointer; background:transparent; color:#64748B; transition:all 0.2s;">
-                🎨 منتج متعدد الأشكال والموديلات (لكل شكل صورته واسمه وسعره ووصفه وقياساته)
+                مجموعة موديلات (لكل شكل صورته، اسمه، سعره، رقمه، وقياساته)
               </button>
             </div>
 
+            <!-- Common fields -->
             <div style="grid-column: 1 / -1;">
-              <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">🏷️ اسم المنتج *</label>
-              <input type="text" name="name" required placeholder="مثال: مقلمة مدرسية فاخرة تكنو 3 سحابات" style="width:100%; box-sizing:border-box; padding:10px 14px; border:1.5px solid #CBD5E1; border-radius:10px; font-size:13.5px; font-weight:600;" />
+              <label style="display:block; font-size:12px; font-weight:600; color:#334155; margin-bottom:5px;">اسم المنتج *</label>
+              <input type="text" name="name" required placeholder="مثال: مقلمة مدرسية فاخرة تكنو 3 سحابات" style="width:100%; box-sizing:border-box; height:42px; padding:8px 14px; border:1px solid #CBD5E1; border-radius:8px; font-size:13.5px; font-weight:600; outline:none;" />
             </div>
 
             <div>
-              <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">📂 القسم / الفئة *</label>
-              <input type="text" name="category" list="cat-suggestions" required placeholder="اختر أو اكتب اسماً جديداً..." style="width:100%; box-sizing:border-box; padding:10px 14px; border:1.5px solid #CBD5E1; border-radius:10px; font-size:13.5px;" />
+              <label style="display:block; font-size:12px; font-weight:600; color:#334155; margin-bottom:5px;">القسم / الفئة *</label>
+              <input type="text" name="category" list="cat-suggestions" required placeholder="اختر أو اكتب اسماً جديداً..." style="width:100%; box-sizing:border-box; height:42px; padding:8px 14px; border:1px solid #CBD5E1; border-radius:8px; font-size:13.5px; outline:none;" />
               <datalist id="cat-suggestions">
                 ${categoriesList.map((c) => `<option value="${escapeHtml(c.name)}">`).join('')}
                 <option value="أدوات مدرسية">
@@ -3027,14 +3029,24 @@ export default {
               </datalist>
             </div>
 
+            <div>
+              <label style="display:block; font-size:12px; font-weight:600; color:#334155; margin-bottom:5px;">الرقم التسلسلي / الكود (SKU) <span style="font-size:11px; font-weight:400; color:#64748B;">(اختياري)</span></label>
+              <input type="text" name="sku" placeholder="مثال: 71645 أو يترك فارغاً للترقيم التلقائي" style="width:100%; box-sizing:border-box; height:42px; padding:8px 14px; border:1px solid #CBD5E1; border-radius:8px; font-size:13px; font-family:monospace; outline:none;" />
+            </div>
+
             <div id="single-price-col">
-              <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">💰 السعر بالدينار الجزائري (د.ج) *</label>
-              <input type="number" id="single-price-input" name="price" required min="10" placeholder="1800" style="width:100%; box-sizing:border-box; padding:10px 14px; border:1.5px solid #CBD5E1; border-radius:10px; font-size:13.5px; font-family:monospace; font-weight:700; color:#0F172A;" />
+              <label style="display:block; font-size:12px; font-weight:600; color:#334155; margin-bottom:5px;">السعر بالدينار الجزائري (د.ج) *</label>
+              <input type="number" id="single-price-input" name="price" required min="10" placeholder="1800" style="width:100%; box-sizing:border-box; height:42px; padding:8px 14px; border:1px solid #CBD5E1; border-radius:8px; font-size:13.5px; font-family:monospace; font-weight:700; color:#0F172A; outline:none;" />
+            </div>
+
+            <div id="single-dims-col">
+              <label style="display:block; font-size:12px; font-weight:600; color:#334155; margin-bottom:5px;">القياسات والأبعاد <span style="font-size:11px; font-weight:400; color:#64748B;">(اختياري)</span></label>
+              <input type="text" name="dimensions" placeholder="مثال: 40x60 سم أو A4 أو سعة 500 مل" style="width:100%; box-sizing:border-box; height:42px; padding:8px 14px; border:1px solid #CBD5E1; border-radius:8px; font-size:13px; outline:none;" />
             </div>
 
             <div>
-              <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">🎨 اللون الرئيسي</label>
-              <select name="color" style="width:100%; box-sizing:border-box; padding:10px 14px; border:1.5px solid #CBD5E1; border-radius:10px; font-size:13px; background:#fff;">
+              <label style="display:block; font-size:12px; font-weight:600; color:#334155; margin-bottom:5px;">اللون الرئيسي</label>
+              <select name="color" style="width:100%; box-sizing:border-box; height:42px; padding:8px 14px; border:1px solid #CBD5E1; border-radius:8px; font-size:13px; background:#fff; outline:none;">
                 <option value="black">أسود / قياسي</option>
                 <option value="red">أحمر تكنو</option>
                 <option value="blue">أزرق</option>
@@ -3046,49 +3058,47 @@ export default {
 
             <!-- Single Product Photos Upload -->
             <div id="single-photos-section" style="grid-column: 1 / -1;">
-              <label style="display:block; font-size:12.5px; font-weight:700; color:#334155; margin-bottom:6px;">
-                📸 صور المنتج (رفع مباشر وضغط تلقائي للحجم مثل التيليغرام)
+              <label style="display:block; font-size:12.5px; font-weight:600; color:#334155; margin-bottom:6px;">
+                صور المنتج (رفع مباشر مع ضغط تلقائي للحجم)
               </label>
 
               <!-- Upload Drag & Drop Area -->
-              <div id="drop-area" onclick="document.getElementById('product-file-input').click()" style="border: 2px dashed #CBD5E1; border-radius: 14px; padding: 22px 16px; text-align: center; cursor: pointer; background: #F8FAFC; transition: all 0.2s;">
-                <div style="font-size: 34px; margin-bottom: 6px;">📷</div>
-                <div style="font-weight: 800; font-size: 14.5px; color: #0F172A;">اضغط هنا لاختيار الصور من هاتفك أو جهازك (أو اسحبها إلى هنا)</div>
-                <div style="font-size: 12px; color: #64748B; margin-top: 4px;">
-                  ⚡ يتم تقليل وضغط حجم الصور فورياً في متصفحك (مثل التيليغرام) لتصبح خفيفة وسريعة التحميل لزبائن المتجر.
+              <div id="drop-area" onclick="document.getElementById('product-file-input').click()" style="border:1.5px dashed #CBD5E1; border-radius:12px; padding:20px 16px; text-align:center; cursor:pointer; background:#F8FAFC; transition:all 0.2s;">
+                <div style="font-weight:700; font-size:14px; color:#0F172A;">اضغط هنا لاختيار صور المنتج من جهازك أو اسحبها إلى هنا</div>
+                <div style="font-size:12px; color:#64748B; margin-top:4px;">
+                  يتم تقليل وضغط حجم الصور فورياً في متصفحك لتسريع التصفح لزبائن المتجر.
                 </div>
               </div>
 
               <input type="file" id="product-file-input" accept="image/*" multiple style="display:none;" onchange="handleProductFiles(this.files)" />
 
               <!-- Images Preview Gallery -->
-              <div id="upload-status" style="margin-top: 10px; font-size: 12.5px; font-weight: 700; color: #047857; display: none;"></div>
-              <div id="image-previews" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; margin-top: 12px;"></div>
+              <div id="upload-status" style="margin-top:10px; font-size:12.5px; font-weight:600; color:#047857; display:none;"></div>
+              <div id="image-previews" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(130px, 1fr)); gap:10px; margin-top:12px;"></div>
               <div id="hidden-inputs"></div>
 
               <!-- Optional manual URL fallback -->
-              <details style="margin-top: 10px; font-size: 12px; color: #64748B;">
-                <summary style="cursor: pointer; font-weight: 600;">🔗 أو أدخل رابط صورة خارجي (اختياري)</summary>
-                <div style="margin-top: 6px;">
-                  <input type="url" name="image" placeholder="https://... أو مسار الصورة" style="width:100%; box-sizing:border-box; padding:8px 12px; border:1px solid #CBD5E1; border-radius:8px; font-size:12.5px; font-family:monospace;" />
+              <details style="margin-top:10px; font-size:12px; color:#64748B;">
+                <summary style="cursor:pointer; font-weight:600;">أو إدخال رابط صورة يدوي (اختياري)</summary>
+                <div style="margin-top:6px;">
+                  <input type="url" name="image" placeholder="https://... أو مسار الصورة" style="width:100%; box-sizing:border-box; height:38px; padding:8px 12px; border:1px solid #CBD5E1; border-radius:8px; font-size:12.5px; font-family:monospace; outline:none;" />
                 </div>
               </details>
             </div>
 
             <!-- Multi-Shapes / Multi-Models Interactive Builder -->
-            <div id="multi-shapes-section" style="grid-column: 1 / -1; display:none; background:#F8FAFC; border:1.5px solid #E2E8F0; border-radius:16px; padding:18px;">
+            <div id="multi-shapes-section" style="grid-column: 1 / -1; display:none; background:#F8FAFC; border:1px solid #E2E8F0; border-radius:14px; padding:18px;">
               <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px; border-bottom:1px solid #E2E8F0; padding-bottom:12px;">
                 <div>
-                  <h4 style="margin:0; font-size:15px; font-weight:800; color:#0F172A; display:flex; align-items:center; gap:8px;">
-                    <span>🎨 أشكال وموديلات المنتج</span>
-                    <span style="font-size:11px; background:#EFF6FF; color:#1D4ED8; padding:2px 8px; border-radius:12px; font-weight:700;">تسلسل تفاعلي كامل</span>
+                  <h4 style="margin:0; font-size:14.5px; font-weight:700; color:#0F172A;">
+                    موديلات وأشكال هذا المنتج
                   </h4>
                   <p style="margin:3px 0 0; font-size:12px; color:#64748B;">
-                    أدخل لكل شكل: <b>صورته</b> (مع ضغط الحجم)، ثم <b>اسمه</b>، ثم <b>سعره</b>، ثم <b>الوصف</b>، ثم <b>القياسات</b>.
+                    أدخل لكل شكل صورته الخاصة، اسمه، رقمه، سعره، قياساته ووصفه ليظهر بشكل متزامن عند السكرول في المتجر.
                   </p>
                 </div>
-                <button type="button" onclick="addNewShapeCard()" style="background:#0284C7; color:#FFFFFF; border:none; padding:9px 16px; border-radius:10px; font-size:13px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:6px; box-shadow:0 2px 6px rgba(2,132,199,0.2);">
-                  <span>➕ إضافة شكل آخر لهذا المنتج</span>
+                <button type="button" onclick="addNewShapeCard()" style="background:#0F172A; color:#FFFFFF; border:none; padding:8px 14px; border-radius:8px; font-size:12.5px; font-weight:600; cursor:pointer;">
+                  إضافة موديل جديد
                 </button>
               </div>
 
@@ -3096,20 +3106,20 @@ export default {
               <div id="shapes-cards-container" style="display:flex; flex-direction:column; gap:14px;"></div>
 
               <div style="margin-top:14px; display:flex; justify-content:center;">
-                <button type="button" onclick="addNewShapeCard()" style="background:#FFFFFF; border:1.5px dashed #0284C7; color:#0284C7; padding:10px 20px; border-radius:12px; font-size:13px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:8px; width:100%; justify-content:center;">
-                  <span>➕ إضافة شكل جديد لهذا المنتج (صورة، اسم، سعر، وصف، قياسات)</span>
+                <button type="button" onclick="addNewShapeCard()" style="background:#FFFFFF; border:1px dashed #94A3B8; color:#334155; padding:9px 18px; border-radius:8px; font-size:12.5px; font-weight:600; cursor:pointer; width:100%; text-align:center;">
+                  + إضافة موديل آخر لهذا المنتج
                 </button>
               </div>
             </div>
 
             <div style="grid-column: 1 / -1;">
-              <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">📝 وصف ومميزات المنتج العامة (اختياري)</label>
-              <textarea name="description" rows="2" placeholder="وصف موجز للمنتج، خامة الصنع، ومميزاته..." style="width:100%; box-sizing:border-box; padding:10px 14px; border:1.5px solid #CBD5E1; border-radius:10px; font-size:13px; font-family:inherit;"></textarea>
+              <label style="display:block; font-size:12px; font-weight:600; color:#334155; margin-bottom:5px;">وصف ومميزات المنتج (اختياري)</label>
+              <textarea name="description" rows="2" placeholder="وصف موجز للمنتج، خامة الصنع، ومميزاته العامة..." style="width:100%; box-sizing:border-box; padding:10px 14px; border:1px solid #CBD5E1; border-radius:8px; font-size:13px; font-family:inherit; outline:none;"></textarea>
             </div>
 
             <div style="grid-column: 1 / -1; display:flex; justify-content:flex-end;">
-              <button type="submit" style="background:#0F172A; color:#FFD100; border:none; padding:12px 28px; border-radius:12px; font-weight:800; font-size:14px; cursor:pointer; display:flex; align-items:center; gap:8px; box-shadow:0 3px 10px rgba(15,23,42,0.2);">
-                <span>💾 حفظ ونشر المنتج في المتجر فوراً</span>
+              <button type="submit" style="background:#0F172A; color:#FFFFFF; border:none; padding:11px 26px; border-radius:8px; font-weight:700; font-size:13.5px; cursor:pointer;">
+                حفظ ونشر المنتج
               </button>
             </div>
           </form>
@@ -3117,49 +3127,48 @@ export default {
 
         <!-- Products List -->
         <div style="margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;">
-          <h3 style="font-size:16px; font-weight:800; color:#0F172A; margin:0;">
-            🛍️ المنتجات المتوفرة في المتجر (${productsList.length})
+          <h3 style="font-size:16px; font-weight:700; color:#0F172A; margin:0;">
+            قائمة المنتجات (${productsList.length})
           </h3>
-          <span style="font-size:12px; color:#64748B;">تحديث فوري على السحابة</span>
+          <span style="font-size:12px; color:#64748B;">تحديث فوري</span>
         </div>
 
         ${productsList.length === 0 ? `
-          <div style="background:#FFFFFF; border:1px solid #E2E8F0; border-radius:18px; padding:48px 20px; text-align:center;">
-            <div style="font-size:40px; margin-bottom:12px;">📦</div>
-            <h3 style="color:#1E293B; font-size:17px; font-weight:bold; margin-bottom:6px;">لا توجد أي منتجات معروضة حالياً</h3>
-            <p style="color:#64748B; font-size:13.5px; max-width:380px; margin:0 auto; line-height:1.6;">
-              استخدم النموذج أعلاه لإضافة منتجك الأول، أو أضف المنتجات عبر بوت تيليغرام المربوط بالمتجر.
+          <div style="background:#FFFFFF; border:1px solid #E2E8F0; border-radius:14px; padding:44px 20px; text-align:center;">
+            <h3 style="color:#1E293B; font-size:16px; font-weight:700; margin-bottom:6px;">لا توجد منتجات مسجلة حالياً</h3>
+            <p style="color:#64748B; font-size:13px; max-width:380px; margin:0 auto; line-height:1.6;">
+              استخدم النموذج أعلاه لإضافة منتجك الأول، أو أضف المنتجات عبر بوت التيليغرام.
             </p>
           </div>
         ` : `
-          <div style="display:flex; flex-direction:column; gap:12px;">
+          <div style="display:flex; flex-direction:column; gap:10px;">
             ${productsList.map((p) => {
               const variantsCount = p.variants?.length || 0;
               return `
-                <div style="background:#FFFFFF; border:1px solid #E2E8F0; border-radius:16px; padding:14px 18px; display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; box-shadow:0 2px 6px rgba(0,0,0,0.02);">
-                  <div style="display:flex; align-items:center; gap:14px; min-width:240px; flex:1;">
-                    <img src="${escapeHtml(p.image)}" alt="${escapeHtml(p.name)}" style="width:56px; height:56px; object-fit:cover; border-radius:10px; border:1px solid #E2E8F0; background:#F8FAFC; flex-shrink:0;" onerror="this.src='/assets/aistudio/photo_5767250388670156962_y__1__73abac5d.jpg'" />
+                <div style="background:#FFFFFF; border:1px solid #E2E8F0; border-radius:12px; padding:12px 16px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+                  <div style="display:flex; align-items:center; gap:12px; min-width:240px; flex:1;">
+                    <img src="${escapeHtml(p.image)}" alt="${escapeHtml(p.name)}" style="width:52px; height:52px; object-fit:cover; border-radius:8px; border:1px solid #E2E8F0; background:#F8FAFC; flex-shrink:0;" onerror="this.src='/assets/aistudio/photo_5767250388670156962_y__1__73abac5d.jpg'" />
                     <div>
-                      <div style="font-size:14.5px; font-weight:700; color:#0F172A;">${escapeHtml(p.name)}</div>
-                      <div style="font-size:12px; color:#64748B; margin-top:3px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                        <span style="font-family:monospace; background:#F1F5F9; padding:1px 6px; border-radius:6px; font-weight:700;">#${escapeHtml(p.sku || p.id)}</span>
+                      <div style="font-size:14px; font-weight:700; color:#0F172A;">${escapeHtml(p.name)}</div>
+                      <div style="font-size:12px; color:#64748B; margin-top:2px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                        <span style="font-family:monospace; background:#F1F5F9; padding:1px 6px; border-radius:4px; font-weight:600;">#${escapeHtml(p.sku || p.id)}</span>
                         <span>·</span>
-                        <span style="background:#EFF6FF; color:#1D4ED8; padding:1px 8px; border-radius:10px; font-size:11px; font-weight:700;">${escapeHtml(p.categoryName || p.seriesLabel || 'عام')}</span>
-                        ${variantsCount > 0 ? `<span style="background:#FEF3C7; color:#92400E; padding:1px 8px; border-radius:10px; font-size:11px; font-weight:700;">${variantsCount} أشكال</span>` : ''}
+                        <span style="background:#F1F5F9; color:#475569; padding:1px 8px; border-radius:6px; font-size:11px; font-weight:600;">${escapeHtml(p.categoryName || p.seriesLabel || 'عام')}</span>
+                        ${variantsCount > 0 ? `<span style="background:#FEF3C7; color:#92400E; padding:1px 8px; border-radius:6px; font-size:11px; font-weight:600;">${variantsCount} أشكال</span>` : ''}
                       </div>
                     </div>
                   </div>
 
                   <div style="display:flex; align-items:center; gap:16px;">
-                    <div style="font-family:monospace; font-size:16px; font-weight:800; color:#E30613;">
+                    <div style="font-family:monospace; font-size:15px; font-weight:700; color:#E30613;">
                       ${Number(p.priceDzd || 0).toLocaleString()} د.ج
                     </div>
                     <div style="display:flex; align-items:center; gap:8px;">
-                      <a href="/${encodeURIComponent(p.id)}" target="_blank" style="background:#F1F5F9; color:#0F172A; text-decoration:none; padding:7px 12px; border-radius:10px; font-size:12px; font-weight:700;">
-                        عرض بالمتجر ↗
+                      <a href="/${encodeURIComponent(p.id)}" target="_blank" style="background:#F1F5F9; color:#0F172A; text-decoration:none; padding:6px 12px; border-radius:6px; font-size:12px; font-weight:600;">
+                        عرض في المتجر
                       </a>
-                      <a href="${basePath}?action=delete_product&id=${encodeURIComponent(p.id)}" onclick="return confirm('هل تريد بالتأكيد حذف هذا المنتج نهائياً من المتجر؟')" style="background:#FEF2F2; color:#DC2626; border:1px solid #FECACA; text-decoration:none; padding:7px 12px; border-radius:10px; font-size:12px; font-weight:700;">
-                        🗑️ حذف
+                      <a href="${basePath}?tab=products&action=delete_product&id=${encodeURIComponent(p.id)}" onclick="return confirm('هل تريد بالتأكيد حذف هذا المنتج نهائياً من المتجر؟')" style="background:#FEF2F2; color:#DC2626; border:1px solid #FECACA; text-decoration:none; padding:6px 12px; border-radius:6px; font-size:12px; font-weight:600;">
+                        حذف
                       </a>
                     </div>
                   </div>
@@ -3525,14 +3534,14 @@ export default {
       // Main container layout
       const tabTitle =
         currentTab === 'products'
-          ? '🛍️ إدارة المنتجات'
+          ? 'إدارة المنتجات'
           : currentTab === 'cards'
-          ? '💳 بطاقات الوفاء VIP'
+          ? 'بطاقات الوفاء'
           : currentTab === 'logs'
-          ? '🛡️ سجل الـ IP'
+          ? 'سجل الدخول'
           : currentTab === 'settings'
-          ? '⚙️ هاتف المتجر'
-          : '📋 طلبات متجر تكنو';
+          ? 'هاتف المتجر'
+          : 'طلبات المتجر';
 
       const tabSubtitle =
         currentTab === 'products'
@@ -3571,16 +3580,16 @@ export default {
       align-items: center;
       background: #FFFFFF;
       padding: 16px 20px;
-      border-radius: 18px;
+      border-radius: 14px;
       border: 1px solid #E2E8F0;
       margin-bottom: 16px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.03);
       flex-wrap: wrap;
       gap: 12px;
     }
     .top-title {
       font-size: 18px;
-      font-weight: 800;
+      font-weight: 700;
       color: #0F172A;
       display: flex;
       align-items: center;
@@ -3601,9 +3610,9 @@ export default {
       color: #B91C1C !important;
       text-decoration: none;
       padding: 8px 12px;
-      border-radius: 10px;
+      border-radius: 8px;
       font-size: 12px;
-      font-weight: 700;
+      font-weight: 600;
       transition: background 0.2s;
     }
     .btn-delete-all:hover { background: #FECACA; }
@@ -3802,32 +3811,32 @@ export default {
       <div class="top-actions">
         ${
           currentTab === 'orders' && ordersList.length > 0
-            ? `<a href="${basePath}?action=delete_all" onclick="return confirm('⚠️ هل أنت متأكد من حذف جميع الطلبات (${ordersList.length})؟ لا يمكن استرجاعها بعد الحذف.')" class="btn-delete-all">
-                🗑️ حذف كل الطلبات
+            ? `<a href="${basePath}?action=delete_all" onclick="return confirm('هل أنت متأكد من حذف جميع الطلبات (${ordersList.length})؟ لا يمكن استرجاعها بعد الحذف.')" class="btn-delete-all">
+                حذف كل الطلبات
               </a>`
             : ''
         }
-        <a href="${basePath}?logout=1" class="btn-logout">🚪 خروج</a>
+        <a href="${basePath}?logout=1" class="btn-logout">خروج</a>
       </div>
     </div>
 
     <!-- Navigation Tabs: 5 Sections -->
     <div class="nav-tabs">
       <a href="${basePath}?tab=orders" class="nav-tab ${currentTab === 'orders' ? 'active' : ''}">
-        📦 الطلبات (${ordersList.length})
+        الطلبات (${ordersList.length})
       </a>
       <a href="${basePath}?tab=products" class="nav-tab ${currentTab === 'products' ? 'active' : ''}">
-        🛍️ المنتجات (${productsList.length})
+        المنتجات (${productsList.length})
       </a>
       <a href="${basePath}?tab=cards" class="nav-tab ${currentTab === 'cards' ? 'active' : ''}">
-        💳 بطاقات الوفاء (${reqs.length})
+        بطاقات الوفاء (${reqs.length})
         ${pendingCardsCount > 0 ? `<span style="background:#EF4444; color:#fff; font-size:10px; padding:2px 6px; border-radius:10px;">${pendingCardsCount}</span>` : ''}
       </a>
       <a href="${basePath}?tab=logs" class="nav-tab ${currentTab === 'logs' ? 'active' : ''}">
-        🛡️ سجل الـ IP (${logsList.length})
+        سجل الدخول (${logsList.length})
       </a>
       <a href="${basePath}?tab=settings" class="nav-tab ${currentTab === 'settings' ? 'active' : ''}">
-        ⚙️ هاتف المتجر
+        هاتف المتجر
       </a>
     </div>
 
@@ -3851,6 +3860,7 @@ export default {
       var singleBtn = document.getElementById('tab-single-prod');
       var multiBtn = document.getElementById('tab-multi-prod');
       var priceCol = document.getElementById('single-price-col');
+      var dimsCol = document.getElementById('single-dims-col');
       var photosSec = document.getElementById('single-photos-section');
       var multiSection = document.getElementById('multi-shapes-section');
       var modeInput = document.getElementById('prod-mode');
@@ -3870,6 +3880,7 @@ export default {
           multiBtn.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
         }
         if (priceCol) priceCol.style.display = 'none';
+        if (dimsCol) dimsCol.style.display = 'none';
         if (photosSec) photosSec.style.display = 'none';
         if (multiSection) multiSection.style.display = 'block';
         if (priceInput) priceInput.removeAttribute('required');
@@ -3890,6 +3901,7 @@ export default {
           multiBtn.style.boxShadow = 'none';
         }
         if (priceCol) priceCol.style.display = 'block';
+        if (dimsCol) dimsCol.style.display = 'block';
         if (photosSec) photosSec.style.display = 'block';
         if (multiSection) multiSection.style.display = 'none';
         if (priceInput) priceInput.setAttribute('required', 'true');
@@ -3945,19 +3957,25 @@ export default {
       });
     }
 
-    // Upload compressed image blob to /api/upload-image
-    function uploadCompressedImageBlob(blob) {
+    // Upload compressed image blob to /api/upload-image (with fallbackDataUrl for 100% reliable upload)
+    function uploadCompressedImageBlob(blob, fallbackDataUrl) {
       var formData = new FormData();
       formData.append('file', blob, 'image.jpg');
       return fetch('/api/upload-image', {
         method: 'POST',
         body: formData
       }).then(function(res) {
-        if (!res.ok) throw new Error('فشل رفع الصورة للسحابة');
+        if (!res.ok) throw new Error('فشل استجابة السيرفر');
         return res.json();
       }).then(function(data) {
-        if (!data || !data.url) throw new Error('استجابة غير صحيحة من السيرفر');
-        return data.url;
+        var url = data && (data.url || data.imageUrl);
+        if (!url) throw new Error('استجابة غير صالحة من السيرفر');
+        return url;
+      }).catch(function(err) {
+        if (fallbackDataUrl) {
+          return fallbackDataUrl;
+        }
+        throw err;
       });
     }
 
@@ -3978,23 +3996,23 @@ export default {
       if (statusEl) {
         statusEl.style.display = 'block';
         statusEl.style.color = '#0284C7';
-        statusEl.textContent = '⏳ جاري ضغط ورفع ' + files.length + ' صور...';
+        statusEl.textContent = 'جاري ضغط ورفع ' + files.length + ' صور...';
       }
 
       var uploadPromises = [];
       for (var i = 0; i < files.length; i++) {
         (function(file) {
           var p = compressImageFile(file, 1000, 0.82).then(function(res) {
-            return uploadCompressedImageBlob(res.blob).then(function(url) {
+            return uploadCompressedImageBlob(res.blob, res.dataUrl).then(function(url) {
               var card = document.createElement('div');
-              card.style.cssText = 'position:relative; border-radius:10px; overflow:hidden; border:1px solid #CBD5E1; background:#F8FAFC;';
+              card.style.cssText = 'position:relative; border-radius:8px; overflow:hidden; border:1px solid #CBD5E1; background:#F8FAFC;';
               card.innerHTML = '<img src="' + url + '" style="width:100%; height:90px; object-fit:cover;" />' +
-                '<div style="font-size:10px; color:#047857; padding:2px 4px; font-weight:700; text-align:center;">' + formatBytes(res.compressedSize) + ' (' + Math.round((1 - res.compressedSize / res.originalSize) * 100) + '%-)' + '</div>';
+                '<div style="font-size:10px; color:#047857; padding:2px 4px; font-weight:600; text-align:center;">' + formatBytes(res.compressedSize) + ' (' + Math.round((1 - res.compressedSize / res.originalSize) * 100) + '% توفير)</div>';
               previewsContainer.appendChild(card);
 
               var input = document.createElement('input');
               input.type = 'hidden';
-              input.name = 'uploaded_images_urls';
+              input.name = 'uploaded_image_urls';
               input.value = url;
               hiddenContainer.appendChild(input);
             });
@@ -4006,12 +4024,12 @@ export default {
       Promise.all(uploadPromises).then(function() {
         if (statusEl) {
           statusEl.style.color = '#047857';
-          statusEl.textContent = '✅ تم ضغط ورفع جميع الصور بنجاح بنسبة تصغير وتوفير عالية!';
+          statusEl.textContent = 'تم ضغط ورفع جميع الصور بنجاح.';
         }
       }).catch(function(err) {
         if (statusEl) {
           statusEl.style.color = '#DC2626';
-          statusEl.textContent = '⚠️ حدث خطأ أثناء رفع الصور: ' + err.message;
+          statusEl.textContent = 'حدث تنبيه أثناء الرفع: ' + err.message;
         }
       });
     }
@@ -4036,23 +4054,23 @@ export default {
       var status = card.querySelector('.shape-file-status');
       var hiddenUrl = card.querySelector('.shape-image-url');
 
-      if (label) label.textContent = '⏳ جاري ضغط ورفع الصورة...';
-      if (status) status.textContent = 'جاري تقليل الحجم لسرعة التحميل';
+      if (label) label.textContent = 'جاري ضغط ورفع الصورة...';
+      if (status) status.textContent = 'تقليل الحجم لسرعة التحميل';
 
       compressImageFile(file, 1000, 0.82).then(function(res) {
         if (thumb) thumb.src = res.dataUrl;
-        return uploadCompressedImageBlob(res.blob).then(function(url) {
+        return uploadCompressedImageBlob(res.blob, res.dataUrl).then(function(url) {
           if (hiddenUrl) hiddenUrl.value = url;
-          if (label) label.textContent = '✅ تم إرفاق الصورة بنجاح';
+          if (label) label.textContent = 'تم إرفاق الصورة بنجاح';
           if (status) {
             var savedPct = Math.round((1 - res.compressedSize / res.originalSize) * 100);
-            status.textContent = 'تم تقليل الحجم من ' + formatBytes(res.originalSize) + ' إلى ' + formatBytes(res.compressedSize) + ' (' + savedPct + '%-)';
+            status.textContent = 'الحجم: ' + formatBytes(res.compressedSize) + ' (تم تقليل ' + savedPct + '%)';
           }
           syncShapesToJson();
         });
       }).catch(function(err) {
-        if (label) label.textContent = '⚠️ فشل الرفع';
-        if (status) status.textContent = err.message;
+        if (label) label.textContent = 'فشل الرفع';
+        if (status) status.textContent = err.message || 'حدث خطأ';
       });
     }
 
@@ -4064,44 +4082,44 @@ export default {
 
       var card = document.createElement('div');
       card.className = 'shape-card';
-      card.style.cssText = 'background:#FFFFFF; border:1.5px solid #CBD5E1; border-radius:14px; padding:16px; position:relative; box-shadow:0 1px 4px rgba(0,0,0,0.03);';
+      card.style.cssText = 'background:#FFFFFF; border:1px solid #CBD5E1; border-radius:12px; padding:16px; position:relative; box-shadow:0 1px 3px rgba(0,0,0,0.03);';
       card.innerHTML =
         '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1px solid #F1F5F9; padding-bottom:8px;">' +
-          '<span style="font-weight:800; font-size:13.5px; color:#0F172A;">الشكل <span class="shape-num">' + index + '</span></span>' +
-          '<button type="button" onclick="removeShapeCard(this)" class="remove-shape-btn" style="background:#FEE2E2; color:#DC2626; border:none; padding:4px 10px; border-radius:6px; font-size:11.5px; font-weight:700; cursor:pointer;' + (index === 1 ? 'display:none;' : '') + '">🗑️ حذف هذا الشكل</button>' +
+          '<span style="font-weight:700; font-size:13.5px; color:#0F172A;">الموديل رقم <span class="shape-num">' + index + '</span></span>' +
+          '<button type="button" onclick="removeShapeCard(this)" class="remove-shape-btn" style="background:#FEE2E2; color:#DC2626; border:none; padding:4px 10px; border-radius:6px; font-size:11.5px; font-weight:600; cursor:pointer;' + (index === 1 ? 'display:none;' : '') + '">حذف هذا الموديل</button>' +
         '</div>' +
-        '<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px;">' +
+        '<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px;">' +
           '<div style="grid-column: 1 / -1;">' +
-            '<label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">📸 1. صورة هذا الشكل (اضغط لاختيار صورة وسيتم تقليل حجمها تلقائياً) *</label>' +
-            '<div class="shape-dropzone" onclick="triggerShapeFileInput(this)" style="border:2px dashed #94A3B8; border-radius:10px; padding:12px 16px; text-align:center; cursor:pointer; background:#F8FAFC; display:flex; align-items:center; gap:12px;">' +
+            '<label style="display:block; font-size:12px; font-weight:600; color:#334155; margin-bottom:5px;">صورة الموديل (اضغط لاختيار صورة وسيتم تقليل حجمها تلقائياً) *</label>' +
+            '<div class="shape-dropzone" onclick="triggerShapeFileInput(this)" style="border:1.5px dashed #CBD5E1; border-radius:10px; padding:12px 16px; text-align:center; cursor:pointer; background:#F8FAFC; display:flex; align-items:center; gap:12px;">' +
               '<img class="shape-thumb" src="/assets/aistudio/photo_5767250388670156962_y__1__73abac5d.jpg" style="width:48px; height:48px; object-fit:cover; border-radius:8px; border:1px solid #CBD5E1; flex-shrink:0;" />' +
               '<div style="text-align:right;">' +
-                '<div style="font-size:12.5px; font-weight:700; color:#0F172A;" class="shape-file-label">اضغط لاختيار صورة هذا الشكل</div>' +
-                '<div style="font-size:11px; color:#64748B;" class="shape-file-status">يتم تقليل وضغط الحجم تلقائياً (مثل التيليغرام)</div>' +
+                '<div style="font-size:13px; font-weight:600; color:#0F172A;" class="shape-file-label">اضغط لاختيار صورة هذا الموديل</div>' +
+                '<div style="font-size:11.5px; color:#64748B;" class="shape-file-status">يتم تقليل وضغط الحجم تلقائياً لتسريع التصفح</div>' +
               '</div>' +
             '</div>' +
             '<input type="file" accept="image/*" class="shape-file-input" style="display:none;" onchange="handleShapePhotoUpload(this)" />' +
             '<input type="hidden" class="shape-image-url" value="" />' +
           '</div>' +
           '<div>' +
-            '<label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">🏷️ 2. اسم الشكل أو الموديل *</label>' +
-            '<input type="text" class="shape-name" placeholder="مثال: شكل قطة كرتونية / أزرق ملكي" style="width:100%; box-sizing:border-box; padding:8px 12px; border:1px solid #CBD5E1; border-radius:8px; font-size:13px; font-weight:600;" oninput="syncShapesToJson()" />' +
+            '<label style="display:block; font-size:12px; font-weight:600; color:#334155; margin-bottom:5px;">اسم الموديل أو الشكل *</label>' +
+            '<input type="text" class="shape-name" placeholder="مثال: شكل قطة كرتونية / أزرق ملكي" style="width:100%; box-sizing:border-box; height:40px; padding:8px 12px; border:1px solid #CBD5E1; border-radius:8px; font-size:13px; font-weight:600; outline:none;" oninput="syncShapesToJson()" />' +
           '</div>' +
           '<div>' +
-            '<label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">🔢 3. رقم أو كود هذا الشكل (اختياري)</label>' +
-            '<input type="text" class="shape-sku" placeholder="مثال: 71645-A أو 101" style="width:100%; box-sizing:border-box; padding:8px 12px; border:1px solid #CBD5E1; border-radius:8px; font-size:13px; font-family:monospace;" oninput="syncShapesToJson()" />' +
+            '<label style="display:block; font-size:12px; font-weight:600; color:#334155; margin-bottom:5px;">الرقم التسلسلي / كود الموديل (SKU)</label>' +
+            '<input type="text" class="shape-sku" placeholder="مثال: 71645-A أو 101" style="width:100%; box-sizing:border-box; height:40px; padding:8px 12px; border:1px solid #CBD5E1; border-radius:8px; font-size:13px; font-family:monospace; outline:none;" oninput="syncShapesToJson()" />' +
           '</div>' +
           '<div>' +
-            '<label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">💰 4. سعر هذا الشكل (د.ج) <span style="font-size:11px; font-weight:400; color:#64748B;">(أو اتركه وحدد أسعار القياسات بالأسفل)</span></label>' +
-            '<input type="number" class="shape-price" min="0" placeholder="مثال: 1800" style="width:100%; box-sizing:border-box; padding:8px 12px; border:1px solid #CBD5E1; border-radius:8px; font-size:13px; font-family:monospace; font-weight:700; color:#0F172A;" oninput="syncShapesToJson()" />' +
+            '<label style="display:block; font-size:12px; font-weight:600; color:#334155; margin-bottom:5px;">السعر بالدينار الجزائري (د.ج) <span style="font-size:11px; font-weight:400; color:#64748B;">(أو حدد أسعار القياسات بالأسفل)</span></label>' +
+            '<input type="number" class="shape-price" min="0" placeholder="مثال: 1800" style="width:100%; box-sizing:border-box; height:40px; padding:8px 12px; border:1px solid #CBD5E1; border-radius:8px; font-size:13px; font-family:monospace; font-weight:700; color:#0F172A; outline:none;" oninput="syncShapesToJson()" />' +
           '</div>' +
           '<div>' +
-            '<label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">📝 5. وصف ومميزات هذا الشكل (اختياري)</label>' +
-            '<input type="text" class="shape-desc" placeholder="مثال: مبطنة بجيب إضافي" style="width:100%; box-sizing:border-box; padding:8px 12px; border:1px solid #CBD5E1; border-radius:8px; font-size:13px;" oninput="syncShapesToJson()" />' +
+            '<label style="display:block; font-size:12px; font-weight:600; color:#334155; margin-bottom:5px;">وصف ومميزات هذا الموديل (اختياري)</label>' +
+            '<input type="text" class="shape-desc" placeholder="مثال: مبطنة بجيب إضافي" style="width:100%; box-sizing:border-box; height:40px; padding:8px 12px; border:1px solid #CBD5E1; border-radius:8px; font-size:13px; outline:none;" oninput="syncShapesToJson()" />' +
           '</div>' +
-          '<div>' +
-            '<label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">📏 6. قياسات هذا الشكل (أو عدة قياسات بأسعارها)</label>' +
-            '<textarea class="shape-dims" rows="2" placeholder="قياس واحد: 40x60 سم أو A4&#10;أو كل قياس بسعره (سطر لكل قياس):&#10;صغير : 1800&#10;متوسط : 2500&#10;كبير : 3400" style="width:100%; box-sizing:border-box; padding:8px 12px; border:1px solid #CBD5E1; border-radius:8px; font-size:12px; line-height:1.4;" oninput="syncShapesToJson()"></textarea>' +
+          '<div style="grid-column: 1 / -1;">' +
+            '<label style="display:block; font-size:12px; font-weight:600; color:#334155; margin-bottom:5px;">القياسات والأبعاد (أو عدة قياسات بأسعارها)</label>' +
+            '<textarea class="shape-dims" rows="2" placeholder="قياس واحد: 40x60 سم أو A4&#10;أو كل قياس بسعره (سطر لكل قياس):&#10;صغير : 1800&#10;متوسط : 2500&#10;كبير : 3400" style="width:100%; box-sizing:border-box; padding:8px 12px; border:1px solid #CBD5E1; border-radius:8px; font-size:12.5px; line-height:1.4; outline:none;" oninput="syncShapesToJson()"></textarea>' +
           '</div>' +
         '</div>';
 

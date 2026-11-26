@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import {
   AlertTriangle,
   ArrowRight,
@@ -89,6 +89,9 @@ export function ProductDetailPage({
   const [selectedVariantId, setSelectedVariantId] = useState<string | undefined>(
     variants[0]?.id,
   );
+  const carouselRef = useRef<HTMLDivElement>(null);
+  const isProgrammaticScroll = useRef(false);
+
   const [quantity, setQuantity] = useState(1);
   const [form, setForm] = useState<OrderFormInput>(INITIAL_FORM);
   const [errors, setErrors] = useState<OrderValidationErrors>({});
@@ -108,6 +111,9 @@ export function ProductDetailPage({
     setConfirmedOrder(null);
     setErrors({});
     setCopiedLink(false);
+    if (carouselRef.current) {
+      carouselRef.current.scrollTo({ left: 0 });
+    }
   }, [product.id, product.variants]);
 
   useEffect(() => {
@@ -115,28 +121,60 @@ export function ProductDetailPage({
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setIsLightboxOpen(false);
       if (e.key === 'ArrowRight') {
-        setActiveImageIdx((prev) => (prev - 1 + images.length) % images.length);
+        scrollToSlide((activeImageIdx - 1 + images.length) % images.length);
       }
       if (e.key === 'ArrowLeft') {
-        setActiveImageIdx((prev) => (prev + 1) % images.length);
+        scrollToSlide((activeImageIdx + 1) % images.length);
       }
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [isLightboxOpen, images.length]);
+  }, [isLightboxOpen, images.length, activeImageIdx]);
 
-  const handleSelectImage = (idx: number) => {
+  const scrollToSlide = (idx: number) => {
     setActiveImageIdx(idx);
     const matchedVariant = getVariantForImageIndex(product, idx);
     if (matchedVariant) {
       setSelectedVariantId(matchedVariant.id);
     }
+    const el = carouselRef.current;
+    if (el && el.children[idx]) {
+      isProgrammaticScroll.current = true;
+      (el.children[idx] as HTMLElement).scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+        inline: 'center',
+      });
+      window.setTimeout(() => {
+        isProgrammaticScroll.current = false;
+      }, 450);
+    }
+  };
+
+  const handleSelectImage = (idx: number) => {
+    scrollToSlide(idx);
   };
 
   const handleSelectVariant = (variantId: string) => {
     setSelectedVariantId(variantId);
     const matchedIdx = getImageIndexForVariant(product, variantId);
-    setActiveImageIdx(matchedIdx);
+    scrollToSlide(matchedIdx);
+  };
+
+  const handleCarouselScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    if (isProgrammaticScroll.current) return;
+    const el = e.currentTarget;
+    const width = el.clientWidth;
+    if (width <= 0) return;
+    const scrollPos = Math.abs(el.scrollLeft);
+    const newIdx = Math.round(scrollPos / width);
+    if (newIdx >= 0 && newIdx < images.length && newIdx !== activeImageIdx) {
+      setActiveImageIdx(newIdx);
+      const matchedVariant = getVariantForImageIndex(product, newIdx);
+      if (matchedVariant) {
+        setSelectedVariantId(matchedVariant.id);
+      }
+    }
   };
 
   const activeVariant = resolveProductVariant(product, selectedVariantId);
@@ -306,21 +344,62 @@ export function ProductDetailPage({
           <div className="lg:col-span-6 space-y-5">
             <div className="space-y-3">
               <div className="relative aspect-square w-full rounded-2xl overflow-hidden bg-white border border-stone-200 shadow-xs">
-                <ProductImage
-                  src={images[activeImageIdx] ?? images[0]}
-                  alt={`${product.alt} — صورة ${activeImageIdx + 1}`}
-                  fallbackTitle={product.name}
-                  fallbackCode={product.sku}
-                  loading="eager"
-                  className="w-full h-full object-cover"
-                />
+                {/* Horizontal Swipe & Scroll Gallery Container */}
+                <div
+                  ref={carouselRef}
+                  onScroll={handleCarouselScroll}
+                  data-testid="pdp-horizontal-gallery"
+                  className="flex overflow-x-auto snap-x snap-mandatory scrollbar-none w-full h-full scroll-smooth"
+                  style={{
+                    scrollbarWidth: 'none',
+                    msOverflowStyle: 'none',
+                    WebkitOverflowScrolling: 'touch',
+                  }}
+                >
+                  {images.map((imgUrl, idx) => {
+                    const slideVariant = getVariantForImageIndex(product, idx);
+                    const slideTitle = slideVariant?.name || slideVariant?.label || product.shortName || product.name;
+                    const slidePrice = slideVariant?.priceDzd || product.priceDzd;
+                    const slideSku = slideVariant?.sku || product.sku;
+
+                    return (
+                      <div
+                        key={`${imgUrl}-${idx}`}
+                        className="snap-center shrink-0 w-full h-full relative flex items-center justify-center bg-white"
+                      >
+                        <ProductImage
+                          src={imgUrl}
+                          alt={`${product.alt} — ${slideTitle} (صورة ${idx + 1})`}
+                          fallbackTitle={slideTitle}
+                          fallbackCode={slideSku}
+                          loading={idx === 0 ? 'eager' : 'lazy'}
+                          className="w-full h-full object-cover select-none pointer-events-none"
+                        />
+
+                        {/* Synchronized Shape & Price Overlay Pill directly on this slide */}
+                        <div className="absolute bottom-3.5 right-3.5 left-3.5 flex items-center justify-between gap-2 pointer-events-none">
+                          <div className="px-3 py-1.5 rounded-xl bg-black/80 backdrop-blur-md text-white text-xs font-bold shadow-md flex items-center gap-2 max-w-[70%] truncate">
+                            <span className="w-2 h-2 rounded-full bg-[#FFD100] shrink-0" />
+                            <span className="truncate">{slideTitle}</span>
+                            {slideSku ? (
+                              <span className="text-[10px] font-mono text-stone-300 shrink-0">#{slideSku}</span>
+                            ) : null}
+                          </div>
+                          <div className="px-3 py-1.5 rounded-xl bg-[#E30613] text-white text-xs font-black shadow-md tabular-nums shrink-0">
+                            {formatDzd(slidePrice)}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
 
                 {/* Zoom Trigger */}
                 <button
                   type="button"
                   onClick={() => setIsLightboxOpen(true)}
                   aria-label="تكبير صورة المنتج"
-                  className="absolute top-3.5 left-3.5 w-10 h-10 rounded-xl bg-white/92 border border-stone-200 text-[#18181B] inline-flex items-center justify-center hover:bg-[#18181B] hover:text-white transition-colors shadow-xs cursor-pointer"
+                  className="absolute top-3.5 left-3.5 z-10 w-10 h-10 rounded-xl bg-white/92 border border-stone-200 text-[#18181B] inline-flex items-center justify-center hover:bg-[#18181B] hover:text-white transition-colors shadow-xs cursor-pointer"
                 >
                   <Expand className="w-4 h-4" aria-hidden="true" />
                 </button>
@@ -331,25 +410,25 @@ export function ProductDetailPage({
                       type="button"
                       data-testid="pdp-gallery-prev"
                       onClick={() =>
-                        handleSelectImage((activeImageIdx - 1 + images.length) % images.length)
+                        scrollToSlide((activeImageIdx - 1 + images.length) % images.length)
                       }
                       aria-label="الصورة السابقة"
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 w-10 h-10 rounded-xl bg-white/92 border border-stone-200 text-[#18181B] inline-flex items-center justify-center hover:bg-[#18181B] hover:text-white transition-colors shadow-xs cursor-pointer"
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-xl bg-white/92 border border-stone-200 text-[#18181B] inline-flex items-center justify-center hover:bg-[#18181B] hover:text-white transition-colors shadow-xs cursor-pointer"
                     >
                       <ChevronRight className="w-5 h-5" aria-hidden="true" />
                     </button>
                     <button
                       type="button"
                       data-testid="pdp-gallery-next"
-                      onClick={() => handleSelectImage((activeImageIdx + 1) % images.length)}
+                      onClick={() => scrollToSlide((activeImageIdx + 1) % images.length)}
                       aria-label="الصورة التالية"
-                      className="absolute left-3.5 top-1/2 -translate-y-1/2 w-10 h-10 rounded-xl bg-white/92 border border-stone-200 text-[#18181B] inline-flex items-center justify-center hover:bg-[#18181B] hover:text-white transition-colors shadow-xs cursor-pointer"
+                      className="absolute left-3.5 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-xl bg-white/92 border border-stone-200 text-[#18181B] inline-flex items-center justify-center hover:bg-[#18181B] hover:text-white transition-colors shadow-xs cursor-pointer"
                     >
                       <ChevronLeft className="w-5 h-5" aria-hidden="true" />
                     </button>
                     <div
                       data-testid="pdp-gallery-counter"
-                      className="absolute top-3.5 right-3.5 px-2.5 py-1 rounded-md bg-black/75 text-white text-xs font-mono tabular-nums"
+                      className="absolute top-3.5 right-3.5 z-10 px-2.5 py-1 rounded-md bg-black/75 text-white text-xs font-mono tabular-nums"
                     >
                       {activeImageIdx + 1} / {images.length}
                     </div>
@@ -373,7 +452,7 @@ export function ProductDetailPage({
                         data-testid={`pdp-thumb-${idx}`}
                         aria-label={`عرض الصورة رقم ${idx + 1}`}
                         aria-pressed={isSelected}
-                        onClick={() => handleSelectImage(idx)}
+                        onClick={() => scrollToSlide(idx)}
                         className={`aspect-square rounded-xl overflow-hidden border bg-white transition-all cursor-pointer ${
                           isSelected
                             ? 'border-[#E30613] ring-2 ring-[#E30613]/25'
@@ -391,6 +470,49 @@ export function ProductDetailPage({
                   })}
                 </div>
               ) : null}
+
+              {/* Active Model / Shape Cordonnées Card (Synchronized with Horizontal Scroll) */}
+              <div className="p-4 rounded-2xl bg-white border border-stone-200 space-y-3 shadow-xs">
+                <div className="flex items-center justify-between gap-2 border-b border-stone-100 pb-2.5">
+                  <span className="text-xs font-bold text-stone-700 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-[#E30613]" />
+                    <span>بيانات الموديل المعروض حالياً:</span>
+                  </span>
+                  <span className="font-mono text-xs font-bold text-[#E30613] bg-red-50 border border-red-100 px-2 py-0.5 rounded-md">
+                    #{activeVariant?.sku || product.sku}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <span className="text-stone-400 block text-[11px] mb-0.5">اسم الموديل:</span>
+                    <span className="font-bold text-[#18181B] truncate block">
+                      {activeVariant ? (activeVariant.name || activeVariant.label) : product.name}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-stone-400 block text-[11px] mb-0.5">السعر:</span>
+                    <span className="font-mono font-bold text-[#E30613] text-sm">
+                      {formatDzd(unitPrice)}
+                    </span>
+                  </div>
+                  {(activeVariant?.dimensions || product.dimensions) && (
+                    <div className="col-span-2">
+                      <span className="text-stone-400 block text-[11px] mb-0.5">القياسات والأبعاد:</span>
+                      <span className="font-bold text-stone-700 bg-stone-50 border border-stone-200/60 px-2 py-1 rounded-md inline-block">
+                        {activeVariant?.dimensions || product.dimensions}
+                      </span>
+                    </div>
+                  )}
+                  {(activeVariant?.description) && (
+                    <div className="col-span-2">
+                      <span className="text-stone-400 block text-[11px] mb-0.5">مميزات هذا الموديل:</span>
+                      <span className="text-stone-600 leading-relaxed block">
+                        {activeVariant.description}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
 
             {/* Available Sibling Color Variations */}
