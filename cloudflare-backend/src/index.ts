@@ -2270,10 +2270,18 @@ export default {
             const categoryName = (form.get('category')?.toString() || 'أدوات مكتبية').trim();
             const customSku = (form.get('sku')?.toString() || '').trim();
             let price = parseInt(form.get('price')?.toString() || '0', 10);
+            if (isNaN(price)) price = 0;
             const singleDims = (form.get('dimensions')?.toString() || '').trim();
             const description = (form.get('description')?.toString() || '').trim();
             const variantsRaw = (form.get('variants_raw')?.toString() || '').trim();
             const colorFamily = (form.get('color')?.toString() || 'black').trim();
+
+            if (!name) {
+              return new Response(null, {
+                status: 302,
+                headers: { Location: `${basePath}?tab=products&error=missing_name`, ...responseHeaders },
+              });
+            }
 
             let uploadedImages: string[] = [];
 
@@ -2333,7 +2341,7 @@ export default {
                     const shapeImg = (item.image || '').trim();
                     const shapeDesc = (item.description || '').trim();
                     const shapeDims = (item.dimensions || '').trim();
-                    const basePrice = Number(item.priceDzd) || price || 1000;
+                    const basePrice = Number(item.priceDzd) || price || 0;
 
                     const subParsed = shapeDims ? parseVariantsText(shapeDims) : [];
                     if (subParsed.length > 0) {
@@ -2343,7 +2351,7 @@ export default {
                           name: `${shapeName} (${sub.label})`,
                           label: sub.label,
                           sku: sub.sku || shapeSku || undefined,
-                          priceDzd: sub.priceDzd,
+                          priceDzd: sub.priceDzd > 0 ? sub.priceDzd : (price > 0 ? price : 1000),
                           image: shapeImg || uploadedImages[idx] || uploadedImages[0],
                           description: (sub.description || shapeDesc).trim(),
                           dimensions: (sub.dimensions || sub.label).trim(),
@@ -2355,7 +2363,7 @@ export default {
                         name: shapeName,
                         label: shapeName,
                         sku: shapeSku || undefined,
-                        priceDzd: basePrice,
+                        priceDzd: basePrice > 0 ? basePrice : (price > 0 ? price : 1000),
                         image: shapeImg || uploadedImages[idx] || uploadedImages[0],
                         description: shapeDesc,
                         dimensions: shapeDims,
@@ -2363,7 +2371,9 @@ export default {
                     }
                   }
                 }
-              } catch {}
+              } catch (e) {
+                console.error('Error parsing variants_json:', e);
+              }
             }
 
             const parsedVariants =
@@ -2372,8 +2382,9 @@ export default {
                 : (variantsRaw ? parseVariantsText(variantsRaw) : []);
 
             if (parsedVariants.length > 0) {
-              if (price <= 0) {
-                price = Math.min(...parsedVariants.map((v) => v.priceDzd));
+              const validPrices = parsedVariants.map((v) => v.priceDzd).filter((p) => p > 0);
+              if (validPrices.length > 0 && price <= 0) {
+                price = Math.min(...validPrices);
               }
               const shapeImages = parsedVariants.map((v) => v.image).filter(Boolean) as string[];
               if (shapeImages.length > 0) {
@@ -2381,88 +2392,108 @@ export default {
               }
             }
 
-            if (name && (price > 0 || parsedVariants.length > 0)) {
-              if (price <= 0 && parsedVariants.length > 0) {
-                price = Math.min(...parsedVariants.map((v) => v.priceDzd));
-              }
-              const products = await getProducts(env);
-              const generatedId = await getNextNumericId(env, products);
-              const finalSku = customSku || generatedId;
-              const finalId = customSku && !products.some((p) => p.id === customSku) ? customSku : generatedId;
-              const catObj = await ensureCategory(env, categoryName);
-
-              // Link each uploaded image to its corresponding variant/shape
-              const linkedVariants = parsedVariants.map((v, i) => ({
-                ...v,
-                name: v.name || v.label,
-                image: v.image || uploadedImages[i] || uploadedImages[0],
-              }));
-
-              const mainDesc =
-                description ||
-                (linkedVariants.length > 0 && linkedVariants[0].description
-                  ? linkedVariants[0].description
-                  : 'منتج أصلي معتمد متوفر في فرع تكنو الأغواط.');
-
-              const newProduct: Product = {
-                id: finalId,
-                sku: finalSku,
-                name,
-                shortName: name,
-                brand: 'TECHNO STATIONERY',
-                series: catObj.id,
-                seriesLabel: catObj.name,
-                categoryId: catObj.id,
-                categoryName: catObj.name,
-                colorFamily,
-                colorName: colorFamily === 'red' ? 'أحمر' : colorFamily === 'blue' ? 'أزرق' : 'قياسي',
-                colorHex: colorFamily === 'red' ? '#E30613' : colorFamily === 'blue' ? '#2563EB' : '#1F2024',
-                priceDzd: price,
-                image: uploadedImages[0],
-                images: uploadedImages,
-                ...(singleDims ? { dimensions: singleDims } : {}),
-                ...(linkedVariants.length > 0 ? { variants: linkedVariants } : {}),
-                alt: `${name} — رقم المنتج ${finalSku}`,
-                summary: mainDesc,
-                description: mainDesc,
-                availabilityText: 'متوفر في فرع الأغواط',
-                featuredRank: 1,
-                siblingIds: [],
-                specs: [
-                  { label: 'رقم المنتج', value: finalSku },
-                  { label: 'القسم', value: catObj.name },
-                  ...(singleDims ? [{ label: 'القياسات والأبعاد', value: singleDims }] : []),
-                  ...(linkedVariants.length > 0
-                    ? [
-                        {
-                          label: 'الأشكال المتوفرة',
-                          value: linkedVariants.map((v) => `${v.name || v.label} (${v.priceDzd.toLocaleString()} د.ج)`).join(' · '),
-                        },
-                      ]
-                    : []),
-                  ...(linkedVariants.some((v) => v.dimensions)
-                    ? [
-                        {
-                          label: 'القياسات المتوفرة',
-                          value: linkedVariants.map((v) => v.dimensions).filter(Boolean).join(' · '),
-                        },
-                      ]
-                    : []),
-                ],
-                highlights: [
-                  'منتج أصلي معتمد متوفر في فرع تكنو الأغواط',
-                  'توصيل سريع للأغواط و54 ولاية عبر ZR Express والدفع عند الاستلام',
-                ],
-              };
-
-              await saveProducts(env, [newProduct, ...products]);
+            if (price <= 0 && parsedVariants.length === 0) {
               return new Response(null, {
                 status: 302,
-                headers: { Location: `${basePath}?tab=products&added=1`, ...responseHeaders },
+                headers: { Location: `${basePath}?tab=products&error=missing_price`, ...responseHeaders },
               });
             }
+
+            if (price <= 0) {
+              price = 1000;
+            }
+
+            const products = await getProducts(env);
+            const generatedId = await getNextNumericId(env, products);
+            const finalSku = customSku || generatedId;
+            const finalId = customSku && !products.some((p) => p.id === customSku) ? customSku : generatedId;
+            const catObj = await ensureCategory(env, categoryName);
+
+            // Link each uploaded image to its corresponding variant/shape
+            const linkedVariants = parsedVariants.map((v, i) => ({
+              ...v,
+              name: v.name || v.label,
+              image: v.image || uploadedImages[i] || uploadedImages[0],
+            }));
+
+            const mainDesc =
+              description ||
+              (linkedVariants.length > 0 && linkedVariants[0].description
+                ? linkedVariants[0].description
+                : 'منتج أصلي معتمد متوفر في فرع تكنو الأغواط.');
+
+            const newProduct: Product = {
+              id: finalId,
+              sku: finalSku,
+              name,
+              shortName: name,
+              brand: 'TECHNO STATIONERY',
+              series: catObj.id,
+              seriesLabel: catObj.name,
+              categoryId: catObj.id,
+              categoryName: catObj.name,
+              colorFamily,
+              colorName: colorFamily === 'red' ? 'أحمر' : colorFamily === 'blue' ? 'أزرق' : 'قياسي',
+              colorHex: colorFamily === 'red' ? '#E30613' : colorFamily === 'blue' ? '#2563EB' : '#1F2024',
+              priceDzd: price,
+              image: uploadedImages[0],
+              images: uploadedImages,
+              ...(singleDims ? { dimensions: singleDims } : {}),
+              ...(linkedVariants.length > 0 ? { variants: linkedVariants } : {}),
+              alt: `${name} — رقم المنتج ${finalSku}`,
+              summary: mainDesc,
+              description: mainDesc,
+              availabilityText: 'متوفر في فرع الأغواط',
+              featuredRank: 1,
+              siblingIds: [],
+              specs: [
+                { label: 'رقم المنتج', value: finalSku },
+                { label: 'القسم', value: catObj.name },
+                ...(singleDims ? [{ label: 'القياسات والأبعاد', value: singleDims }] : []),
+                ...(linkedVariants.length > 0
+                  ? [
+                      {
+                        label: 'الأشكال المتوفرة',
+                        value: linkedVariants.map((v) => `${v.name || v.label} (${v.priceDzd.toLocaleString()} د.ج)`).join(' · '),
+                      },
+                    ]
+                  : []),
+                ...(linkedVariants.some((v) => v.dimensions)
+                  ? [
+                      {
+                        label: 'القياسات المتوفرة',
+                        value: linkedVariants.map((v) => v.dimensions).filter(Boolean).join(' · '),
+                      },
+                    ]
+                  : []),
+              ],
+              highlights: [
+                'منتج أصلي معتمد متوفر في فرع تكنو الأغواط',
+                'توصيل سريع للأغواط و54 ولاية عبر ZR Express والدفع عند الاستلام',
+              ],
+            };
+
+            await saveProducts(env, [newProduct, ...products]);
+            try {
+              const siteUrl = env.SITE_URL || 'https://techno-laghouat.pages.dev';
+              const productUrl = `${siteUrl}/${newProduct.id}`;
+              await sendProductAddedNtfy(newProduct, productUrl);
+            } catch {}
+            return new Response(null, {
+              status: 302,
+              headers: { Location: `${basePath}?tab=products&added=1`, ...responseHeaders },
+            });
           }
-        } catch {}
+        } catch (err: any) {
+          console.error('Error adding product in admin dashboard:', err);
+          return new Response(null, {
+            status: 302,
+            headers: {
+              Location: `${basePath}?tab=products&error=general&msg=${encodeURIComponent(err?.message || 'unknown')}`,
+              ...responseHeaders,
+            },
+          });
+        }
       }
 
       // Handle Authorized GET Actions
@@ -2974,11 +3005,13 @@ export default {
       // ─── TAB 2: Products Content ───────────────────────────────────────────
       const isProductAdded = url.searchParams.get('added') === '1';
       const isProductDeleted = url.searchParams.get('deleted') === '1';
+      const prodError = url.searchParams.get('error') || '';
+      const prodErrorMsg = url.searchParams.get('msg') || '';
 
       const productsContent = `
         ${isProductAdded ? `
           <div style="background:#ECFDF5; border:1px solid #10B981; color:#065F46; padding:14px 18px; border-radius:12px; margin-bottom:18px; font-weight:600; font-size:13.5px;">
-            <strong>تم حفظ ونشر المنتج الجديد بنجاح في المتجر</strong>
+            <strong>✅ تم حفظ ونشر المنتج الجديد بنجاح في المتجر!</strong>
             <div style="font-size:12px; color:#047857; margin-top:2px;">المنتج متاح الآن لجميع زوار المتجر مع إمكانية الطلب المباشر.</div>
           </div>
         ` : ''}
@@ -2989,6 +3022,24 @@ export default {
           </div>
         ` : ''}
 
+        ${prodError === 'missing_name' ? `
+          <div style="background:#FEF2F2; border:1px solid #F87171; color:#991B1B; padding:12px 16px; border-radius:12px; margin-bottom:18px; font-weight:600; font-size:13px;">
+            ⚠️ يرجى إدخال اسم المنتج قبل الحفظ.
+          </div>
+        ` : ''}
+
+        ${prodError === 'missing_price' ? `
+          <div style="background:#FEF2F2; border:1px solid #F87171; color:#991B1B; padding:12px 16px; border-radius:12px; margin-bottom:18px; font-weight:600; font-size:13px;">
+            ⚠️ يرجى إدخال سعر المنتج أو أسعار الموديلات والأشكال بالدينار الجزائري.
+          </div>
+        ` : ''}
+
+        ${prodError === 'general' ? `
+          <div style="background:#FEF2F2; border:1px solid #F87171; color:#991B1B; padding:12px 16px; border-radius:12px; margin-bottom:18px; font-weight:600; font-size:13px;">
+            ⚠️ حدث خطأ أثناء حفظ المنتج (${escapeHtml(prodErrorMsg)}). يرجى التحقق من البيانات والمحاولة مجدداً.
+          </div>
+        ` : ''}
+
         <!-- Add Product Form Card -->
         <div style="background:#FFFFFF; border:1px solid #E2E8F0; border-radius:16px; padding:24px 22px; margin-bottom:24px; box-shadow:0 1px 4px rgba(0,0,0,0.04);">
           <div style="margin-bottom:18px; border-bottom:1px solid #F1F5F9; padding-bottom:14px;">
@@ -2996,7 +3047,7 @@ export default {
             <p style="font-size:12.5px; color:#64748B; margin-top:3px;">حدد نمط المنتج (منتج منفرد ببياناته أو مجموعة موديلات وأشكال) لتنظيم العرض في المتجر.</p>
           </div>
 
-          <form method="POST" action="${basePath}" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:16px;">
+          <form id="add-product-form" method="POST" action="${basePath}?tab=products" onsubmit="return handleProductFormSubmit(event)" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:16px;">
             <input type="hidden" name="action" value="add_product" />
             <input type="hidden" id="prod-mode" name="prod_mode" value="single" />
             <input type="hidden" id="variants-json-input" name="variants_json" value="" />
@@ -3120,7 +3171,7 @@ export default {
             </div>
 
             <div style="grid-column: 1 / -1; display:flex; justify-content:flex-end;">
-              <button type="submit" style="background:#0F172A; color:#FFFFFF; border:none; padding:11px 26px; border-radius:8px; font-weight:700; font-size:13.5px; cursor:pointer;">
+              <button type="submit" id="submit-prod-btn" style="background:#0F172A; color:#FFFFFF; border:none; padding:11px 26px; border-radius:8px; font-weight:700; font-size:13.5px; cursor:pointer;">
                 حفظ ونشر المنتج
               </button>
             </div>
@@ -4203,15 +4254,58 @@ export default {
       }
     }
 
-    // Attach submit listener
-    document.addEventListener('DOMContentLoaded', function() {
-      var form = document.querySelector('form[action*="add_product"]') || document.querySelector('form');
-      if (form) {
-        form.addEventListener('submit', function() {
-          syncShapesToJson();
-        });
+    function handleProductFormSubmit(e) {
+      var modeInput = document.getElementById('prod-mode');
+      var isMulti = modeInput && modeInput.value === 'multi';
+      var nameInput = document.querySelector('input[name="name"]');
+      var nameVal = (nameInput && nameInput.value || '').trim();
+
+      if (!nameVal) {
+        alert('⚠️ يرجى كتابة اسم المنتج أولاً.');
+        if (nameInput) nameInput.focus();
+        if (e) e.preventDefault();
+        return false;
       }
-    });
+
+      if (isMulti) {
+        syncShapesToJson();
+        var jsonInput = document.getElementById('variants-json-input');
+        var priceInput = document.getElementById('single-price-input');
+        var rawJson = jsonInput ? jsonInput.value : '';
+        if (!rawJson) {
+          alert('⚠️ يرجى إضافة موديل أو شكل واحد على الأقل وتحديد اسمه أو سعره.');
+          if (e) e.preventDefault();
+          return false;
+        }
+        if (priceInput && (!priceInput.value || parseFloat(priceInput.value) <= 0)) {
+          priceInput.value = '1000';
+        }
+      } else {
+        var priceIn = document.getElementById('single-price-input');
+        if (priceIn && (!priceIn.value || parseFloat(priceIn.value) <= 0)) {
+          alert('⚠️ يرجى كتابة سعر المنتج بالدينار الجزائري.');
+          if (priceIn) priceIn.focus();
+          if (e) e.preventDefault();
+          return false;
+        }
+      }
+
+      var submitBtn = document.getElementById('submit-prod-btn');
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = '⏳ جاري الحفظ والنشر في المتجر...';
+        submitBtn.style.opacity = '0.75';
+      }
+      return true;
+    }
+
+    // Direct submit listener
+    var addProdForm = document.getElementById('add-product-form');
+    if (addProdForm) {
+      addProdForm.addEventListener('submit', function(e) {
+        handleProductFormSubmit(e);
+      });
+    }
   </script>
 </body>
 </html>`;
