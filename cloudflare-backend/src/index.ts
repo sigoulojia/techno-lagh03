@@ -4104,9 +4104,13 @@ export default {
         if (multiSection) multiSection.style.display = 'block';
         if (priceInput) priceInput.removeAttribute('required');
 
-        var container = document.getElementById('shapes-cards-container');
-        if (container && container.children.length === 0) {
-          addNewShapeCard();
+        try {
+          var container = document.getElementById('shapes-cards-container');
+          if (container && container.children.length === 0) {
+            addNewShapeCard();
+          }
+        } catch (e) {
+          console.error('Error adding initial shape card:', e);
         }
       } else {
         if (singleBtn) {
@@ -4126,6 +4130,7 @@ export default {
         if (priceInput) priceInput.setAttribute('required', 'true');
       }
     }
+    window.switchProductMode = switchProductMode;
 
     // Client-side Canvas Image Compressor (max dimension 1000px, 0.82 JPEG quality)
     function compressImageFile(file, maxWidth, quality) {
@@ -4424,7 +4429,10 @@ export default {
       var card = btn.closest('.shape-card');
       if (!card) return;
       var fileInput = card.querySelector('.shape-file-input');
-      if (fileInput) fileInput.click();
+      if (fileInput) {
+        fileInput.value = '';
+        fileInput.click();
+      }
     }
 
     // Delete photo from shape card
@@ -4553,7 +4561,7 @@ export default {
               '<button type="button" class="change-shape-photo-btn" onclick="triggerShapeFileInput(this)" style="background:#F1F5F9; color:#0F172A; border:1px solid #CBD5E1; padding:5px 12px; border-radius:6px; font-size:11.5px; font-weight:600; cursor:pointer;">🔄 تغيير الصورة</button>' +
               '<button type="button" class="delete-shape-photo-btn" onclick="deleteShapePhoto(this)" style="background:#FEF2F2; color:#DC2626; border:1px solid #FECACA; padding:5px 12px; border-radius:6px; font-size:11.5px; font-weight:600; cursor:pointer;">🗑️ حذف الصورة</button>' +
             '</div>' +
-            '<input type="file" accept="image/*" class="shape-file-input" style="display:none;" onclick="this.value=\'\'" onchange="handleShapePhotoUpload(this)" />' +
+            '<input type="file" accept="image/*" class="shape-file-input" style="display:none;" onchange="handleShapePhotoUpload(this)" />' +
             '<input type="hidden" class="shape-image-url" value="" />' +
           '</div>' +
           '<div>' +
@@ -4727,6 +4735,33 @@ export default {
         }, 10);
       }
       return true;
+    }
+
+    // Expose all dashboard functions globally on window
+    window.switchProductMode = switchProductMode;
+    window.addNewShapeCard = addNewShapeCard;
+    window.removeShapeCard = removeShapeCard;
+    window.triggerShapeFileInput = triggerShapeFileInput;
+    window.deleteShapePhoto = deleteShapePhoto;
+    window.handleShapePhotoUpload = handleShapePhotoUpload;
+    window.syncShapesToJson = syncShapesToJson;
+    window.handleProductFormSubmit = handleProductFormSubmit;
+
+    // Attach click listeners to tabs directly on load
+    function initDashboardProductMode() {
+      var sBtn = document.getElementById('tab-single-prod');
+      var mBtn = document.getElementById('tab-multi-prod');
+      if (sBtn) {
+        sBtn.addEventListener('click', function() { switchProductMode('single'); });
+      }
+      if (mBtn) {
+        mBtn.addEventListener('click', function() { switchProductMode('multi'); });
+      }
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initDashboardProductMode);
+    } else {
+      initDashboardProductMode();
     }
   </script>
 </body>
