@@ -2376,8 +2376,11 @@ export default {
             const hiddenUrls = [...form.getAll('uploaded_image_urls'), ...form.getAll('uploaded_images_urls')];
             if (hiddenUrls && hiddenUrls.length > 0) {
               for (const u of hiddenUrls) {
-                const s = u?.toString().trim();
+                let s = u?.toString().trim();
                 if (s && (s.startsWith('/api/images/') || s.startsWith('data:image/') || s.startsWith('http'))) {
+                  if (s.startsWith('data:image/') && env.techno_products_kv) {
+                    s = await persistDataUrlToKv(env, s);
+                  }
                   uploadedImages.push(s);
                 }
               }
@@ -3243,20 +3246,26 @@ export default {
               </label>
 
               <!-- Upload Drag & Drop Area -->
-              <div id="drop-area" onclick="document.getElementById('product-file-input').click()" style="border:1.5px dashed #CBD5E1; border-radius:12px; padding:20px 16px; text-align:center; cursor:pointer; background:#F8FAFC; transition:all 0.2s;">
-                <div style="font-weight:700; font-size:14px; color:#0F172A;">اضغط هنا لاختيار صور المنتج من جهازك أو اسحبها إلى هنا</div>
+              <div id="drop-area"
+                onclick="document.getElementById('product-file-input').click()"
+                ondragover="event.preventDefault(); this.style.borderColor='#E30613'; this.style.background='#FEF2F2';"
+                ondragleave="event.preventDefault(); this.style.borderColor='#CBD5E1'; this.style.background='#F8FAFC';"
+                ondrop="event.preventDefault(); this.style.borderColor='#CBD5E1'; this.style.background='#F8FAFC'; if (event.dataTransfer && event.dataTransfer.files) handleProductFiles(event.dataTransfer.files);"
+                style="border:2px dashed #CBD5E1; border-radius:12px; padding:22px 16px; text-align:center; cursor:pointer; background:#F8FAFC; transition:all 0.2s;">
+                <div style="font-size:28px; margin-bottom:6px;">📸</div>
+                <div style="font-weight:700; font-size:14px; color:#0F172A;">اضغط هنا لاختيار صور المنتج من جهازك أو اسحبها وأفلتها هنا</div>
                 <div style="font-size:12px; color:#64748B; margin-top:4px;">
-                  يتم تقليل وضغط حجم الصور فورياً في متصفحك لتسريع التصفح لزبائن المتجر.
+                  يمكنك اختيار صورة واحدة أو عدة صور — تظهر فوراً ويتم ضغط وتصغير حجمها تلقائياً لتسريع التصفح لزبائن المتجر.
                 </div>
               </div>
 
-              <input type="file" id="product-file-input" accept="image/*" multiple style="display:none;" onchange="handleProductFiles(this.files)" />
+              <input type="file" id="product-file-input" accept="image/*" multiple style="display:none;" onclick="this.value=''" onchange="handleProductFiles(this.files)" />
 
               <!-- Images Preview Gallery -->
               <div id="upload-status" style="margin-top:10px; font-size:12.5px; font-weight:600; color:#047857; display:none;"></div>
-              <div id="image-previews" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(130px, 1fr)); gap:10px; margin-top:12px;"></div>
+              <div id="image-previews" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(135px, 1fr)); gap:12px; margin-top:12px;"></div>
               <div id="single-photos-actions" style="margin-top:10px; display:none; gap:10px; flex-wrap:wrap;">
-                <button type="button" onclick="document.getElementById('product-file-input').click()" style="background:#F1F5F9; color:#0F172A; border:1px solid #CBD5E1; padding:7px 14px; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer;">🔄 إضافة أو تغيير صور</button>
+                <button type="button" onclick="document.getElementById('product-file-input').click()" style="background:#F1F5F9; color:#0F172A; border:1px solid #CBD5E1; padding:7px 14px; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer;">➕ إضافة المزيد من الصور</button>
                 <button type="button" onclick="clearAllSingleProductImages()" style="background:#FEF2F2; color:#DC2626; border:1px solid #FECACA; padding:7px 14px; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer;">🗑️ حذف جميع الصور</button>
               </div>
               <div id="hidden-inputs"></div>
@@ -4123,70 +4132,132 @@ export default {
       maxWidth = maxWidth || 1000;
       quality = quality || 0.82;
       return new Promise(function(resolve, reject) {
-        if (!file || !file.type.startsWith('image/')) {
-          return reject(new Error('الملف المحدد ليس صورة صالحة.'));
+        if (!file) {
+          return reject(new Error('يرجى اختيار ملف صالح'));
         }
         var reader = new FileReader();
         reader.onload = function(e) {
+          var dataUrl = e.target.result;
           var img = new Image();
           img.onload = function() {
-            var width = img.width;
-            var height = img.height;
-            if (width > maxWidth || height > maxWidth) {
-              if (width > height) {
-                height = Math.round((height * maxWidth) / width);
-                width = maxWidth;
-              } else {
-                width = Math.round((width * maxWidth) / height);
-                height = maxWidth;
+            try {
+              var width = img.width || 1;
+              var height = img.height || 1;
+              if (width > maxWidth || height > maxWidth) {
+                if (width > height) {
+                  height = Math.round((height * maxWidth) / width);
+                  width = maxWidth;
+                } else {
+                  width = Math.round((width * maxWidth) / height);
+                  height = maxWidth;
+                }
               }
-            }
-            var canvas = document.createElement('canvas');
-            canvas.width = width;
-            canvas.height = height;
-            var ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0, width, height);
-            canvas.toBlob(function(blob) {
-              if (blob) {
+              var canvas = document.createElement('canvas');
+              canvas.width = width;
+              canvas.height = height;
+              var ctx = canvas.getContext('2d');
+              if (ctx) {
+                ctx.drawImage(img, 0, 0, width, height);
+              }
+              var compDataUrl = canvas.toDataURL('image/jpeg', quality);
+
+              if (typeof canvas.toBlob === 'function') {
+                canvas.toBlob(function(blob) {
+                  if (blob) {
+                    resolve({
+                      blob: blob,
+                      originalSize: file.size || blob.size,
+                      compressedSize: blob.size,
+                      dataUrl: compDataUrl
+                    });
+                  } else {
+                    var fallbackBlob = dataUrlToBlob(compDataUrl);
+                    resolve({
+                      blob: fallbackBlob,
+                      originalSize: file.size || fallbackBlob.size,
+                      compressedSize: fallbackBlob.size,
+                      dataUrl: compDataUrl
+                    });
+                  }
+                }, 'image/jpeg', quality);
+              } else {
+                var fallbackBlob = dataUrlToBlob(compDataUrl);
                 resolve({
-                  blob: blob,
-                  originalSize: file.size,
-                  compressedSize: blob.size,
-                  dataUrl: canvas.toDataURL('image/jpeg', quality)
+                  blob: fallbackBlob,
+                  originalSize: file.size || fallbackBlob.size,
+                  compressedSize: fallbackBlob.size,
+                  dataUrl: compDataUrl
                 });
-              } else {
-                reject(new Error('فشل ضغط الصورة'));
               }
-            }, 'image/jpeg', quality);
+            } catch (err) {
+              var rawBlob = dataUrlToBlob(dataUrl);
+              resolve({
+                blob: rawBlob,
+                originalSize: file.size || rawBlob.size,
+                compressedSize: rawBlob.size,
+                dataUrl: dataUrl
+              });
+            }
           };
-          img.onerror = reject;
-          img.src = e.target.result;
+          img.onerror = function() {
+            var rawBlob = dataUrlToBlob(dataUrl);
+            resolve({
+              blob: rawBlob,
+              originalSize: file.size || rawBlob.size,
+              compressedSize: rawBlob.size,
+              dataUrl: dataUrl
+            });
+          };
+          img.src = dataUrl;
         };
-        reader.onerror = reject;
+        reader.onerror = function(err) {
+          reject(err || new Error('فشل قراءة الملف'));
+        };
         reader.readAsDataURL(file);
       });
     }
 
+    function dataUrlToBlob(dataUrl) {
+      try {
+        var parts = dataUrl.split(',');
+        var mimeMatch = parts[0].match(/:(.*?);/);
+        var mime = (mimeMatch && mimeMatch[1]) || 'image/jpeg';
+        var bstr = atob(parts[1]);
+        var n = bstr.length;
+        var u8arr = new Uint8Array(n);
+        while (n--) {
+          u8arr[n] = bstr.charCodeAt(n);
+        }
+        return new Blob([u8arr], { type: mime });
+      } catch (e) {
+        return new Blob([], { type: 'image/jpeg' });
+      }
+    }
+
     // Upload compressed image blob to /api/upload-image (with fallbackDataUrl for 100% reliable upload)
     function uploadCompressedImageBlob(blob, fallbackDataUrl) {
-      var formData = new FormData();
-      formData.append('file', blob, 'image.jpg');
-      return fetch('/api/upload-image', {
-        method: 'POST',
-        body: formData
-      }).then(function(res) {
-        if (!res.ok) throw new Error('فشل استجابة السيرفر');
-        return res.json();
-      }).then(function(data) {
-        var url = data && (data.url || data.imageUrl);
-        if (!url) throw new Error('استجابة غير صالحة من السيرفر');
-        return url;
-      }).catch(function(err) {
-        if (fallbackDataUrl) {
-          return fallbackDataUrl;
-        }
-        throw err;
-      });
+      try {
+        var formData = new FormData();
+        formData.append('file', blob, 'image.jpg');
+        return fetch('/api/upload-image', {
+          method: 'POST',
+          body: formData
+        }).then(function(res) {
+          if (!res.ok) throw new Error('فشل استجابة السيرفر');
+          return res.json();
+        }).then(function(data) {
+          var url = data && (data.url || data.imageUrl);
+          if (!url) throw new Error('استجابة غير صالحة من السيرفر');
+          return url;
+        }).catch(function(err) {
+          if (fallbackDataUrl) {
+            return fallbackDataUrl;
+          }
+          throw err;
+        });
+      } catch (e) {
+        return Promise.resolve(fallbackDataUrl || '');
+      }
     }
 
     function formatBytes(bytes) {
@@ -4195,76 +4266,144 @@ export default {
       return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
     }
 
-    // Handle single mode product files upload
+    // Handle single mode product files upload with instant preview and auto-compression
     function handleProductFiles(files) {
       if (!files || files.length === 0) return;
       var previewsContainer = document.getElementById('image-previews');
       var hiddenContainer = document.getElementById('hidden-inputs');
       var statusEl = document.getElementById('upload-status');
       var actionsBar = document.getElementById('single-photos-actions');
+      var mainFileInput = document.getElementById('product-file-input');
       if (!previewsContainer || !hiddenContainer) return;
+
+      if (mainFileInput) mainFileInput.value = '';
 
       if (statusEl) {
         statusEl.style.display = 'block';
         statusEl.style.color = '#0284C7';
-        statusEl.textContent = 'جاري ضغط ورفع ' + files.length + ' صور...';
+        statusEl.textContent = 'جاري معالجة ' + files.length + ' صور...';
       }
+      if (actionsBar) actionsBar.style.display = 'flex';
 
-      var uploadPromises = [];
       for (var i = 0; i < files.length; i++) {
         (function(file) {
-          var p = compressImageFile(file, 1000, 0.82).then(function(res) {
-            return uploadCompressedImageBlob(res.blob, res.dataUrl).then(function(url) {
-              var card = document.createElement('div');
-              card.className = 'single-img-card';
-              card.style.cssText = 'position:relative; border-radius:8px; overflow:hidden; border:1px solid #CBD5E1; background:#F8FAFC;';
-              card.innerHTML = '<img src="' + url + '" style="width:100%; height:90px; object-fit:cover;" />' +
-                '<div style="font-size:10px; color:#047857; padding:2px 4px; font-weight:600; text-align:center;">' + formatBytes(res.compressedSize) + ' (' + Math.round((1 - res.compressedSize / res.originalSize) * 100) + '% توفير)</div>' +
-                '<button type="button" onclick="deleteSingleProductImage(this, \'' + url + '\')" style="position:absolute; top:4px; right:4px; background:#DC2626; color:#fff; border:none; border-radius:6px; padding:3px 8px; font-size:11px; font-weight:700; cursor:pointer; box-shadow:0 1px 3px rgba(0,0,0,0.2);" title="حذف هذه الصورة">🗑️ حذف</button>';
-              previewsContainer.appendChild(card);
+          var cardId = 'card_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6);
+          var card = document.createElement('div');
+          card.className = 'single-img-card';
+          card.id = cardId;
+          card.style.cssText = 'position:relative; border-radius:10px; overflow:hidden; border:1.5px solid #CBD5E1; background:#FFFFFF; box-shadow:0 1px 3px rgba(0,0,0,0.06); display:flex; flex-direction:column;';
 
-              var input = document.createElement('input');
-              input.type = 'hidden';
-              input.name = 'uploaded_image_urls';
-              input.value = url;
-              hiddenContainer.appendChild(input);
+          card.innerHTML =
+            '<div style="width:100%; height:110px; background:#F1F5F9; display:flex; align-items:center; justify-content:center; overflow:hidden; position:relative;">' +
+              '<img class="img-preview" src="" style="width:100%; height:100%; object-fit:cover; display:none;" />' +
+              '<span class="img-loading" style="font-size:12px; color:#64748B;">جاري القراءة...</span>' +
+            '</div>' +
+            '<div class="img-badge" style="font-size:11px; color:#047857; padding:4px 6px; font-weight:600; text-align:center; background:#F0FDF4; border-top:1px solid #DCFCE7;">جاري المعالجة...</div>' +
+            '<div style="display:flex; justify-content:space-between; padding:5px 6px; background:#FFFFFF; border-top:1px solid #F1F5F9; gap:4px;">' +
+              '<button type="button" class="btn-change-img" style="flex:1; background:#F1F5F9; color:#334155; border:1px solid #CBD5E1; border-radius:6px; padding:4px 6px; font-size:11px; font-weight:700; cursor:pointer;" title="تغيير هذه الصورة">🔄 تغيير</button>' +
+              '<button type="button" class="btn-delete-img" style="flex:1; background:#FEF2F2; color:#DC2626; border:1px solid #FECACA; border-radius:6px; padding:4px 6px; font-size:11px; font-weight:700; cursor:pointer;" title="حذف هذه الصورة">🗑️ حذف</button>' +
+            '</div>';
 
-              if (actionsBar) actionsBar.style.display = 'flex';
-            });
-          });
-          uploadPromises.push(p);
+          previewsContainer.appendChild(card);
+
+          // Hidden input to submit with the product form
+          var hiddenInput = document.createElement('input');
+          hiddenInput.type = 'hidden';
+          hiddenInput.name = 'uploaded_image_urls';
+          hiddenInput.id = 'input_' + cardId;
+          hiddenContainer.appendChild(hiddenInput);
+
+          var btnDelete = card.querySelector('.btn-delete-img');
+          var btnChange = card.querySelector('.btn-change-img');
+
+          btnDelete.onclick = function() {
+            card.remove();
+            hiddenInput.remove();
+            if (previewsContainer.children.length === 0) {
+              if (actionsBar) actionsBar.style.display = 'none';
+              if (statusEl) statusEl.style.display = 'none';
+            }
+          };
+
+          var replaceInput = document.createElement('input');
+          replaceInput.type = 'file';
+          replaceInput.accept = 'image/*';
+          replaceInput.style.display = 'none';
+          card.appendChild(replaceInput);
+
+          btnChange.onclick = function() {
+            replaceInput.value = '';
+            replaceInput.click();
+          };
+
+          replaceInput.onchange = function() {
+            if (replaceInput.files && replaceInput.files[0]) {
+              processSingleFile(replaceInput.files[0], card, hiddenInput);
+            }
+          };
+
+          processSingleFile(file, card, hiddenInput);
         })(files[i]);
       }
-
-      Promise.all(uploadPromises).then(function() {
-        if (statusEl) {
-          statusEl.style.color = '#047857';
-          statusEl.textContent = 'تم ضغط ورفع جميع الصور بنجاح.';
-        }
-        if (actionsBar) actionsBar.style.display = 'flex';
-      }).catch(function(err) {
-        if (statusEl) {
-          statusEl.style.color = '#DC2626';
-          statusEl.textContent = 'حدث تنبيه أثناء الرفع: ' + err.message;
-        }
-      });
     }
 
-    function deleteSingleProductImage(btn, url) {
-      var card = btn.closest('.single-img-card');
-      if (card) card.remove();
-      var hiddenContainer = document.getElementById('hidden-inputs');
-      if (hiddenContainer && url) {
-        var inputs = hiddenContainer.querySelectorAll('input[name="uploaded_image_urls"]');
-        inputs.forEach(function(inp) {
-          if (inp.value === url) inp.remove();
+    function processSingleFile(file, card, hiddenInput) {
+      var imgEl = card.querySelector('.img-preview');
+      var loadingEl = card.querySelector('.img-loading');
+      var badgeEl = card.querySelector('.img-badge');
+      var statusEl = document.getElementById('upload-status');
+
+      // 1. Instant thumbnail via FileReader (appears in <50ms)
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        var instantDataUrl = e.target.result;
+        if (imgEl) {
+          imgEl.src = instantDataUrl;
+          imgEl.style.display = 'block';
+        }
+        if (loadingEl) {
+          loadingEl.style.display = 'none';
+        }
+        if (hiddenInput && !hiddenInput.value) {
+          hiddenInput.value = instantDataUrl;
+        }
+      };
+      reader.readAsDataURL(file);
+
+      // 2. Compression and upload
+      compressImageFile(file, 1000, 0.82).then(function(res) {
+        if (imgEl) {
+          imgEl.src = res.dataUrl;
+          imgEl.style.display = 'block';
+        }
+        if (loadingEl) loadingEl.style.display = 'none';
+        if (hiddenInput) hiddenInput.value = res.dataUrl;
+
+        var savings = Math.round((1 - res.compressedSize / res.originalSize) * 100);
+        if (badgeEl) {
+          badgeEl.textContent = formatBytes(res.compressedSize) + (savings > 0 ? ' (' + savings + '% توفير)' : '');
+        }
+
+        return uploadCompressedImageBlob(res.blob, res.dataUrl).then(function(serverUrl) {
+          if (hiddenInput) hiddenInput.value = serverUrl;
+          if (badgeEl) {
+            badgeEl.innerHTML = '✅ ' + formatBytes(res.compressedSize) + (savings > 0 ? ' (' + savings + '% توفير)' : '');
+          }
+          if (statusEl) {
+            statusEl.style.color = '#047857';
+            statusEl.textContent = 'تم تجهيز وحفظ صور المنتج بنجاح.';
+          }
         });
-      }
-      var previewsContainer = document.getElementById('image-previews');
-      var actionsBar = document.getElementById('single-photos-actions');
-      if (previewsContainer && previewsContainer.children.length === 0 && actionsBar) {
-        actionsBar.style.display = 'none';
-      }
+      }).catch(function(err) {
+        if (badgeEl) {
+          badgeEl.style.color = '#64748B';
+          badgeEl.textContent = formatBytes(file.size || 0);
+        }
+        if (statusEl) {
+          statusEl.style.color = '#047857';
+          statusEl.textContent = 'تم إدراج الصورة بنجاح.';
+        }
+      });
     }
 
     function clearAllSingleProductImages() {
@@ -4315,7 +4454,7 @@ export default {
       syncShapesToJson();
     }
 
-    // Handle shape photo upload with auto-compression
+    // Handle shape photo upload with instant preview and auto-compression
     function handleShapePhotoUpload(input) {
       var file = input.files && input.files[0];
       if (!file) return;
@@ -4329,9 +4468,30 @@ export default {
       var hiddenUrl = card.querySelector('.shape-image-url');
       var actionsBar = card.querySelector('.shape-actions-bar');
 
-      if (label) label.textContent = 'جاري ضغط ورفع الصورة...';
-      if (status) status.textContent = 'تقليل الحجم لسرعة التحميل';
+      if (label) label.textContent = 'جاري معالجة ورفع الصورة...';
+      if (status) status.textContent = 'يتم تقليل الحجم لسرعة التحميل';
 
+      // 1. Instant preview via FileReader
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        if (thumb) {
+          thumb.src = e.target.result;
+          thumb.style.display = 'block';
+        }
+        if (placeholder) {
+          placeholder.style.display = 'none';
+        }
+        if (actionsBar) {
+          actionsBar.style.display = 'flex';
+        }
+        if (hiddenUrl && !hiddenUrl.value) {
+          hiddenUrl.value = e.target.result;
+          syncShapesToJson();
+        }
+      };
+      reader.readAsDataURL(file);
+
+      // 2. Client-side compression and background upload
       compressImageFile(file, 1000, 0.82).then(function(res) {
         if (thumb) {
           thumb.src = res.dataUrl;
@@ -4352,14 +4512,15 @@ export default {
           if (label) label.textContent = 'تم إرفاق الصورة بنجاح';
           if (status) {
             var savedPct = Math.round((1 - res.compressedSize / res.originalSize) * 100);
-            status.textContent = 'الحجم: ' + formatBytes(res.compressedSize) + ' (تم تقليل ' + savedPct + '%)';
+            status.textContent = 'الحجم: ' + formatBytes(res.compressedSize) + (savedPct > 0 ? ' (تم تقليل ' + savedPct + '%)' : '');
           }
           if (actionsBar) actionsBar.style.display = 'flex';
           syncShapesToJson();
         });
       }).catch(function(err) {
-        if (label) label.textContent = 'فشل الرفع';
-        if (status) status.textContent = err.message || 'حدث خطأ';
+        if (label) label.textContent = 'تم إرفاق الصورة';
+        if (status) status.textContent = formatBytes(file.size || 0);
+        syncShapesToJson();
       });
     }
 
@@ -4392,7 +4553,7 @@ export default {
               '<button type="button" class="change-shape-photo-btn" onclick="triggerShapeFileInput(this)" style="background:#F1F5F9; color:#0F172A; border:1px solid #CBD5E1; padding:5px 12px; border-radius:6px; font-size:11.5px; font-weight:600; cursor:pointer;">🔄 تغيير الصورة</button>' +
               '<button type="button" class="delete-shape-photo-btn" onclick="deleteShapePhoto(this)" style="background:#FEF2F2; color:#DC2626; border:1px solid #FECACA; padding:5px 12px; border-radius:6px; font-size:11.5px; font-weight:600; cursor:pointer;">🗑️ حذف الصورة</button>' +
             '</div>' +
-            '<input type="file" accept="image/*" class="shape-file-input" style="display:none;" onchange="handleShapePhotoUpload(this)" />' +
+            '<input type="file" accept="image/*" class="shape-file-input" style="display:none;" onclick="this.value=\'\'" onchange="handleShapePhotoUpload(this)" />' +
             '<input type="hidden" class="shape-image-url" value="" />' +
           '</div>' +
           '<div>' +
