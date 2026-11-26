@@ -49,6 +49,7 @@ import { ProductNotFoundPage } from './components/ProductNotFoundPage';
 import { CategoryDetailPage } from './components/CategoryDetailPage';
 import { CartDrawer, type DrawerStep } from './components/CartDrawer';
 import { BranchSection } from './components/BranchSection';
+import { BranchSketchNote } from './components/BranchSketchNote';
 import { Footer } from './components/Footer';
 
 const CART_STORAGE_KEY = 'techno_laghouat_cart_v1';
@@ -691,74 +692,19 @@ export default function App() {
                       );
                     })}
 
-                    {!hasActiveFilters && filteredProducts.length % 3 === 2 ? (
-                      <aside className="relative flex flex-col justify-between bg-[#FDFBF7] text-[#1E293B] rounded-3xl p-6 sm:p-7 border-2 border-dashed border-[#475569] shadow-[5px_5px_0px_#64748B] hover:shadow-[7px_7px_0px_#334155] transition-all">
-                        {/* Pencil Sketch Header Tag */}
-                        <div>
-                          <div className="flex items-center justify-between gap-2 pb-3 border-b-2 border-dashed border-[#94A3B8]/60">
-                            <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-[#475569]">
-                              <span className="text-sm">✎</span>
-                              <span>مذكرة الفرع التخطيطية</span>
-                            </div>
-                            <span className="text-[10px] font-mono font-bold text-[#64748B] bg-[#E2E8F0]/80 px-2 py-0.5 rounded border border-[#94A3B8]/60">
-                              رسم بقلم الرصاص
-                            </span>
-                          </div>
-
-                          <p className="mt-3 text-xs font-mono font-bold text-[#64748B]">
-                            {STORE_INFO.fullTitle}
-                          </p>
-                          <h3 className="mt-1 font-display text-xl sm:text-2xl font-black leading-snug text-[#0F172A]">
-                            طلبات الجملة والمؤسسات أو الاستشارة المباشرة
-                          </h3>
-                          <p className="mt-2.5 text-xs sm:text-sm leading-relaxed text-[#334155] font-medium">
-                            هل ترغب في تجهيز مكتبك أو مؤسستك أو الاستفسار عن قياسات وتوفر أي أداة
-                            قبل الطلب؟ فريق فرع تكنو الأغواط في خدمتك مباشرة.
-                          </p>
-
-                          <dl className="mt-5 pt-4 border-t-2 border-dashed border-[#94A3B8]/60 space-y-2.5 text-xs sm:text-sm">
-                            <div className="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-white/80 border border-[#CBD5E1] shadow-[1px_1px_0px_#94A3B8]">
-                              <dt className="text-[#64748B] font-bold flex items-center gap-1.5">
-                                <span>✎</span>
-                                <span>نطاق التوصيل:</span>
-                              </dt>
-                              <dd className="font-black text-[#0F172A]">
-                                69 ولاية (ZR Express)
-                              </dd>
-                            </div>
-                            <div className="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-[#FFFDF0] border border-[#FDE047] shadow-[1px_1px_0px_#CA8A04]">
-                              <dt className="text-[#854D0E] font-bold flex items-center gap-1.5">
-                                <span>✎</span>
-                                <span>داخل ولاية الأغواط:</span>
-                              </dt>
-                              <dd className="font-black text-[#854D0E] tabular-nums">
-                                500 د.ج منزل · 380 د.ج مكتب
-                              </dd>
-                            </div>
-                          </dl>
-                        </div>
-
-                        <div className="mt-6 pt-5 border-t-2 border-dashed border-[#94A3B8]/60 space-y-2.5">
-                          <a
-                            href={STORE_INFO.phoneHref}
-                            className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 min-h-[48px] rounded-xl bg-[#E30613] text-white text-xs sm:text-sm font-black hover:bg-[#C4000F] border-2 border-[#1E293B] shadow-[3px_3px_0px_#1E293B] active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer"
-                          >
-                            <Phone className="w-4 h-4 shrink-0" aria-hidden="true" />
-                            <span>اتصل بالفرع:</span>
-                            <span dir="ltr" className="font-mono font-black">
-                              {STORE_INFO.phoneDisplay}
-                            </span>
-                          </a>
-                          <a
-                            href="#delivery-rates"
-                            className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 min-h-[44px] rounded-xl bg-white hover:bg-[#FAF8F5] border-2 border-dashed border-[#475569] text-[#1E293B] text-xs font-black shadow-[2px_2px_0px_#64748B] hover:shadow-[3px_3px_0px_#475569] transition-all cursor-pointer"
-                          >
-                            <span>✎ احسب سعر التوصيل لولايتك</span>
-                          </a>
-                        </div>
-                      </aside>
-                    ) : null}
+                    {/* Inside Grid: Show BranchSketchNote when there is an incomplete row of 3 columns */}
+                    {displayedProducts.length % 3 !== 0 && (
+                      <BranchSketchNote
+                        mode="grid-card"
+                        className={displayedProducts.length % 3 === 1 ? 'md:col-span-1 lg:col-span-2' : ''}
+                      />
+                    )}
                   </div>
+
+                  {/* Below Grid: Show BranchSketchNote when the grid is a perfect multiple of 3 */}
+                  {displayedProducts.length % 3 === 0 && (
+                    <BranchSketchNote mode="standalone" className="mt-8" />
+                  )}
 
                   {filteredProducts.length > visibleProductsCount ? (
                     <div className="mt-8 flex justify-center">
