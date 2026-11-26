@@ -144,6 +144,15 @@ export function getVariantForImageIndex(
   if (imageIdx < 0 || imageIdx >= images.length) {
     return null;
   }
+  // 1. Direct 1-to-1 matching if each variant has its own image slot
+  if (
+    product.variants[imageIdx] &&
+    (product.variants.length === images.length ||
+      product.variants[imageIdx].image === images[imageIdx])
+  ) {
+    return product.variants[imageIdx];
+  }
+  // 2. Match by exact image URL
   const currentImg = images[imageIdx];
   if (currentImg) {
     const matched = product.variants.find((v) => v.image === currentImg);
@@ -167,12 +176,17 @@ export function getImageIndexForVariant(
   const variant = product.variants.find((v) => v.id === variantId);
   if (!variant) return 0;
 
+  const vIdx = product.variants.indexOf(variant);
+  // If variant index directly corresponds to this image in the carousel
+  if (vIdx >= 0 && vIdx < images.length && variant.image === images[vIdx]) {
+    return vIdx;
+  }
+
   if (variant.image) {
     const idx = images.indexOf(variant.image);
     if (idx >= 0) return idx;
   }
 
-  const vIdx = product.variants.indexOf(variant);
   if (vIdx >= 0 && vIdx < images.length) {
     return vIdx;
   }

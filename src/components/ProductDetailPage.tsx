@@ -131,11 +131,13 @@ export function ProductDetailPage({
     return () => window.removeEventListener('keydown', handleKey);
   }, [isLightboxOpen, images.length, activeImageIdx]);
 
-  const scrollToSlide = (idx: number) => {
+  const scrollToSlide = (idx: number, shouldSyncVariant: boolean = false) => {
     setActiveImageIdx(idx);
-    const matchedVariant = getVariantForImageIndex(product, idx);
-    if (matchedVariant) {
-      setSelectedVariantId(matchedVariant.id);
+    if (shouldSyncVariant) {
+      const matchedVariant = getVariantForImageIndex(product, idx);
+      if (matchedVariant) {
+        setSelectedVariantId(matchedVariant.id);
+      }
     }
     const el = carouselRef.current;
     if (el && el.children[idx]) {
@@ -147,18 +149,20 @@ export function ProductDetailPage({
       });
       window.setTimeout(() => {
         isProgrammaticScroll.current = false;
-      }, 450);
+      }, 500);
     }
   };
 
   const handleSelectImage = (idx: number) => {
-    scrollToSlide(idx);
+    scrollToSlide(idx, true);
   };
 
   const handleSelectVariant = (variantId: string) => {
+    // 1. Explicitly select the clicked variant immediately
     setSelectedVariantId(variantId);
+    // 2. Scroll the carousel slide to the matching image WITHOUT overriding the user's variant selection
     const matchedIdx = getImageIndexForVariant(product, variantId);
-    scrollToSlide(matchedIdx);
+    scrollToSlide(matchedIdx, false);
   };
 
   const handleCarouselScroll = (e: React.UIEvent<HTMLDivElement>) => {
@@ -170,9 +174,12 @@ export function ProductDetailPage({
     const newIdx = Math.round(scrollPos / width);
     if (newIdx >= 0 && newIdx < images.length && newIdx !== activeImageIdx) {
       setActiveImageIdx(newIdx);
-      const matchedVariant = getVariantForImageIndex(product, newIdx);
-      if (matchedVariant) {
-        setSelectedVariantId(matchedVariant.id);
+      // Only switch variant automatically on manual swipe if each variant has its own distinct image
+      if (product.variants && product.variants.length > 1 && images.length === product.variants.length) {
+        const matchedVariant = getVariantForImageIndex(product, newIdx);
+        if (matchedVariant) {
+          setSelectedVariantId(matchedVariant.id);
+        }
       }
     }
   };
