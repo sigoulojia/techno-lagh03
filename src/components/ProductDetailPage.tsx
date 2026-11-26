@@ -23,18 +23,23 @@ import {
   DEFAULT_WILAYA,
   LAGHOUAT_COMMUNES,
   type Product,
+  type ProductVariant,
 } from '../data/products';
 import {
   buildProductPageUrl,
+  buildProductVariantUrl,
   buildSavedOrder,
   calculateOrderTotals,
+  extractProductIdFromLocation,
   formatDzd,
   getDeliveryMethodTitle,
   getProductCategoryLabel,
   getProductImages,
+  getProductModelNumber,
   getProductPriceRange,
   getProductUnitPrice,
   resolveProductVariant,
+  resolveRequestedVariant,
   getVariantForImageIndex,
   getImageIndexForVariant,
   getProductDisplayName,
@@ -54,6 +59,7 @@ interface ProductDetailPageProps {
   product: Product;
   allProducts: Product[];
   cartCount: number;
+  requestedIdentifier?: string | null;
   onBackToHome: () => void;
   onSelectProduct: (product: Product) => void;
   onAddToCart: (product: Product, quantity: number, variantId?: string) => void;
@@ -75,6 +81,7 @@ export function ProductDetailPage({
   product,
   allProducts,
   cartCount,
+  requestedIdentifier,
   onBackToHome,
   onSelectProduct,
   onAddToCart,
@@ -103,28 +110,60 @@ export function ProductDetailPage({
   const [formOpenTime] = useState(() => (typeof performance !== 'undefined' ? performance.now() : Date.now()));
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  // Synchronize initial variant and carousel slide based on URL identifier
   useEffect(() => {
-    setActiveImageIdx(0);
+    const locId = requestedIdentifier || (typeof window !== 'undefined' ? extractProductIdFromLocation(window.location) : null);
+    const initialVariant = resolveRequestedVariant(product, locId);
+    const initialVariantId = initialVariant?.id || product.variants?.[0]?.id;
+    setSelectedVariantId(initialVariantId);
+
+    const initialIdx = initialVariantId
+      ? getImageIndexForVariant(product, initialVariantId)
+      : 0;
+    const resolvedIdx = initialIdx >= 0 ? initialIdx : 0;
+    setActiveImageIdx(resolvedIdx);
+
     setIsLightboxOpen(false);
-    setSelectedVariantId(product.variants?.[0]?.id);
     setQuantity(1);
     setConfirmedOrder(null);
     setErrors({});
     setCopiedLink(false);
-    if (carouselRef.current) {
-      carouselRef.current.scrollTo({ left: 0 });
+
+    if (carouselRef.current && resolvedIdx > 0 && carouselRef.current.children[resolvedIdx]) {
+      window.setTimeout(() => {
+        if (carouselRef.current && carouselRef.current.children[resolvedIdx]) {
+          isProgrammaticScroll.current = true;
+          (carouselRef.current.children[resolvedIdx] as HTMLElement).scrollIntoView({
+            behavior: 'auto',
+            block: 'nearest',
+            inline: 'center',
+          });
+          window.setTimeout(() => {
+            isProgrammaticScroll.current = false;
+          }, 300);
+        }
+      }, 50);
     }
-  }, [product.id, product.variants]);
+  }, [product.id, requestedIdentifier]);
+
+  // Synchronize browser URL bar dynamically when switching models/images
+  const updateUrlForVariant = (variant: ProductVariant | null, vIdx?: number) => {
+    if (!product || typeof window === 'undefined') return;
+    const newUrl = buildProductVariantUrl(product, variant, vIdx);
+    if (window.location.pathname !== newUrl) {
+      window.history.replaceState(null, '', newUrl);
+    }
+  };
 
   useEffect(() => {
     if (!isLightboxOpen) return;
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setIsLightboxOpen(false);
       if (e.key === 'ArrowRight') {
-        scrollToSlide((activeImageIdx - 1 + images.length) % images.length);
+        scrollToSlide((activeImageIdx - 1 + images.length) % images.length, true);
       }
       if (e.key === 'ArrowLeft') {
-        scrollToSlide((activeImageIdx + 1) % images.length);
+        scrollToSlide((activeImageIdx + 1) % images.length, true);
       }
     };
     window.addEventListener('keydown', handleKey);
@@ -133,12 +172,17 @@ export function ProductDetailPage({
 
   const scrollToSlide = (idx: number, shouldSyncVariant: boolean = false) => {
     setActiveImageIdx(idx);
+    let targetVariant = activeVariant;
     if (shouldSyncVariant) {
       const matchedVariant = getVariantForImageIndex(product, idx);
       if (matchedVariant) {
         setSelectedVariantId(matchedVariant.id);
+        targetVariant = matchedVariant;
       }
     }
+    const targetIdx = targetVariant && product.variants ? product.variants.indexOf(targetVariant) : idx;
+    updateUrlForVariant(targetVariant, targetIdx);
+
     const el = carouselRef.current;
     if (el && el.children[idx]) {
       isProgrammaticScroll.current = true;
@@ -158,9 +202,10 @@ export function ProductDetailPage({
   };
 
   const handleSelectVariant = (variantId: string) => {
-    // 1. Explicitly select the clicked variant immediately
     setSelectedVariantId(variantId);
-    // 2. Scroll the carousel slide to the matching image WITHOUT overriding the user's variant selection
+    const matchedVariant = product.variants?.find((v) => v.id === variantId) || null;
+    const vIdx = matchedVariant && product.variants ? product.variants.indexOf(matchedVariant) : 0;
+    updateUrlForVariant(matchedVariant, vIdx);
     const matchedIdx = getImageIndexForVariant(product, variantId);
     scrollToSlide(matchedIdx, false);
   };
@@ -174,17 +219,23 @@ export function ProductDetailPage({
     const newIdx = Math.round(scrollPos / width);
     if (newIdx >= 0 && newIdx < images.length && newIdx !== activeImageIdx) {
       setActiveImageIdx(newIdx);
-      // Only switch variant automatically on manual swipe if each variant has its own distinct image
-      if (product.variants && product.variants.length > 1 && images.length === product.variants.length) {
+      if (product.variants && product.variants.length > 1) {
         const matchedVariant = getVariantForImageIndex(product, newIdx);
         if (matchedVariant) {
           setSelectedVariantId(matchedVariant.id);
+          const vIdx = product.variants.indexOf(matchedVariant);
+          updateUrlForVariant(matchedVariant, vIdx);
         }
       }
     }
   };
 
   const activeVariant = resolveProductVariant(product, selectedVariantId);
+  const activeModelNumber = getProductModelNumber(
+    product,
+    activeVariant,
+    selectedVariantId && product.variants ? product.variants.findIndex((v) => v.id === selectedVariantId) : 0,
+  );
   const unitPrice = getProductUnitPrice(product, activeVariant?.id);
   const displayName = getProductDisplayName(product, activeVariant?.id);
   const displayDescription = getProductDisplayDescription(product, activeVariant?.id);
@@ -214,7 +265,9 @@ export function ProductDetailPage({
   };
 
   const handleCopyProductLink = async () => {
-    const cleanUrl = buildProductPageUrl(product.sku || product.id);
+    const cleanUrl = activeVariant
+      ? buildProductVariantUrl(product, activeVariant)
+      : buildProductPageUrl(product.sku || product.id);
     try {
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(cleanUrl);
@@ -340,7 +393,7 @@ export function ProductDetailPage({
         <span aria-hidden="true">/</span>
         <span>{categoryLabel}</span>
         <span aria-hidden="true">/</span>
-        <span className="font-mono text-[#52525B]">#{product.sku}</span>
+        <span className="font-mono text-[#52525B]">#{activeModelNumber}</span>
         <span aria-hidden="true">/</span>
         <span className="text-[#18181B] font-semibold truncate max-w-xs">{product.name}</span>
       </nav>
@@ -417,7 +470,7 @@ export function ProductDetailPage({
                       type="button"
                       data-testid="pdp-gallery-prev"
                       onClick={() =>
-                        scrollToSlide((activeImageIdx - 1 + images.length) % images.length)
+                        scrollToSlide((activeImageIdx - 1 + images.length) % images.length, true)
                       }
                       aria-label="الصورة السابقة"
                       className="absolute right-3.5 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-xl bg-white/92 border border-stone-200 text-[#18181B] inline-flex items-center justify-center hover:bg-[#18181B] hover:text-white transition-colors shadow-xs cursor-pointer"
@@ -427,7 +480,7 @@ export function ProductDetailPage({
                     <button
                       type="button"
                       data-testid="pdp-gallery-next"
-                      onClick={() => scrollToSlide((activeImageIdx + 1) % images.length)}
+                      onClick={() => scrollToSlide((activeImageIdx + 1) % images.length, true)}
                       aria-label="الصورة التالية"
                       className="absolute left-3.5 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-xl bg-white/92 border border-stone-200 text-[#18181B] inline-flex items-center justify-center hover:bg-[#18181B] hover:text-white transition-colors shadow-xs cursor-pointer"
                     >
@@ -459,7 +512,7 @@ export function ProductDetailPage({
                         data-testid={`pdp-thumb-${idx}`}
                         aria-label={`عرض الصورة رقم ${idx + 1}`}
                         aria-pressed={isSelected}
-                        onClick={() => scrollToSlide(idx)}
+                        onClick={() => handleSelectImage(idx)}
                         className={`aspect-square rounded-xl overflow-hidden border bg-white transition-all cursor-pointer ${
                           isSelected
                             ? 'border-[#E30613] ring-2 ring-[#E30613]/25'
@@ -486,7 +539,7 @@ export function ProductDetailPage({
                     <span>بيانات الموديل المعروض حالياً:</span>
                   </span>
                   <span className="font-mono text-xs font-bold text-[#E30613] bg-red-50 border border-red-100 px-2 py-0.5 rounded-md">
-                    #{activeVariant?.sku || product.sku}
+                    #{activeModelNumber}
                   </span>
                 </div>
                 <div className="grid grid-cols-2 gap-3 text-xs">
@@ -624,7 +677,7 @@ export function ProductDetailPage({
                 <p className="text-xs text-[#71717A] flex flex-wrap items-center gap-x-2 gap-y-1 mb-2">
                   <span className="font-semibold text-[#E30613]">{categoryLabel}</span>
                   <span aria-hidden="true">·</span>
-                  <span className="font-mono text-[#52525B]">رقم المنتج: {activeVariant?.sku || product.sku}</span>
+                  <span className="font-mono text-[#52525B]">رقم المنتج: {activeModelNumber}</span>
                   <span aria-hidden="true">·</span>
                   <span className="font-medium text-[#18181B]">{product.availabilityText}</span>
                 </p>
@@ -697,11 +750,9 @@ export function ProductDetailPage({
                               </p>
                             )}
                             <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                              {variant.sku && (
-                                <span className="inline-flex items-center gap-1 text-[10.5px] font-mono font-bold text-stone-600 bg-stone-100 border border-stone-200/80 px-1.5 py-0.5 rounded-md">
-                                  #{variant.sku}
-                                </span>
-                              )}
+                              <span className="inline-flex items-center gap-1 text-[10.5px] font-mono font-bold text-stone-600 bg-stone-100 border border-stone-200/80 px-1.5 py-0.5 rounded-md">
+                                #{getProductModelNumber(product, variant, idx)}
+                              </span>
                               {variant.dimensions && (
                                 <span className="inline-flex items-center gap-1 text-[10.5px] font-bold text-stone-700 bg-stone-100 border border-stone-200/80 px-2 py-0.5 rounded-md">
                                   <span>📏</span>

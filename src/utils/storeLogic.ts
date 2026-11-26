@@ -643,8 +643,8 @@ export function extractProductIdFromLocation(loc: {
       return decodeURIComponent(prefixedPathMatch[1]);
     }
 
-    // Direct root product number path like /71640 or /105
-    const directNumMatch = loc.pathname.match(/^\/([0-9]{1,12})\/?$/);
+    // Direct root product or model number path like /71640 or /101-2 or /101
+    const directNumMatch = loc.pathname.match(/^\/([0-9]{1,12}(?:-[0-9a-zA-Z]+)?)\/?$/);
     if (directNumMatch && directNumMatch[1]) {
       return decodeURIComponent(directNumMatch[1]);
     }
@@ -686,16 +686,144 @@ export function extractProductIdFromLocation(loc: {
 }
 
 /**
- * Finds a product in the catalog matching either its unique ID or its SKU/product number.
+ * Finds a product in the catalog matching either its unique ID, its SKU,
+ * or a specific variant/model number (e.g. 101-1, 101-2, 71645-A).
  */
 export function findProductByIdOrSku(products: Product[], identifier: string): Product | null {
   if (!identifier) return null;
   const target = identifier.trim().toLowerCase();
-  return (
-    products.find(
-      (p) => p.id.toLowerCase() === target || p.sku.toLowerCase() === target,
-    ) ?? null
+
+  // 1. Direct match on parent product id or sku
+  const directMatch = products.find(
+    (p) => p.id.toLowerCase() === target || p.sku.toLowerCase() === target,
   );
+  if (directMatch) return directMatch;
+
+  // 2. Match on any variant's explicit sku or id
+  for (const product of products) {
+    if (product.variants && product.variants.length > 0) {
+      const vMatch = product.variants.find((v) => {
+        if (v.sku && v.sku.trim().toLowerCase() === target) return true;
+        if (v.id && v.id.trim().toLowerCase() === target) return true;
+        return false;
+      });
+      if (vMatch) return product;
+    }
+  }
+
+  // 3. Pattern match for <parentSku>-<index> or <parentId>-<index> (e.g. 101-1, 101-2, 101-3)
+  if (target.includes('-')) {
+    const lastDash = target.lastIndexOf('-');
+    const basePart = target.slice(0, lastDash);
+    const suffixPart = target.slice(lastDash + 1);
+
+    const baseProduct = products.find(
+      (p) => p.sku.toLowerCase() === basePart || p.id.toLowerCase() === basePart,
+    );
+    if (baseProduct && baseProduct.variants && baseProduct.variants.length > 0) {
+      const idx = parseInt(suffixPart, 10);
+      if (!isNaN(idx) && idx >= 1 && idx <= baseProduct.variants.length) {
+        return baseProduct;
+      }
+      const vBySuffix = baseProduct.variants.find(
+        (v) =>
+          (v.sku && v.sku.trim().toLowerCase() === suffixPart) ||
+          v.label.trim().toLowerCase() === suffixPart ||
+          (v.name && v.name.trim().toLowerCase() === suffixPart),
+      );
+      if (vBySuffix) return baseProduct;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Resolves the specific variant/model requested by a URL identifier (e.g. '101-2', '71645-A', 'large').
+ */
+export function resolveRequestedVariant(
+  product: Product,
+  identifier?: string | null,
+): ProductVariant | null {
+  if (!product.variants || product.variants.length === 0) return null;
+  if (!identifier) return product.variants[0];
+
+  const target = identifier.trim().toLowerCase();
+
+  // 1. Direct match on variant sku
+  const bySku = product.variants.find((v) => v.sku && v.sku.trim().toLowerCase() === target);
+  if (bySku) return bySku;
+
+  // 2. Direct match on variant id
+  const byId = product.variants.find((v) => v.id.trim().toLowerCase() === target);
+  if (byId) return byId;
+
+  // 3. Match on <base>-<index> (e.g. 101-1, 101-2)
+  if (target.includes('-')) {
+    const lastDash = target.lastIndexOf('-');
+    const basePart = target.slice(0, lastDash);
+    const suffixPart = target.slice(lastDash + 1);
+
+    if (
+      basePart === product.sku.trim().toLowerCase() ||
+      basePart === product.id.trim().toLowerCase()
+    ) {
+      const num = parseInt(suffixPart, 10);
+      if (!isNaN(num) && num >= 1 && num <= product.variants.length) {
+        return product.variants[num - 1];
+      }
+      const bySuffix = product.variants.find(
+        (v) =>
+          (v.sku && v.sku.trim().toLowerCase() === suffixPart) ||
+          v.label.trim().toLowerCase() === suffixPart ||
+          (v.name && v.name.trim().toLowerCase() === suffixPart),
+      );
+      if (bySuffix) return bySuffix;
+    }
+  }
+
+  // 4. Default to first variant
+  return product.variants[0];
+}
+
+/**
+ * Resolves the clean numeric or alphanumeric identifier for a specific model/variant of a product.
+ * Returns either:
+ * - variant.sku if distinct and set
+ * - <productSku>-<1-based index> (e.g. 101-1, 101-2, 101-3)
+ * - or product.sku/id if only 1 variant or no variants
+ */
+export function getProductModelNumber(
+  product: Product,
+  variant?: ProductVariant | null,
+  variantIndex?: number,
+): string {
+  const baseNumber = (product.sku || product.id).trim();
+  if (!variant || !product.variants || product.variants.length <= 1) {
+    return baseNumber;
+  }
+
+  const vIdx =
+    typeof variantIndex === 'number' && variantIndex >= 0
+      ? variantIndex
+      : product.variants.findIndex((v) => v.id === variant.id);
+
+  const idx = vIdx >= 0 ? vIdx : 0;
+
+  // 1. If variant has an explicit SKU that is unique among all variants of this product
+  if (variant.sku && variant.sku.trim()) {
+    const cleanedSku = variant.sku.trim();
+    const isShared = product.variants.some(
+      (other, oIdx) =>
+        oIdx !== idx && other.sku && other.sku.trim().toLowerCase() === cleanedSku.toLowerCase(),
+    );
+    if (!isShared) {
+      return cleanedSku;
+    }
+  }
+
+  // 2. Otherwise format cleanly as <baseNumber>-<1-based index> (e.g. 101-1, 101-2, 101-3)
+  return `${baseNumber}-${idx + 1}`;
 }
 
 /**
@@ -708,6 +836,19 @@ export function buildProductPageUrl(
   const base = origin.replace(/\/+$/, '');
   const cleanId = encodeURIComponent(productIdOrNumber.trim());
   return base ? `${base}/p/${cleanId}` : `/p/${cleanId}`;
+}
+
+/**
+ * Builds a clean product variant URL ending directly with the model number (e.g. https://site.com/p/101-2).
+ */
+export function buildProductVariantUrl(
+  product: Product,
+  variant?: ProductVariant | null,
+  variantIndex?: number,
+  origin = typeof window !== 'undefined' ? window.location.origin : '',
+): string {
+  const modelNumber = getProductModelNumber(product, variant, variantIndex);
+  return buildProductPageUrl(modelNumber, origin);
 }
 
 /**

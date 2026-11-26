@@ -25,6 +25,7 @@ import {
   filterAndSortProducts,
   findProductByIdOrSku,
   getCartItemKey,
+  getProductModelNumber,
   resolveProductVariant,
   upsertCartItem,
   type CartItem,
@@ -317,8 +318,9 @@ export default function App() {
     filters.query.trim().length > 0 ||
     filters.sort !== 'featured';
 
-  const handleOpenProductPage = (product: Product) => {
-    const productNumber = (product.sku || product.id).trim();
+  const handleOpenProductPage = (product: Product, variantId?: string) => {
+    const matchedVariant = resolveProductVariant(product, variantId);
+    const productNumber = getProductModelNumber(product, matchedVariant);
     setActiveProduct(product);
     setRequestedId(productNumber);
     setSelectedProduct(null);
@@ -465,6 +467,7 @@ export default function App() {
           product={activeProduct}
           allProducts={products}
           cartCount={cartSummary.itemCount}
+          requestedIdentifier={requestedId}
           onBackToHome={handleBackToHome}
           onSelectProduct={handleOpenProductPage}
           onAddToCart={handleAddToCart}

@@ -105,6 +105,7 @@ import {
 } from '../data/deliveryRates';
 import {
   buildProductPageUrl,
+  buildProductVariantUrl,
   buildCategoryPageUrl,
   buildSavedOrder,
   calculateOrderTotals,
@@ -118,8 +119,10 @@ import {
   formatDzd,
   formatOrderMessage,
   getProductImages,
+  getProductModelNumber,
   getProductPriceRange,
   getProductUnitPrice,
+  resolveRequestedVariant,
   getVariantForImageIndex,
   getImageIndexForVariant,
   getProductDisplayName,
@@ -434,4 +437,70 @@ test('multi-shape product sync helpers link variants and images correctly', () =
     'حقيبة بشكل قطة وردية — (القياسات: 30x20 سم)',
   );
   assert.equal(productWithShapes.variants![0].dimensions, '30x20 سم');
+});
+
+test('model URL synchronization, routing and deep-linking end with model number', () => {
+  const multiModelProduct: Product = {
+    ...SAMPLE_PRODUCTS[0],
+    id: 'prod-pens-101',
+    sku: '101',
+    name: 'ساعة — قلم',
+    images: ['/pen-small.jpg', '/pen-med.jpg', '/pen-large.jpg'],
+    variants: [
+      { id: 'v-small', label: 'صغير', name: 'قلم (صغير)', priceDzd: 1800, image: '/pen-small.jpg', sku: '101-1' },
+      { id: 'v-med', label: 'متوسط', name: 'قلم (متوسط)', priceDzd: 2500, image: '/pen-med.jpg', sku: '101-2' },
+      { id: 'v-large', label: 'كبير', name: 'قلم (كبير)', priceDzd: 3400, image: '/pen-large.jpg', sku: '101-3' },
+    ],
+  };
+
+  const catalog = [multiModelProduct, ...SAMPLE_PRODUCTS.slice(1)];
+
+  // 1. Model numbers resolve correctly to model specific numbers
+  assert.equal(getProductModelNumber(multiModelProduct, multiModelProduct.variants![0], 0), '101-1');
+  assert.equal(getProductModelNumber(multiModelProduct, multiModelProduct.variants![1], 1), '101-2');
+  assert.equal(getProductModelNumber(multiModelProduct, multiModelProduct.variants![2], 2), '101-3');
+
+  // 2. URLs end cleanly with that model number
+  const url1 = buildProductVariantUrl(multiModelProduct, multiModelProduct.variants![0], 0, 'https://techno-laghouat.pages.dev');
+  const url2 = buildProductVariantUrl(multiModelProduct, multiModelProduct.variants![1], 1, 'https://techno-laghouat.pages.dev');
+  const url3 = buildProductVariantUrl(multiModelProduct, multiModelProduct.variants![2], 2, 'https://techno-laghouat.pages.dev');
+
+  assert.equal(url1, 'https://techno-laghouat.pages.dev/p/101-1');
+  assert.equal(url2, 'https://techno-laghouat.pages.dev/p/101-2');
+  assert.equal(url3, 'https://techno-laghouat.pages.dev/p/101-3');
+
+  // 3. Location extraction detects model numbers from path, query and hash
+  assert.equal(extractProductIdFromLocation({ pathname: '/p/101-2', search: '', hash: '' }), '101-2');
+  assert.equal(extractProductIdFromLocation({ pathname: '/101-2', search: '', hash: '' }), '101-2');
+  assert.equal(extractProductIdFromLocation({ pathname: '/', search: '?p=101-2', hash: '' }), '101-2');
+  assert.equal(extractProductIdFromLocation({ pathname: '/', search: '', hash: '#/p/101-2' }), '101-2');
+
+  // 4. Catalog product lookup finds the parent product using model number
+  const foundByModelNumber = findProductByIdOrSku(catalog, '101-2');
+  assert.ok(foundByModelNumber);
+  assert.equal(foundByModelNumber!.sku, '101');
+
+  // 5. Variant resolution finds the exact model requested
+  const resolvedModel = resolveRequestedVariant(multiModelProduct, '101-2');
+  assert.ok(resolvedModel);
+  assert.equal(resolvedModel!.id, 'v-med');
+  assert.equal(resolvedModel!.label, 'متوسط');
+  assert.equal(resolvedModel!.priceDzd, 2500);
+
+  // 6. Products with auto-generated index suffixes when variants lack explicit SKUs
+  const noSkuProduct: Product = {
+    ...SAMPLE_PRODUCTS[0],
+    sku: '500',
+    variants: [
+      { id: 'vA', label: 'أزرق', priceDzd: 1200 },
+      { id: 'vB', label: 'أحمر', priceDzd: 1300 },
+    ],
+  };
+  assert.equal(getProductModelNumber(noSkuProduct, noSkuProduct.variants![0], 0), '500-1');
+  assert.equal(getProductModelNumber(noSkuProduct, noSkuProduct.variants![1], 1), '500-2');
+
+  const foundNoSku = findProductByIdOrSku([noSkuProduct], '500-2');
+  assert.ok(foundNoSku);
+  const resolvedNoSku = resolveRequestedVariant(noSkuProduct, '500-2');
+  assert.equal(resolvedNoSku?.id, 'vB');
 });
