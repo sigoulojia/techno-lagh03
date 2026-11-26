@@ -3259,7 +3259,7 @@ export default {
                 </div>
               </div>
 
-              <input type="file" id="product-file-input" accept="image/*" multiple style="display:none;" onclick="this.value=''" onchange="handleProductFiles(this.files)" />
+              <input type="file" id="product-file-input" accept="image/*" multiple style="display:none;" onchange="handleProductFiles(this.files)" />
 
               <!-- Images Preview Gallery -->
               <div id="upload-status" style="margin-top:10px; font-size:12.5px; font-weight:600; color:#047857; display:none;"></div>
@@ -4132,94 +4132,107 @@ export default {
     }
     window.switchProductMode = switchProductMode;
 
-    // Client-side Canvas Image Compressor (max dimension 1000px, 0.82 JPEG quality)
+    // High-Speed Client-side Canvas Image Compressor (max dimension 900px, 0.80 JPEG quality)
     function compressImageFile(file, maxWidth, quality) {
-      maxWidth = maxWidth || 1000;
-      quality = quality || 0.82;
-      return new Promise(function(resolve, reject) {
+      maxWidth = maxWidth || 900;
+      quality = quality || 0.80;
+      return new Promise(function(resolve) {
         if (!file) {
-          return reject(new Error('يرجى اختيار ملف صالح'));
+          return resolve({ blob: null, originalSize: 0, compressedSize: 0, dataUrl: '' });
         }
-        var reader = new FileReader();
-        reader.onload = function(e) {
-          var dataUrl = e.target.result;
-          var img = new Image();
-          img.onload = function() {
-            try {
-              var width = img.width || 1;
-              var height = img.height || 1;
-              if (width > maxWidth || height > maxWidth) {
-                if (width > height) {
-                  height = Math.round((height * maxWidth) / width);
-                  width = maxWidth;
-                } else {
-                  width = Math.round((width * maxWidth) / height);
-                  height = maxWidth;
-                }
-              }
-              var canvas = document.createElement('canvas');
-              canvas.width = width;
-              canvas.height = height;
-              var ctx = canvas.getContext('2d');
-              if (ctx) {
-                ctx.drawImage(img, 0, 0, width, height);
-              }
-              var compDataUrl = canvas.toDataURL('image/jpeg', quality);
+        var objUrl = null;
+        try {
+          if (typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
+            objUrl = URL.createObjectURL(file);
+          }
+        } catch (e) {}
 
-              if (typeof canvas.toBlob === 'function') {
-                canvas.toBlob(function(blob) {
-                  if (blob) {
-                    resolve({
-                      blob: blob,
-                      originalSize: file.size || blob.size,
-                      compressedSize: blob.size,
-                      dataUrl: compDataUrl
-                    });
-                  } else {
-                    var fallbackBlob = dataUrlToBlob(compDataUrl);
-                    resolve({
-                      blob: fallbackBlob,
-                      originalSize: file.size || fallbackBlob.size,
-                      compressedSize: fallbackBlob.size,
-                      dataUrl: compDataUrl
-                    });
-                  }
-                }, 'image/jpeg', quality);
+        var img = new Image();
+        img.onload = function() {
+          try {
+            var width = img.naturalWidth || img.width || 1;
+            var height = img.naturalHeight || img.height || 1;
+            if (width > maxWidth || height > maxWidth) {
+              if (width > height) {
+                height = Math.round((height * maxWidth) / width);
+                width = maxWidth;
               } else {
-                var fallbackBlob = dataUrlToBlob(compDataUrl);
+                width = Math.round((width * maxWidth) / height);
+                height = maxWidth;
+              }
+            }
+            var canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            var ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(img, 0, 0, width, height);
+            }
+            var compDataUrl = canvas.toDataURL('image/jpeg', quality);
+            if (objUrl) {
+              try { URL.revokeObjectURL(objUrl); } catch (e) {}
+            }
+
+            if (typeof canvas.toBlob === 'function') {
+              canvas.toBlob(function(blob) {
+                var finalBlob = blob || dataUrlToBlob(compDataUrl);
                 resolve({
-                  blob: fallbackBlob,
-                  originalSize: file.size || fallbackBlob.size,
-                  compressedSize: fallbackBlob.size,
+                  blob: finalBlob,
+                  originalSize: file.size || finalBlob.size,
+                  compressedSize: finalBlob.size,
                   dataUrl: compDataUrl
                 });
-              }
-            } catch (err) {
-              var rawBlob = dataUrlToBlob(dataUrl);
+              }, 'image/jpeg', quality);
+            } else {
+              var fallbackBlob = dataUrlToBlob(compDataUrl);
               resolve({
-                blob: rawBlob,
-                originalSize: file.size || rawBlob.size,
-                compressedSize: rawBlob.size,
-                dataUrl: dataUrl
+                blob: fallbackBlob,
+                originalSize: file.size || fallbackBlob.size,
+                compressedSize: fallbackBlob.size,
+                dataUrl: compDataUrl
               });
             }
-          };
-          img.onerror = function() {
-            var rawBlob = dataUrlToBlob(dataUrl);
-            resolve({
-              blob: rawBlob,
-              originalSize: file.size || rawBlob.size,
-              compressedSize: rawBlob.size,
-              dataUrl: dataUrl
-            });
-          };
-          img.src = dataUrl;
+          } catch (err) {
+            if (objUrl) {
+              try { URL.revokeObjectURL(objUrl); } catch (e) {}
+            }
+            fallbackFileReader(file, resolve);
+          }
         };
-        reader.onerror = function(err) {
-          reject(err || new Error('فشل قراءة الملف'));
+        img.onerror = function() {
+          if (objUrl) {
+            try { URL.revokeObjectURL(objUrl); } catch (e) {}
+          }
+          fallbackFileReader(file, resolve);
         };
-        reader.readAsDataURL(file);
+
+        if (objUrl) {
+          img.src = objUrl;
+        } else {
+          fallbackFileReader(file, resolve);
+        }
       });
+    }
+
+    function fallbackFileReader(file, resolve) {
+      try {
+        var r = new FileReader();
+        r.onload = function(e) {
+          var dUrl = e.target.result;
+          resolve({
+            blob: dataUrlToBlob(dUrl),
+            originalSize: file.size || 0,
+            compressedSize: file.size || 0,
+            dataUrl: dUrl
+          });
+        };
+        r.onerror = function() {
+          resolve({ blob: null, originalSize: 0, compressedSize: 0, dataUrl: '' });
+        };
+        r.readAsDataURL(file);
+      } catch (e) {
+        resolve({ blob: null, originalSize: 0, compressedSize: 0, dataUrl: '' });
+      }
     }
 
     function dataUrlToBlob(dataUrl) {
@@ -4273,7 +4286,14 @@ export default {
 
     // Handle single mode product files upload with instant preview and auto-compression
     function handleProductFiles(files) {
-      if (!files || files.length === 0) return;
+      var fileList = [];
+      if (files && files.length) {
+        for (var f = 0; f < files.length; f++) {
+          if (files[f]) fileList.push(files[f]);
+        }
+      }
+      if (fileList.length === 0) return;
+
       var previewsContainer = document.getElementById('image-previews');
       var hiddenContainer = document.getElementById('hidden-inputs');
       var statusEl = document.getElementById('upload-status');
@@ -4283,14 +4303,30 @@ export default {
 
       if (mainFileInput) mainFileInput.value = '';
 
+      var total = fileList.length;
+      var completed = 0;
+
       if (statusEl) {
         statusEl.style.display = 'block';
         statusEl.style.color = '#0284C7';
-        statusEl.textContent = 'جاري معالجة ' + files.length + ' صور...';
+        statusEl.textContent = 'جاري معالجة ' + total + ' ' + (total === 1 ? 'صورة' : 'صور') + '...';
       }
       if (actionsBar) actionsBar.style.display = 'flex';
 
-      for (var i = 0; i < files.length; i++) {
+      function onFileFinished() {
+        completed++;
+        if (statusEl) {
+          if (completed >= total) {
+            statusEl.style.color = '#047857';
+            statusEl.textContent = '✅ تم تجهيز وحفظ جميع الصور بنجاح (' + total + ' ' + (total === 1 ? 'صورة' : 'صور') + ').';
+          } else {
+            statusEl.style.color = '#0284C7';
+            statusEl.textContent = 'تم تجهيز ' + completed + ' من ' + total + ' صور...';
+          }
+        }
+      }
+
+      for (var i = 0; i < total; i++) {
         (function(file) {
           var cardId = 'card_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6);
           var card = document.createElement('div');
@@ -4301,7 +4337,7 @@ export default {
           card.innerHTML =
             '<div style="width:100%; height:110px; background:#F1F5F9; display:flex; align-items:center; justify-content:center; overflow:hidden; position:relative;">' +
               '<img class="img-preview" src="" style="width:100%; height:100%; object-fit:cover; display:none;" />' +
-              '<span class="img-loading" style="font-size:12px; color:#64748B;">جاري القراءة...</span>' +
+              '<span class="img-loading" style="font-size:12px; color:#64748B;">جاري التحميل...</span>' +
             '</div>' +
             '<div class="img-badge" style="font-size:11px; color:#047857; padding:4px 6px; font-weight:600; text-align:center; background:#F0FDF4; border-top:1px solid #DCFCE7;">جاري المعالجة...</div>' +
             '<div style="display:flex; justify-content:space-between; padding:5px 6px; background:#FFFFFF; border-top:1px solid #F1F5F9; gap:4px;">' +
@@ -4343,46 +4379,55 @@ export default {
 
           replaceInput.onchange = function() {
             if (replaceInput.files && replaceInput.files[0]) {
-              processSingleFile(replaceInput.files[0], card, hiddenInput);
+              processSingleFile(replaceInput.files[0], card, hiddenInput, null);
             }
           };
 
-          processSingleFile(file, card, hiddenInput);
-        })(files[i]);
+          processSingleFile(file, card, hiddenInput, onFileFinished);
+        })(fileList[i]);
       }
     }
 
-    function processSingleFile(file, card, hiddenInput) {
+    function processSingleFile(file, card, hiddenInput, onFinish) {
       var imgEl = card.querySelector('.img-preview');
       var loadingEl = card.querySelector('.img-loading');
       var badgeEl = card.querySelector('.img-badge');
       var statusEl = document.getElementById('upload-status');
 
-      // 1. Instant thumbnail via FileReader (appears in <50ms)
-      var reader = new FileReader();
-      reader.onload = function(e) {
-        var instantDataUrl = e.target.result;
+      // 1. Instant thumbnail via ObjectURL (<5ms!)
+      var instantUrl = null;
+      try {
+        if (typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
+          instantUrl = URL.createObjectURL(file);
+        }
+      } catch (e) {}
+
+      if (instantUrl) {
         if (imgEl) {
-          imgEl.src = instantDataUrl;
+          imgEl.src = instantUrl;
           imgEl.style.display = 'block';
         }
-        if (loadingEl) {
-          loadingEl.style.display = 'none';
-        }
-        if (hiddenInput && !hiddenInput.value) {
-          hiddenInput.value = instantDataUrl;
-        }
-      };
-      reader.readAsDataURL(file);
+        if (loadingEl) loadingEl.style.display = 'none';
+      } else {
+        var reader = new FileReader();
+        reader.onload = function(e) {
+          if (imgEl) {
+            imgEl.src = e.target.result;
+            imgEl.style.display = 'block';
+          }
+          if (loadingEl) loadingEl.style.display = 'none';
+        };
+        reader.readAsDataURL(file);
+      }
 
-      // 2. Compression and upload
-      compressImageFile(file, 1000, 0.82).then(function(res) {
-        if (imgEl) {
+      // 2. High-speed canvas compression and upload
+      compressImageFile(file, 900, 0.8).then(function(res) {
+        if (imgEl && res.dataUrl) {
           imgEl.src = res.dataUrl;
           imgEl.style.display = 'block';
         }
         if (loadingEl) loadingEl.style.display = 'none';
-        if (hiddenInput) hiddenInput.value = res.dataUrl;
+        if (hiddenInput && res.dataUrl) hiddenInput.value = res.dataUrl;
 
         var savings = Math.round((1 - res.compressedSize / res.originalSize) * 100);
         if (badgeEl) {
@@ -4390,24 +4435,18 @@ export default {
         }
 
         return uploadCompressedImageBlob(res.blob, res.dataUrl).then(function(serverUrl) {
-          if (hiddenInput) hiddenInput.value = serverUrl;
+          if (hiddenInput && serverUrl) hiddenInput.value = serverUrl;
           if (badgeEl) {
             badgeEl.innerHTML = '✅ ' + formatBytes(res.compressedSize) + (savings > 0 ? ' (' + savings + '% توفير)' : '');
           }
-          if (statusEl) {
-            statusEl.style.color = '#047857';
-            statusEl.textContent = 'تم تجهيز وحفظ صور المنتج بنجاح.';
-          }
+          if (typeof onFinish === 'function') onFinish();
         });
       }).catch(function(err) {
         if (badgeEl) {
           badgeEl.style.color = '#64748B';
           badgeEl.textContent = formatBytes(file.size || 0);
         }
-        if (statusEl) {
-          statusEl.style.color = '#047857';
-          statusEl.textContent = 'تم إدراج الصورة بنجاح.';
-        }
+        if (typeof onFinish === 'function') onFinish();
       });
     }
 
@@ -4476,47 +4515,38 @@ export default {
       var hiddenUrl = card.querySelector('.shape-image-url');
       var actionsBar = card.querySelector('.shape-actions-bar');
 
-      if (label) label.textContent = 'جاري معالجة ورفع الصورة...';
+      if (label) label.textContent = 'جاري المعالجة والرفع...';
       if (status) status.textContent = 'يتم تقليل الحجم لسرعة التحميل';
 
-      // 1. Instant preview via FileReader
-      var reader = new FileReader();
-      reader.onload = function(e) {
-        if (thumb) {
-          thumb.src = e.target.result;
-          thumb.style.display = 'block';
+      // 1. Instant preview via ObjectURL (<5ms!)
+      var instantUrl = null;
+      try {
+        if (typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
+          instantUrl = URL.createObjectURL(file);
         }
-        if (placeholder) {
-          placeholder.style.display = 'none';
-        }
-        if (actionsBar) {
-          actionsBar.style.display = 'flex';
-        }
-        if (hiddenUrl && !hiddenUrl.value) {
-          hiddenUrl.value = e.target.result;
-          syncShapesToJson();
-        }
-      };
-      reader.readAsDataURL(file);
+      } catch (e) {}
 
-      // 2. Client-side compression and background upload
-      compressImageFile(file, 1000, 0.82).then(function(res) {
-        if (thumb) {
+      if (thumb) {
+        if (instantUrl) thumb.src = instantUrl;
+        thumb.style.display = 'block';
+      }
+      if (placeholder) placeholder.style.display = 'none';
+      if (actionsBar) actionsBar.style.display = 'flex';
+
+      // 2. High-speed canvas compression and background upload
+      compressImageFile(file, 900, 0.8).then(function(res) {
+        if (thumb && res.dataUrl) {
           thumb.src = res.dataUrl;
           thumb.style.display = 'block';
         }
-        if (placeholder) {
-          placeholder.style.display = 'none';
-        }
-        if (actionsBar) {
-          actionsBar.style.display = 'flex';
-        }
-        if (hiddenUrl) {
+        if (placeholder) placeholder.style.display = 'none';
+        if (actionsBar) actionsBar.style.display = 'flex';
+        if (hiddenUrl && res.dataUrl) {
           hiddenUrl.value = res.dataUrl;
           syncShapesToJson();
         }
         return uploadCompressedImageBlob(res.blob, res.dataUrl).then(function(url) {
-          if (hiddenUrl) hiddenUrl.value = url;
+          if (hiddenUrl && url) hiddenUrl.value = url;
           if (label) label.textContent = 'تم إرفاق الصورة بنجاح';
           if (status) {
             var savedPct = Math.round((1 - res.compressedSize / res.originalSize) * 100);
