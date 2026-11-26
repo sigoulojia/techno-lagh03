@@ -130,7 +130,7 @@ export default function App() {
 
     async function syncProductsFromBackend() {
       try {
-        const res = await fetch(`${BACKEND_URL}/api/products`);
+        const res = await fetch(`${BACKEND_URL}/api/products`, { cache: 'no-store' });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         if (data?.success && Array.isArray(data.products)) {

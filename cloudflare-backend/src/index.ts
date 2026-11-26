@@ -907,6 +907,30 @@ async function sendProductAddedNtfy(product: Product, productUrl: string): Promi
   }
 }
 
+// Helper: Persist data:image base64 directly to KV as /api/images/img_xxx
+async function persistDataUrlToKv(env: Env, dataUrl: string): Promise<string> {
+  if (!dataUrl || !dataUrl.startsWith('data:image/') || !env.techno_products_kv) {
+    return dataUrl;
+  }
+  try {
+    const cleanBase64 = dataUrl.replace(/^data:image\/[a-z0-9.+]+;base64,/, '');
+    const binaryString = atob(cleanBase64);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    const imageId = `img_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+    await env.techno_products_kv.put(`img:${imageId}`, bytes.buffer, {
+      metadata: { contentType: 'image/jpeg' },
+    });
+    return `/api/images/${imageId}`;
+  } catch (e) {
+    console.error('Failed to persist dataUrl to KV:', e);
+    return dataUrl;
+  }
+}
+
 // Helper: Get products from KV (empty array if none or uninitialized)
 async function getProducts(env: Env): Promise<Product[]> {
   if (!env.techno_products_kv) {
@@ -1632,12 +1656,23 @@ export default {
         getProducts(env),
         getCategories(env),
       ]);
-      return jsonResponse({
-        success: true,
-        count: products.length,
-        products,
-        categories,
-      });
+      return new Response(
+        JSON.stringify({
+          success: true,
+          count: products.length,
+          products,
+          categories,
+        }),
+        {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            ...CORS_HEADERS,
+          },
+        }
+      );
     }
 
     // 2b. GET /api/categories
@@ -2350,10 +2385,15 @@ export default {
                     const item = arr[idx];
                     const shapeName = (item.name || `شكل ${idx + 1}`).trim();
                     const shapeSku = (item.sku || '').trim();
-                    const shapeImg = (item.image || '').trim();
+                    let shapeImg = (item.image || '').trim();
                     const shapeDesc = (item.description || '').trim();
                     const shapeDims = (item.dimensions || '').trim();
-                    const basePrice = Number(item.priceDzd) || price || 0;
+                    let basePrice = Number(item.priceDzd) || price || 0;
+
+                    // Automatically persist data:image base64 to KV image asset
+                    if (shapeImg && shapeImg.startsWith('data:image/') && env.techno_products_kv) {
+                      shapeImg = await persistDataUrlToKv(env, shapeImg);
+                    }
 
                     const subParsed = shapeDims ? parseVariantsText(shapeDims) : [];
                     if (subParsed.length > 0) {
@@ -2363,7 +2403,7 @@ export default {
                           name: `${shapeName} (${sub.label})`,
                           label: sub.label,
                           sku: sub.sku || shapeSku || undefined,
-                          priceDzd: sub.priceDzd > 0 ? sub.priceDzd : (price > 0 ? price : 1000),
+                          priceDzd: sub.priceDzd > 0 ? sub.priceDzd : (basePrice > 0 ? basePrice : (price > 0 ? price : 1000)),
                           image: shapeImg || uploadedImages[idx] || uploadedImages[0],
                           description: (sub.description || shapeDesc).trim(),
                           dimensions: (sub.dimensions || sub.label).trim(),
@@ -2395,7 +2435,7 @@ export default {
 
             if (parsedVariants.length > 0) {
               const validPrices = parsedVariants.map((v) => v.priceDzd).filter((p) => p > 0);
-              if (validPrices.length > 0 && price <= 0) {
+              if (validPrices.length > 0) {
                 price = Math.min(...validPrices);
               }
               const shapeImages = parsedVariants.map((v) => v.image).filter(Boolean) as string[];
@@ -2448,7 +2488,7 @@ export default {
               colorName: colorFamily === 'red' ? 'أحمر' : colorFamily === 'blue' ? 'أزرق' : 'قياسي',
               colorHex: colorFamily === 'red' ? '#E30613' : colorFamily === 'blue' ? '#2563EB' : '#1F2024',
               priceDzd: price,
-              image: uploadedImages[0],
+              image: (linkedVariants.length > 0 && linkedVariants[0].image) ? linkedVariants[0].image : uploadedImages[0],
               images: uploadedImages,
               ...(singleDims ? { dimensions: singleDims } : {}),
               ...(linkedVariants.length > 0 ? { variants: linkedVariants } : {}),
@@ -4177,6 +4217,7 @@ export default {
       if (!card) return;
 
       var thumb = card.querySelector('.shape-thumb');
+      var placeholder = card.querySelector('.shape-icon-placeholder');
       var label = card.querySelector('.shape-file-label');
       var status = card.querySelector('.shape-file-status');
       var hiddenUrl = card.querySelector('.shape-image-url');
@@ -4185,7 +4226,17 @@ export default {
       if (status) status.textContent = 'تقليل الحجم لسرعة التحميل';
 
       compressImageFile(file, 1000, 0.82).then(function(res) {
-        if (thumb) thumb.src = res.dataUrl;
+        if (thumb) {
+          thumb.src = res.dataUrl;
+          thumb.style.display = 'block';
+        }
+        if (placeholder) {
+          placeholder.style.display = 'none';
+        }
+        if (hiddenUrl) {
+          hiddenUrl.value = res.dataUrl;
+          syncShapesToJson();
+        }
         return uploadCompressedImageBlob(res.blob, res.dataUrl).then(function(url) {
           if (hiddenUrl) hiddenUrl.value = url;
           if (label) label.textContent = 'تم إرفاق الصورة بنجاح';
@@ -4219,7 +4270,8 @@ export default {
           '<div style="grid-column: 1 / -1;">' +
             '<label style="display:block; font-size:12px; font-weight:600; color:#334155; margin-bottom:5px;">صورة الموديل (اضغط لاختيار صورة وسيتم تقليل حجمها تلقائياً) *</label>' +
             '<div class="shape-dropzone" onclick="triggerShapeFileInput(this)" style="border:1.5px dashed #CBD5E1; border-radius:10px; padding:12px 16px; text-align:center; cursor:pointer; background:#F8FAFC; display:flex; align-items:center; gap:12px;">' +
-              '<img class="shape-thumb" src="/assets/aistudio/photo_5767250388670156962_y__1__73abac5d.jpg" style="width:48px; height:48px; object-fit:cover; border-radius:8px; border:1px solid #CBD5E1; flex-shrink:0;" />' +
+              '<div class="shape-icon-placeholder" style="width:48px; height:48px; border-radius:8px; background:#F1F5F9; border:1.5px dashed #94A3B8; display:flex; align-items:center; justify-content:center; font-size:22px; flex-shrink:0;">📷</div>' +
+              '<img class="shape-thumb" src="" style="width:48px; height:48px; object-fit:cover; border-radius:8px; border:1px solid #CBD5E1; flex-shrink:0; display:none;" />' +
               '<div style="text-align:right;">' +
                 '<div style="font-size:13px; font-weight:600; color:#0F172A;" class="shape-file-label">اضغط لاختيار صورة هذا الموديل</div>' +
                 '<div style="font-size:11.5px; color:#64748B;" class="shape-file-status">يتم تقليل وضغط الحجم تلقائياً لتسريع التصفح</div>' +
@@ -4306,6 +4358,19 @@ export default {
         var dims = (dimsInput && dimsInput.value || '').trim();
         var image = (imgInput && imgInput.value || '').trim();
 
+        // If price is not explicitly set in the shape price input, extract minimum price from dimensions lines (e.g. صغير : 1800)
+        if (price <= 0 && dims) {
+          var pMatches = dims.match(/[:=\-–—]\s*([0-9][0-9\s,.]*)/g);
+          if (pMatches && pMatches.length > 0) {
+            var extractedPrices = pMatches.map(function(m) {
+              return parseFloat(m.replace(/[^0-9]/g, '')) || 0;
+            }).filter(function(p) { return p > 0; });
+            if (extractedPrices.length > 0) {
+              price = Math.min.apply(null, extractedPrices);
+            }
+          }
+        }
+
         if (name || sku || price > 0 || dims || image) {
           list.push({
             name: name || ('شكل ' + (idx + 1)),
@@ -4332,17 +4397,30 @@ export default {
       var modeInput = document.getElementById('prod-mode');
       var isMulti = modeInput && modeInput.value === 'multi';
       var nameInput = document.querySelector('input[name="name"]');
+      var catInput = document.querySelector('input[name="category"]');
       var nameVal = (nameInput && nameInput.value || '').trim();
 
+      if (isMulti) {
+        syncShapesToJson();
+        var firstShapeName = document.querySelector('.shape-name');
+        if (!nameVal && firstShapeName && firstShapeName.value.trim()) {
+          nameInput.value = firstShapeName.value.trim();
+          nameVal = nameInput.value;
+        }
+      }
+
       if (!nameVal) {
-        alert('⚠️ يرجى كتابة اسم المنتج أولاً.');
+        alert('⚠️ يرجى كتابة اسم المنتج أو اسم الموديل أولاً.');
         if (nameInput) nameInput.focus();
         if (e) e.preventDefault();
         return false;
       }
 
+      if (catInput && !catInput.value.trim()) {
+        catInput.value = 'معروضات عامة';
+      }
+
       if (isMulti) {
-        syncShapesToJson();
         var jsonInput = document.getElementById('variants-json-input');
         var priceInput = document.getElementById('single-price-input');
         var rawJson = jsonInput ? jsonInput.value : '';
@@ -4366,19 +4444,13 @@ export default {
 
       var submitBtn = document.getElementById('submit-prod-btn');
       if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.textContent = '⏳ جاري الحفظ والنشر في المتجر...';
-        submitBtn.style.opacity = '0.75';
+        setTimeout(function() {
+          submitBtn.disabled = true;
+          submitBtn.textContent = '⏳ جاري الحفظ والنشر في المتجر...';
+          submitBtn.style.opacity = '0.75';
+        }, 10);
       }
       return true;
-    }
-
-    // Direct submit listener
-    var addProdForm = document.getElementById('add-product-form');
-    if (addProdForm) {
-      addProdForm.addEventListener('submit', function(e) {
-        handleProductFormSubmit(e);
-      });
     }
   </script>
 </body>
