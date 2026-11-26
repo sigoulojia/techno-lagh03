@@ -4961,7 +4961,7 @@ async function promptWizardCategory(
   });
 
   const text =
-    `➕ <b>إضافة منتج جديد</b>\n` +
+    `➕ <b>إضافة منتج جديد — الخطوة 1 من 6</b>\n` +
     `━━━━━━━━━━━━━━━━━━━━\n` +
     `📂 <b>اختر القسم الذي تريد وضع المنتج فيه:</b>\n` +
     (categories.length === 0
@@ -5135,15 +5135,15 @@ async function handleTelegramUpdate(
         chatId,
         messageId,
         `✅ القسم المختار: <b>${escapeHtml(draft.categoryName || '')}</b>\n\n` +
-          `📝 <b>ما هو اسم المنتج؟</b>\n` +
-          `أرسل اسم المنتج (مثال: <code>ساعة حائط كلاسيكية</code> أو <code>حقيبة ظهر PROBAG</code>):`,
+          `📝 <b>الخطوة 2 من 6 — اسم المنتج</b>\n` +
+          `أرسل الآن <b>اسم المنتج</b> (مثال: <code>ساعة حائط كلاسيكية</code>):`,
         [[{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }]],
       );
     } else if (data === 'wiz:price_single') {
       const session = await getSession(env, chatId);
       if (session) {
         await setSession(env, chatId, {
-          step: 'prod_single_price',
+          step: 'prod_number',
           draft: session.draft,
           updatedAt: Date.now(),
         });
@@ -5151,11 +5151,13 @@ async function handleTelegramUpdate(
           botToken,
           chatId,
           messageId,
-          `💰 <b>سعر المنتج بالدينار الجزائري:</b>\n` +
-            `━━━━━━━━━━━━━━━━━━━━\n` +
-            `أرسل سعر المنتج بالأرقام (مثال: <code>2500</code>)\n` +
-            `<i>(يمكنك أيضاً كتابة القياسات بجانب السعر إن وُجدت، مثل: <code>2500 | 40x60 سم</code>):</i>`,
-          [[{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }]],
+          `🔢 <b>الخطوة 3 — رقم المنتج</b>\n` +
+            `أدخل <b>رقم المنتج</b> الذي ستنتهي به صفحته (مثال: <code>71645</code> أو <code>105</code>)\n` +
+            `أو اضغط على زر التوليد التلقائي:`,
+          [
+            [{ text: '🎲 توليد رقم تلقائي', callback_data: 'wiz:num_auto' }],
+            [{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }],
+          ],
         );
       }
     } else if (data === 'wiz:num_auto') {
@@ -5173,9 +5175,9 @@ async function handleTelegramUpdate(
           botToken,
           chatId,
           messageId,
-          `💰 <b>سعر المنتج بالدينار الجزائري:</b>\n` +
-            `━━━━━━━━━━━━━━━━━━━━\n` +
-            `أرسل سعر المنتج بالأرقام (مثال: <code>2500</code>):`,
+          `✅ تم تعيين رقم المنتج تلقائياً: <code>${autoNum}</code> (ستنتهي الصفحة بـ <code>/p/${autoNum}</code>)\n\n` +
+            `💰 <b>الخطوة 4 — سعر المنتج</b>\n` +
+            `أدخل الآن <b>سعر المنتج بالدينار الجزائري</b> (أرقام فقط، مثال: <code>2500</code>):`,
           [[{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }]],
         );
       }
@@ -5194,9 +5196,10 @@ async function handleTelegramUpdate(
           botToken,
           chatId,
           messageId,
-          `🎨 <b>إضافة تشكيلة (مجموعة تحت منتج واحد) — الشكل (1)</b>\n` +
+          `🎨 <b>إضافة أشكال وموديلات المنتج — الشكل (1)</b>\n` +
             `━━━━━━━━━━━━━━━━━━━━\n` +
-            `📸 <b>أرسل الآن صورة هذا الشكل الأول:</b>`,
+            `📸 <b>الخطوة 1:</b> أرسل الآن <b>صورة</b> هذا الشكل أو الموديل:\n\n` +
+            `<i>(سيرشدك البوت خطوة بخطوة: صورة ➔ اسمها ➔ سعرها ➔ الوصف ➔ القياسات)</i>`,
           [[{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }]],
         );
       }
@@ -5229,9 +5232,9 @@ async function handleTelegramUpdate(
           botToken,
           chatId,
           messageId,
-          `📏 <b>إضافة قياسات هذا الشكل وأسعارها:</b>\n` +
+          `📏 <b>إضافة قياسات هذا الشكل وأسعارها</b>\n` +
             `━━━━━━━━━━━━━━━━━━━━\n` +
-            `أرسل كل قياس وسعره في سطر:\n\n` +
+            `أرسل كل قياس وسعره في سطر (يمكنك إرسالها كلها في رسالة واحدة أو قياساً تلو الآخر):\n\n` +
             `<i>مثال:</i>\n` +
             `<code>صغير : 1800\nمتوسط : 2500\nكبير : 3400</code>\n` +
             `<i>أو:</i>\n` +
@@ -5239,9 +5242,37 @@ async function handleTelegramUpdate(
           [[{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }]],
         );
       }
-    } else if (data === 'wiz:shape_skip_desc' || data === 'wiz:shape_skip_dims') {
+    } else if (data === 'wiz:shape_skip_desc') {
       const session = await getSession(env, chatId);
-      if (session && (session.step === 'shape_desc' || session.step === 'shape_dims')) {
+      if (session && session.step === 'shape_desc') {
+        if (!session.draft.currentShape) session.draft.currentShape = {};
+        session.draft.currentShape.description = '';
+        await setSession(env, chatId, {
+          step: 'shape_dims',
+          draft: session.draft,
+          updatedAt: Date.now(),
+        });
+        const shapeIdx = (session.draft.variants?.length || 0) + 1;
+        await sendOrEditMessage(
+          botToken,
+          chatId,
+          messageId,
+          `📏 <b>الخطوة 5 للشكل (${shapeIdx}) — القياسات أو الأبعاد:</b>\n` +
+            `━━━━━━━━━━━━━━━━━━━━\n` +
+            `أرسل أبعاد هذا الشكل (مثال: <code>40x60 سم</code> أو <code>سعة 500 مل</code>)\n` +
+            `أو أرسل قياسات بأسعارها (مثال: <code>صغير : 1800\nمتوسط : 2500\nكبير : 3400</code>)\n` +
+            `أو اضغط «تخطي القياسات»:`,
+          [
+            [{ text: '⏭️ تخطي القياسات', callback_data: 'wiz:shape_skip_dims' }],
+            [{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }],
+          ],
+        );
+      }
+    } else if (data === 'wiz:shape_skip_dims') {
+      const session = await getSession(env, chatId);
+      if (session && session.step === 'shape_dims') {
+        if (!session.draft.currentShape) session.draft.currentShape = {};
+        session.draft.currentShape.dimensions = '';
         await finalizeShapeAndPromptNext(env, botToken, chatId, session, messageId);
       }
     } else if (data === 'wiz:shape_add_another') {
@@ -5258,7 +5289,7 @@ async function handleTelegramUpdate(
           botToken,
           chatId,
           messageId,
-          `📸 <b>الشكل رقم (${nextIdx}):</b>\n` +
+          `📸 <b>الخطوة 1 للشكل (${nextIdx}):</b>\n` +
             `━━━━━━━━━━━━━━━━━━━━\n` +
             `أرسل الآن <b>صورة</b> هذا الشكل الجديد:`,
           [[{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }]],
@@ -5303,10 +5334,10 @@ async function handleTelegramUpdate(
           botToken,
           chatId,
           messageId,
-          `✍️ <b>وصف ومميزات المنتج (اختياري)</b>\n` +
-            `أرسل وصفاً للمنتج أو اضغط «تخطي والذهاب للصور» للمتابعة:`,
+          `✍️ <b>الخطوة 6 من 7 — وصف المنتج (اختياري)</b>\n` +
+            `أرسل وصفاً قصيراً للمنتج أو اضغط «تخطي الوصف»:`,
           [
-            [{ text: '⏭️ تخطي والذهاب للصور', callback_data: 'wiz:skip_desc' }],
+            [{ text: '⏭️ تخطي الوصف', callback_data: 'wiz:skip_desc' }],
             [{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }],
           ],
         );
@@ -5315,38 +5346,30 @@ async function handleTelegramUpdate(
       const session = await getSession(env, chatId);
       if (session) {
         session.draft.description = 'منتج أصلي معتمد متوفر في فرع تكنو الأغواط.';
-        session.draft.images = [];
-        await setSession(env, chatId, {
-          step: 'prod_photos',
-          draft: session.draft,
-          updatedAt: Date.now(),
-        });
-        await sendOrEditMessage(
-          botToken,
-          chatId,
-          messageId,
-          `📸 <b>أرسل صورة المنتج الآن:</b>\n` +
-            `━━━━━━━━━━━━━━━━━━━━\n` +
-            `أرسل صورة المنتج مباشرة من هاتفك أو جهازك (يمكنك إرسال صورة واحدة أو عدة صور):`,
-          [[{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }]],
-        );
+        await promptWizardPhotoCount(botToken, chatId, env, session.draft, messageId);
       }
     } else if (data.startsWith('wiz:photos:')) {
+      const count = Math.min(10, Math.max(1, parseInt(data.replace('wiz:photos:', ''), 10) || 1));
       const session = await getSession(env, chatId);
       if (session) {
+        session.draft.targetPhotoCount = count;
         session.draft.images = [];
         await setSession(env, chatId, {
           step: 'prod_photos',
           draft: session.draft,
           updatedAt: Date.now(),
         });
+        const firstVar = session.draft.variants && session.draft.variants.length > 0 ? session.draft.variants[0] : null;
+        const firstVarName = firstVar?.name || firstVar?.label;
         await sendOrEditMessage(
           botToken,
           chatId,
           messageId,
-          `📸 <b>أرسل صورة المنتج الآن:</b>\n` +
+          `📸 <b>ممتاز! سيتم إضافة ${count} ${count === 1 ? 'صورة' : 'صور'} لهذا المنتج</b>\n` +
             `━━━━━━━━━━━━━━━━━━━━\n` +
-            `أرسل صورة المنتج مباشرة من هاتفك أو جهازك:`,
+            `أرسل الآن <b>الصورة 1 من ${count}</b>` +
+            (firstVarName ? ` (المخصصة لشكل: <b>${escapeHtml(firstVarName)}</b>)` : '') +
+            ` (يمكنك إرسالها واحدة تلو الأخرى أو معاً):`,
           [[{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }]],
         );
       }
@@ -5689,9 +5712,8 @@ async function handleTelegramUpdate(
           text:
             `✅ <b>تم استلام صورة الشكل (${shapeIdx}) بنجاح!</b>\n` +
             `━━━━━━━━━━━━━━━━━━━━\n` +
-            `🏷️ <b>اسم هذا الشكل وكوده:</b>\n` +
-            `أرسل الآن <b>اسم هذا الشكل أو الموديل</b> (ورقم كوده إن وُجد)\n` +
-            `<i>مثال: <code>شكل قطة كرتونية #101</code> أو <code>أزرق ملكي | 102</code> أو مجرد <code>موديل جلدي 3 سحابات</code></i>:`,
+            `🏷️ <b>الخطوة 2 للشكل (${shapeIdx}):</b> أرسل الآن <b>اسم هذا الشكل أو الموديل</b> (ورقمه إن وُجد)\n` +
+            `(مثال: <code>شكل قطة كرتونية #101</code> أو <code>أزرق ملكي | 102</code> أو مجرد <code>موديل جلدي 3 سحابات</code>):`,
           parse_mode: 'HTML',
           reply_markup: {
             inline_keyboard: [[{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }]],
@@ -5703,26 +5725,40 @@ async function handleTelegramUpdate(
       if (session.step === 'prod_photos') {
         const nextImages = [...(session.draft.images || []), imageUrl];
         session.draft.images = nextImages;
-        await setSession(env, chatId, {
-          step: 'prod_photos',
-          draft: session.draft,
-          updatedAt: Date.now(),
-        });
-        await callTelegram(botToken, 'sendMessage', {
-          chat_id: chatId,
-          text:
-            `✅ <b>تم استلام الصورة (${nextImages.length}) بنجاح!</b>\n` +
-            `━━━━━━━━━━━━━━━━━━━━\n` +
-            `• يمكنك إرسال صورة إضافية أخرى الآن،\n` +
-            `• أو اضغط <b>«✅ نشر المنتج الآن في المتجر»</b> للتثبيت والنشر الفوري:`,
-          parse_mode: 'HTML',
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: '✅ نشر المنتج الآن في المتجر', callback_data: 'wiz:publish_now' }],
-              [{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }],
-            ],
-          },
-        });
+        const targetCount = session.draft.targetPhotoCount || 1;
+
+        if (nextImages.length >= targetCount) {
+          await publishWizardDraft(env, botToken, chatId, session.draft);
+        } else {
+          await setSession(env, chatId, {
+            step: 'prod_photos',
+            draft: session.draft,
+            updatedAt: Date.now(),
+          });
+          const variants = session.draft.variants || [];
+          const nextVar = variants[nextImages.length];
+          const nextVarName = nextVar?.name || nextVar?.label;
+          await callTelegram(botToken, 'sendMessage', {
+            chat_id: chatId,
+            text:
+              `✅ <b>تم استلام الصورة ${nextImages.length} من ${targetCount}</b>\n` +
+              `أرسل الآن <b>الصورة ${nextImages.length + 1} من ${targetCount}</b>` +
+              (nextVarName ? ` (المخصصة لشكل: <b>${escapeHtml(nextVarName)}</b>)` : '') +
+              `:\n<i>يمكنك أيضاً إرسال باقي الصور دفعة واحدة.</i>`,
+            parse_mode: 'HTML',
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  {
+                    text: `✅ نشر المنتج الآن بالصور المستلمة (${nextImages.length})`,
+                    callback_data: 'wiz:publish_now',
+                  },
+                ],
+                [{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }],
+              ],
+            },
+          });
+        }
         return;
       }
 
@@ -5941,16 +5977,7 @@ async function handleTelegramUpdate(
       }
 
       if (session.step === 'prod_name') {
-        const rawName = text.trim();
-        let prodName = rawName;
-        let prodSku: string | undefined = undefined;
-        const skuMatch = rawName.match(/(?:#|رقم\s*[:#]?|كود\s*[:#]?)\s*([0-9a-zA-Z\-_]+)/i);
-        if (skuMatch) {
-          prodSku = skuMatch[1];
-        }
-        session.draft.name = prodName;
-        if (prodSku) session.draft.productNumber = prodSku;
-
+        session.draft.name = text;
         await setSession(env, chatId, {
           step: 'prod_pricing_mode',
           draft: session.draft,
@@ -5959,15 +5986,14 @@ async function handleTelegramUpdate(
         await callTelegram(botToken, 'sendMessage', {
           chat_id: chatId,
           text:
-            `✅ اسم المنتج: <b>${escapeHtml(prodName)}</b>\n\n` +
-            `📌 <b>اختر نوع هذا المنتج:</b>\n` +
-            `1️⃣ <b>📦 منتج عادي</b> (سعر وصور مباشرة)\n` +
-            `2️⃣ <b>🎨 تشكيلة أشكال وموديلات</b> (مجموعة تحت منتج واحد بأشكال أو قياسات مختلفة)`,
+            `✅ اسم المنتج: <b>${escapeHtml(text)}</b>\n\n` +
+            `💰 <b>نوع التسعير والأشكال</b>\n` +
+            `هل لهذا المنتج <b>سعر واحد فقط</b> أم يتوفر بعدة <b>أشكال وموديلات / قياسات</b> مختلفة؟`,
           parse_mode: 'HTML',
           reply_markup: {
             inline_keyboard: [
-              [{ text: '📦 منتج عادي (سعر وصور)', callback_data: 'wiz:price_single' }],
-              [{ text: '🎨 تشكيلة أشكال وموديلات', callback_data: 'wiz:price_variants' }],
+              [{ text: '💰 سعر واحد فقط للمنتج', callback_data: 'wiz:price_single' }],
+              [{ text: '🎨 عدة أشكال وموديلات / قياسات', callback_data: 'wiz:price_variants' }],
               [{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }],
             ],
           },
@@ -5979,14 +6005,14 @@ async function handleTelegramUpdate(
         await callTelegram(botToken, 'sendMessage', {
           chat_id: chatId,
           text:
-            `يرجى اختيار نوع المنتج أدناه للمتابعة:\n` +
-            `• <b>📦 منتج عادي:</b> لتسعير المنتج وإرفاق صوره مباشرة.\n` +
-            `• <b>🎨 تشكيلة أشكال وموديلات:</b> إذا كان لكل شكل صورة واسم وسعر وقياسات خاصة.`,
+            `يرجى اختيار نوع التسعير بالضغط على أحد الزرين:\n` +
+            `• اضغط <b>«💰 سعر واحد فقط للمنتج»</b> وسنطلب منك رقم المنتج بعد ذلك.\n` +
+            `• اضغط <b>«🎨 عدة أشكال وموديلات»</b> للبدء في إضافة الأشكال والموديلات.`,
           parse_mode: 'HTML',
           reply_markup: {
             inline_keyboard: [
-              [{ text: '📦 منتج عادي (سعر وصور)', callback_data: 'wiz:price_single' }],
-              [{ text: '🎨 تشكيلة أشكال وموديلات', callback_data: 'wiz:price_variants' }],
+              [{ text: '💰 سعر واحد فقط للمنتج', callback_data: 'wiz:price_single' }],
+              [{ text: '🎨 عدة أشكال وموديلات / قياسات', callback_data: 'wiz:price_variants' }],
               [{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }],
             ],
           },
@@ -5996,7 +6022,31 @@ async function handleTelegramUpdate(
 
       if (session.step === 'prod_number') {
         const cleanNum = text.replace(/[^0-9]/g, '');
-        session.draft.productNumber = cleanNum || undefined;
+        if (!cleanNum) {
+          await callTelegram(botToken, 'sendMessage', {
+            chat_id: chatId,
+            text: '⚠️ يرجى إدخال رقم منتج صحيح بالأرقام فقط (مثلاً: <code>71645</code>) أو الضغط على «توليد رقم تلقائي».',
+            parse_mode: 'HTML',
+            reply_markup: {
+              inline_keyboard: [[{ text: '🎲 توليد رقم تلقائي', callback_data: 'wiz:num_auto' }]],
+            },
+          });
+          return;
+        }
+        const products = await getProducts(env);
+        const alreadyExists = products.some((p) => p.id === cleanNum || p.sku === cleanNum);
+        if (alreadyExists) {
+          await callTelegram(botToken, 'sendMessage', {
+            chat_id: chatId,
+            text: `⚠️ الرقم <code>${cleanNum}</code> مستخدم مسبقاً لمنتج آخر. يرجى إدخال رقم مختلف أو الضغط على «توليد رقم تلقائي».`,
+            parse_mode: 'HTML',
+            reply_markup: {
+              inline_keyboard: [[{ text: '🎲 توليد رقم تلقائي', callback_data: 'wiz:num_auto' }]],
+            },
+          });
+          return;
+        }
+        session.draft.productNumber = cleanNum;
         await setSession(env, chatId, {
           step: 'prod_single_price',
           draft: session.draft,
@@ -6005,9 +6055,9 @@ async function handleTelegramUpdate(
         await callTelegram(botToken, 'sendMessage', {
           chat_id: chatId,
           text:
-            `💰 <b>سعر المنتج (بالدينار الجزائري):</b>\n` +
-            `أرسل سعر المنتج بالأرقام (مثال: <code>2500</code>)\n` +
-            `<i>(يمكنك كتابة القياسات بجانب السعر، مثلاً: <code>2500 | 40x60 سم</code>):</i>`,
+            `✅ رقم المنتج: <code>${cleanNum}</code> (ستنتهي الصفحة بـ <code>/p/${cleanNum}</code>)\n\n` +
+            `💰 <b>الخطوة 4 من 6 — سعر المنتج</b>\n` +
+            `أدخل الآن <b>سعر المنتج بالدينار الجزائري</b> (أرقام فقط، مثال: <code>2500</code>):`,
           parse_mode: 'HTML',
           reply_markup: {
             inline_keyboard: [[{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }]],
@@ -6017,16 +6067,7 @@ async function handleTelegramUpdate(
       }
 
       if (session.step === 'prod_single_price') {
-        let price = 0;
-        let dims = session.draft.dimensions;
-        if (text.includes('|')) {
-          const parts = text.split('|');
-          price = parseInt(parts[0].replace(/[^0-9]/g, ''), 10);
-          dims = parts[1].trim();
-        } else {
-          price = parseInt(text.replace(/[^0-9]/g, ''), 10);
-        }
-
+        const price = parseInt(text.replace(/[^0-9]/g, ''), 10);
         if (!price || price <= 0) {
           await callTelegram(botToken, 'sendMessage', {
             chat_id: chatId,
@@ -6035,34 +6076,8 @@ async function handleTelegramUpdate(
           });
           return;
         }
-
         session.draft.priceDzd = price;
-        session.draft.dimensions = dims;
         session.draft.variants = [];
-
-        if (dims) {
-          await setSession(env, chatId, {
-            step: 'prod_description',
-            draft: session.draft,
-            updatedAt: Date.now(),
-          });
-          await callTelegram(botToken, 'sendMessage', {
-            chat_id: chatId,
-            text:
-              `✅ السعر: <b>${price.toLocaleString()} د.ج</b> (القياسات: <code>${escapeHtml(dims)}</code>)\n\n` +
-              `✍️ <b>وصف ومميزات المنتج (اختياري)</b>\n` +
-              `أرسل وصفاً للمنتج أو اضغط «تخطي والذهاب للصور» للمتابعة:`,
-            parse_mode: 'HTML',
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: '⏭️ تخطي والذهاب للصور', callback_data: 'wiz:skip_desc' }],
-                [{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }],
-              ],
-            },
-          });
-          return;
-        }
-
         await setSession(env, chatId, {
           step: 'prod_dimensions',
           draft: session.draft,
@@ -6072,8 +6087,8 @@ async function handleTelegramUpdate(
           chat_id: chatId,
           text:
             `✅ السعر: <b>${price.toLocaleString()} د.ج</b>\n\n` +
-            `📏 <b>القياسات أو الأبعاد (اختياري)</b>\n` +
-            `أرسل أبعاد أو قياسات هذا المنتج (مثال: <code>40x60 سم</code> أو <code>A4</code> أو <code>سعة 500 مل</code>) أو اضغط «تخطي» للمتابعة:`,
+            `📏 <b>الخطوة 5 من 7 — قياسات أو أبعاد المنتج (اختياري)</b>\n` +
+            `أرسل أبعاد أو قياسات هذا المنتج (مثال: <code>40x60 سم</code> أو <code>A4</code> أو <code>سعة 500 مل</code>) أو اضغط «تخطي القياسات»:`,
           parse_mode: 'HTML',
           reply_markup: {
             inline_keyboard: [
@@ -6096,12 +6111,12 @@ async function handleTelegramUpdate(
           chat_id: chatId,
           text:
             `✅ القياسات: <b>${escapeHtml(text.trim())}</b>\n\n` +
-            `✍️ <b>وصف ومميزات المنتج (اختياري)</b>\n` +
-            `أرسل وصفاً للمنتج أو اضغط «تخطي والذهاب للصور» للمتابعة:`,
+            `✍️ <b>الخطوة 6 من 7 — وصف المنتج (اختياري)</b>\n` +
+            `أرسل وصفاً قصيراً للمنتج أو اضغط «تخطي الوصف»:`,
           parse_mode: 'HTML',
           reply_markup: {
             inline_keyboard: [
-              [{ text: '⏭️ تخطي والذهاب للصور', callback_data: 'wiz:skip_desc' }],
+              [{ text: '⏭️ تخطي الوصف', callback_data: 'wiz:skip_desc' }],
               [{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }],
             ],
           },
@@ -6127,6 +6142,8 @@ async function handleTelegramUpdate(
         let shapeName = rawText;
         let shapeSku: string | undefined = undefined;
 
+        // Check if user separated name and number using | or - or # or "رقم"
+        // e.g. "شكل قطة | 101" or "موديل 105" or "أزرق ملكي #55"
         if (rawText.includes('|')) {
           const parts = rawText.split('|');
           shapeName = parts[0].trim();
@@ -6143,7 +6160,7 @@ async function handleTelegramUpdate(
         session.draft.currentShape.name = shapeName;
         session.draft.currentShape.sku = shapeSku;
         await setSession(env, chatId, {
-          step: 'shape_price',
+          step: 'shape_pricing_choice',
           draft: session.draft,
           updatedAt: Date.now(),
         });
@@ -6154,11 +6171,11 @@ async function handleTelegramUpdate(
           text:
             `✅ اسم الشكل: <b>${escapeHtml(shapeName)}</b>${skuNotice}\n` +
             `━━━━━━━━━━━━━━━━━━━━\n` +
-            `💰 <b>السعر والقياسات للشكل (${shapeIdx}):</b>\n` +
-            `• إذا كان له <b>سعر موحد</b>: أرسل الرقم فقط (مثال: <code>2500</code>)\n` +
-            `• إذا كان يتوفر <b>بعدة قياسات بأسعارها</b>: أرسلها بهذا الشكل:\n` +
-            `<code>صغير : 1800\nمتوسط : 2500\nكبير : 3400</code>\n\n` +
-            `<i>(أو اضغط على أحد الزرين):</i>`,
+            `💰 <b>الخطوة 3 للشكل (${shapeIdx}): نوع التسعير والقياسات</b>\n` +
+            `هل لهذا الشكل:\n` +
+            `1️⃣ <b>سعر موحد</b> (مثال: <code>2500</code> د.ج)\n` +
+            `2️⃣ أم <b>عدة قياسات بأسعار مختلفة</b> (مثل: صغير: 1800، متوسط: 2500، كبير: 3400)؟\n\n` +
+            `<i>اضغط على أحد الزرين، أو اكتب السعر/القياسات مباشرة في رسالتك:</i>`,
           parse_mode: 'HTML',
           reply_markup: {
             inline_keyboard: [
@@ -6191,12 +6208,11 @@ async function handleTelegramUpdate(
             text:
               `✅ <b>تم تسجيل قياسات وأسعار هذا الشكل (${parsed.length}):</b>\n${listStr}\n\n` +
               `━━━━━━━━━━━━━━━━━━━━\n` +
-              `📝 <b>الوصف أو الأبعاد للشكل (${shapeIdx}) (اختياري):</b>\n` +
-              `أرسل أبعاد هذا الشكل (مثال: <code>40x60 سم</code>) أو وصفاً له، أو اضغط «تخطي وحفظ الشكل» مباشرة:`,
+              `📝 <b>الخطوة 4 للشكل (${shapeIdx}):</b> أرسل <b>وصف ومميزات هذا الشكل</b> أو اضغط «تخطي الوصف»:`,
             parse_mode: 'HTML',
             reply_markup: {
               inline_keyboard: [
-                [{ text: '⏭️ تخطي وحفظ الشكل', callback_data: 'wiz:shape_skip_desc' }],
+                [{ text: '⏭️ تخطي الوصف', callback_data: 'wiz:shape_skip_desc' }],
                 [{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }],
               ],
             },
@@ -6238,12 +6254,11 @@ async function handleTelegramUpdate(
           text:
             `✅ السعر: <b>${price.toLocaleString()} د.ج</b>\n` +
             `━━━━━━━━━━━━━━━━━━━━\n` +
-            `📝 <b>الوصف أو الأبعاد للشكل (${shapeIdx}) (اختياري):</b>\n` +
-            `أرسل أبعاد هذا الشكل (مثال: <code>40x60 سم</code>) أو وصفاً له، أو اضغط «تخطي وحفظ الشكل» مباشرة:`,
+            `📝 <b>الخطوة 4 للشكل (${shapeIdx}):</b> أرسل <b>وصف ومميزات هذا الشكل</b> أو اضغط «تخطي الوصف»:`,
           parse_mode: 'HTML',
           reply_markup: {
             inline_keyboard: [
-              [{ text: '⏭️ تخطي وحفظ الشكل', callback_data: 'wiz:shape_skip_desc' }],
+              [{ text: '⏭️ تخطي الوصف', callback_data: 'wiz:shape_skip_desc' }],
               [{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }],
             ],
           },
@@ -6288,12 +6303,11 @@ async function handleTelegramUpdate(
           text:
             `✅ <b>تم تسجيل قياسات وأسعار هذا الشكل بنجاح (${merged.length}):</b>\n${listStr}\n\n` +
             `━━━━━━━━━━━━━━━━━━━━\n` +
-            `📝 <b>الوصف أو الأبعاد للشكل (${shapeIdx}) (اختياري):</b>\n` +
-            `أرسل أبعاد هذا الشكل (مثال: <code>40x60 سم</code>) أو وصفاً له، أو اضغط «تخطي وحفظ الشكل» مباشرة:`,
+            `📝 <b>الخطوة 4 للشكل (${shapeIdx}):</b> أرسل <b>وصف ومميزات هذا الشكل</b> أو اضغط «تخطي الوصف»:`,
           parse_mode: 'HTML',
           reply_markup: {
             inline_keyboard: [
-              [{ text: '⏭️ تخطي وحفظ الشكل', callback_data: 'wiz:shape_skip_desc' }],
+              [{ text: '⏭️ تخطي الوصف', callback_data: 'wiz:shape_skip_desc' }],
               [{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }],
             ],
           },
@@ -6301,13 +6315,42 @@ async function handleTelegramUpdate(
         return;
       }
 
-      if (session.step === 'shape_desc' || session.step === 'shape_dims') {
+      if (session.step === 'shape_desc') {
         if (!session.draft.currentShape) session.draft.currentShape = {};
-        const trimmed = text.trim();
-        if (/(?:\d+\s*[xX*×]\s*\d+|سم|cm|mm|A[3-6]|سعة|مل|ml|لتر)/i.test(trimmed)) {
-          session.draft.currentShape.dimensions = trimmed;
+        session.draft.currentShape.description = text.trim();
+        await setSession(env, chatId, {
+          step: 'shape_dims',
+          draft: session.draft,
+          updatedAt: Date.now(),
+        });
+        const shapeIdx = (session.draft.variants?.length || 0) + 1;
+        await callTelegram(botToken, 'sendMessage', {
+          chat_id: chatId,
+          text:
+            `✅ الوصف: <b>${escapeHtml(text.trim())}</b>\n` +
+            `━━━━━━━━━━━━━━━━━━━━\n` +
+            `📏 <b>الخطوة 5 للشكل (${shapeIdx}):</b> أرسل <b>قياسات أو أبعاد هذا الشكل</b> (مثال: <code>40x60 سم</code> أو <code>سعة 500 مل</code>)\n` +
+            `أو أرسل قياسات بأسعارها (مثال: <code>صغير : 1800\nمتوسط : 2500\nكبير : 3400</code>)\n` +
+            `أو اضغط «تخطي القياسات»:`,
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '⏭️ تخطي القياسات', callback_data: 'wiz:shape_skip_dims' }],
+              [{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }],
+            ],
+          },
+        });
+        return;
+      }
+
+      if (session.step === 'shape_dims') {
+        if (!session.draft.currentShape) session.draft.currentShape = {};
+        const parsed = parseVariantsText(text);
+        if (parsed.length > 0) {
+          session.draft.currentShape.subSizes = parsed;
+          session.draft.currentShape.priceDzd = Math.min(...parsed.map((v) => v.priceDzd));
         } else {
-          session.draft.currentShape.description = trimmed;
+          session.draft.currentShape.dimensions = text.trim();
         }
         await finalizeShapeAndPromptNext(env, botToken, chatId, session);
         return;
@@ -6369,29 +6412,22 @@ async function handleTelegramUpdate(
       }
 
       if (session.step === 'prod_description') {
-        session.draft.description = text.trim();
-        session.draft.images = [];
-        await setSession(env, chatId, {
-          step: 'prod_photos',
-          draft: session.draft,
-          updatedAt: Date.now(),
-        });
-        await callTelegram(botToken, 'sendMessage', {
-          chat_id: chatId,
-          text:
-            `✅ تم حفظ الوصف بنجاح!\n\n` +
-            `📸 <b>أرسل صورة المنتج الآن:</b>\n` +
-            `━━━━━━━━━━━━━━━━━━━━\n` +
-            `أرسل صورة المنتج مباشرة من هاتفك أو جهازك (يمكنك إرسال صورة واحدة أو عدة صور):`,
-          parse_mode: 'HTML',
-          reply_markup: {
-            inline_keyboard: [[{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }]],
-          },
-        });
+        session.draft.description = text;
+        await promptWizardPhotoCount(botToken, chatId, env, session.draft);
         return;
       }
 
       if (session.step === 'prod_photo_count') {
+        const count = parseInt(text.replace(/[^0-9]/g, ''), 10);
+        if (!count || count < 1 || count > 10) {
+          await callTelegram(botToken, 'sendMessage', {
+            chat_id: chatId,
+            text: '⚠️ يرجى اختيار عدد صور بين 1 و 10.',
+            parse_mode: 'HTML',
+          });
+          return;
+        }
+        session.draft.targetPhotoCount = count;
         session.draft.images = [];
         await setSession(env, chatId, {
           step: 'prod_photos',
@@ -6400,14 +6436,9 @@ async function handleTelegramUpdate(
         });
         await callTelegram(botToken, 'sendMessage', {
           chat_id: chatId,
-          text:
-            `📸 <b>أرسل صورة المنتج الآن:</b>\n` +
-            `━━━━━━━━━━━━━━━━━━━━\n` +
-            `أرسل صورة المنتج مباشرة من هاتفك أو جهازك:`,
+          text: `📸 <b>ممتاز! أرسل الآن الصورة 1 من ${count}:</b>`,
           parse_mode: 'HTML',
-          reply_markup: {
-            inline_keyboard: [[{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }]],
-          },
+          reply_markup: { inline_keyboard: [[{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }]] },
         });
         return;
       }
