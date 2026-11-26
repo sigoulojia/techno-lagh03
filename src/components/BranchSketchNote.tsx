@@ -307,17 +307,6 @@ export const BranchSketchNote: React.FC<BranchSketchNoteProps> = ({
               <span>69 ولاية</span>
             </dd>
           </div>
-
-          {/* Laghouat Inside Info Box */}
-          <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-[#FFFDF0] border-2 border-dashed border-[#CA8A04] shadow-[2px_2px_0px_#A16207] transition-transform hover:-translate-y-0.5">
-            <dt className="text-[#854D0E] font-black flex items-center gap-1.5">
-              <span className="text-[#CA8A04] text-sm">✎</span>
-              <span>داخل ولاية الأغواط:</span>
-            </dt>
-            <dd className="font-black text-[#854D0E] tabular-nums font-mono text-xs sm:text-sm">
-              500 د.ج منزل · 380 د.ج مكتب
-            </dd>
-          </div>
         </dl>
       </div>
 
