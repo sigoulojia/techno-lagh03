@@ -1073,6 +1073,7 @@ interface WizardDraft {
   name?: string;
   productNumber?: string;
   priceDzd?: number;
+  dimensions?: string;
   variants?: ProductVariant[];
   description?: string;
   targetPhotoCount?: number;
@@ -1117,6 +1118,7 @@ interface BotSessionState {
     | 'prod_number'
     | 'prod_pricing_mode'
     | 'prod_single_price'
+    | 'prod_dimensions'
     | 'prod_variants'
     | 'prod_description'
     | 'prod_photo_count'
@@ -4842,6 +4844,7 @@ async function publishWizardDraft(
     priceDzd: basePrice,
     image: images[0],
     images,
+    ...(draft.dimensions ? { dimensions: draft.dimensions } : {}),
     ...(linkedVariants.length > 0 ? { variants: linkedVariants } : {}),
     alt: `${draft.name || 'منتج'} — رقم المنتج ${newSku}`,
     summary: mainDesc,
@@ -4852,6 +4855,7 @@ async function publishWizardDraft(
     specs: [
       { label: 'رقم المنتج', value: newSku },
       { label: 'القسم', value: catObj.name },
+      ...(draft.dimensions ? [{ label: 'القياسات والأبعاد', value: draft.dimensions }] : []),
       ...(linkedVariants.length > 0
         ? [
             {
@@ -5317,6 +5321,27 @@ async function handleTelegramUpdate(
           ],
         );
       }
+    } else if (data === 'wiz:skip_dims') {
+      const session = await getSession(env, chatId);
+      if (session) {
+        session.draft.dimensions = undefined;
+        await setSession(env, chatId, {
+          step: 'prod_description',
+          draft: session.draft,
+          updatedAt: Date.now(),
+        });
+        await sendOrEditMessage(
+          botToken,
+          chatId,
+          messageId,
+          `✍️ <b>الخطوة 6 من 7 — وصف المنتج (اختياري)</b>\n` +
+            `أرسل وصفاً قصيراً للمنتج أو اضغط «تخطي الوصف»:`,
+          [
+            [{ text: '⏭️ تخطي الوصف', callback_data: 'wiz:skip_desc' }],
+            [{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }],
+          ],
+        );
+      }
     } else if (data === 'wiz:skip_desc') {
       const session = await getSession(env, chatId);
       if (session) {
@@ -5687,8 +5712,8 @@ async function handleTelegramUpdate(
           text:
             `✅ <b>تم استلام صورة الشكل (${shapeIdx}) بنجاح!</b>\n` +
             `━━━━━━━━━━━━━━━━━━━━\n` +
-            `🏷️ <b>الخطوة 2 للشكل (${shapeIdx}):</b> أرسل الآن <b>اسم هذا الشكل أو الموديل</b>\n` +
-            `(مثال: <code>شكل قطة كرتونية</code> أو <code>أزرق ملكي</code> أو <code>موديل جلدي 3 سحابات</code>):`,
+            `🏷️ <b>الخطوة 2 للشكل (${shapeIdx}):</b> أرسل الآن <b>اسم هذا الشكل أو الموديل</b> (ورقمه إن وُجد)\n` +
+            `(مثال: <code>شكل قطة كرتونية #101</code> أو <code>أزرق ملكي | 102</code> أو مجرد <code>موديل جلدي 3 سحابات</code>):`,
           parse_mode: 'HTML',
           reply_markup: {
             inline_keyboard: [[{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }]],
@@ -6054,7 +6079,7 @@ async function handleTelegramUpdate(
         session.draft.priceDzd = price;
         session.draft.variants = [];
         await setSession(env, chatId, {
-          step: 'prod_description',
+          step: 'prod_dimensions',
           draft: session.draft,
           updatedAt: Date.now(),
         });
@@ -6062,7 +6087,31 @@ async function handleTelegramUpdate(
           chat_id: chatId,
           text:
             `✅ السعر: <b>${price.toLocaleString()} د.ج</b>\n\n` +
-            `✍️ <b>الخطوة 5 من 6 — وصف المنتج (اختياري)</b>\n` +
+            `📏 <b>الخطوة 5 من 7 — قياسات أو أبعاد المنتج (اختياري)</b>\n` +
+            `أرسل أبعاد أو قياسات هذا المنتج (مثال: <code>40x60 سم</code> أو <code>A4</code> أو <code>سعة 500 مل</code>) أو اضغط «تخطي القياسات»:`,
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '⏭️ تخطي القياسات', callback_data: 'wiz:skip_dims' }],
+              [{ text: '❌ إلغاء', callback_data: 'wiz:cancel' }],
+            ],
+          },
+        });
+        return;
+      }
+
+      if (session.step === 'prod_dimensions') {
+        session.draft.dimensions = text.trim();
+        await setSession(env, chatId, {
+          step: 'prod_description',
+          draft: session.draft,
+          updatedAt: Date.now(),
+        });
+        await callTelegram(botToken, 'sendMessage', {
+          chat_id: chatId,
+          text:
+            `✅ القياسات: <b>${escapeHtml(text.trim())}</b>\n\n` +
+            `✍️ <b>الخطوة 6 من 7 — وصف المنتج (اختياري)</b>\n` +
             `أرسل وصفاً قصيراً للمنتج أو اضغط «تخطي الوصف»:`,
           parse_mode: 'HTML',
           reply_markup: {
@@ -6093,10 +6142,19 @@ async function handleTelegramUpdate(
         let shapeName = rawText;
         let shapeSku: string | undefined = undefined;
 
-        // Check if user included a shape code or number, e.g. "شكل قطة #101" or "موديل 105" or "رقم 105"
-        const skuMatch = rawText.match(/(?:#|رقم\s*[:#]?|كود\s*[:#]?)\s*([0-9a-zA-Z\-_]+)/i);
-        if (skuMatch) {
-          shapeSku = skuMatch[1];
+        // Check if user separated name and number using | or - or # or "رقم"
+        // e.g. "شكل قطة | 101" or "موديل 105" or "أزرق ملكي #55"
+        if (rawText.includes('|')) {
+          const parts = rawText.split('|');
+          shapeName = parts[0].trim();
+          shapeSku = parts[1].trim();
+        } else {
+          const skuMatch = rawText.match(/(?:#|رقم\s*[:#]?|كود\s*[:#]?)\s*([0-9a-zA-Z\-_]+)/i);
+          if (skuMatch) {
+            shapeSku = skuMatch[1];
+            shapeName = rawText.replace(/(?:#|رقم\s*[:#]?|كود\s*[:#]?)\s*[0-9a-zA-Z\-_]+/i, '').trim();
+            if (!shapeName) shapeName = rawText;
+          }
         }
 
         session.draft.currentShape.name = shapeName;
