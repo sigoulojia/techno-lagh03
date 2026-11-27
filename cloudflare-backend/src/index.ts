@@ -37,8 +37,10 @@ const CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   'X-Content-Type-Options': 'nosniff',
   'X-Frame-Options': 'SAMEORIGIN',
+  'X-XSS-Protection': '1; mode=block',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
-  'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
+  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload',
 };
 
 function jsonResponse(data: any, status = 200): Response {
@@ -146,7 +148,17 @@ function timingSafeEqual(a: string, b: string): boolean {
   return diff === 0;
 }
 
-function hashLoyaltyPin(pin: string): string {
+const SESSION_MAX_AGE_SECONDS = 12 * 3600; // 12 hours hard maximum lifetime
+const SESSION_IDLE_TIMEOUT_SECONDS = 2 * 3600; // 2 hours idle timeout
+const LOYALTY_SALT_V2 = 'techno_laghouat_loyalty_secure_salt_v2_2026_';
+
+async function secureHashLoyaltyPin(pin: string): Promise<string> {
+  const cleanPin = pin.trim();
+  const hex = await sha256Hex(LOYALTY_SALT_V2 + cleanPin);
+  return 'v2_' + hex;
+}
+
+function legacyHashLoyaltyPin(pin: string): string {
   const cleanPin = pin.trim();
   let hash = 0x811c9dc5;
   const salt = 'techno_laghouat_salt_03_';
@@ -156,6 +168,89 @@ function hashLoyaltyPin(pin: string): string {
     hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
   }
   return (hash >>> 0).toString(16).padStart(8, '0');
+}
+
+function hashLoyaltyPin(pin: string): string {
+  return legacyHashLoyaltyPin(pin);
+}
+
+async function verifyLoyaltyPinMatch(submittedPin: string, storedHash?: string): Promise<boolean> {
+  const cleanPin = submittedPin.trim();
+  if (!cleanPin || !storedHash) return false;
+  if (storedHash.startsWith('v2_')) {
+    const computed = await secureHashLoyaltyPin(cleanPin);
+    return timingSafeEqual(computed, storedHash);
+  }
+  const legacyHash = legacyHashLoyaltyPin(cleanPin);
+  return timingSafeEqual(legacyHash, storedHash);
+}
+
+async function checkLoyaltyPinBruteForce(
+  env: Env,
+  clientIp: string,
+  identifier: string,
+): Promise<{ locked: boolean; remainingMinutes: number }> {
+  if (!env.techno_products_kv) return { locked: false, remainingMinutes: 0 };
+  const safeId = identifier.replace(/[^a-zA-Z0-9]/g, '').slice(-12);
+  const key = `rl:loypin:${clientIp}:${safeId}`;
+  const raw = await env.techno_products_kv.get(key);
+  if (!raw) return { locked: false, remainingMinutes: 0 };
+  try {
+    const data = JSON.parse(raw);
+    const count = Number(data.count || 0);
+    const lockedUntil = Number(data.lockedUntil || 0);
+    const now = Date.now();
+    if (lockedUntil > now) {
+      const remainingMinutes = Math.max(1, Math.ceil((lockedUntil - now) / 60000));
+      return { locked: true, remainingMinutes };
+    }
+    if (count >= 5) {
+      const lockDurationMs = 15 * 60 * 1000;
+      await env.techno_products_kv.put(
+        key,
+        JSON.stringify({ count, lockedUntil: now + lockDurationMs }),
+        { expirationTtl: 15 * 60 },
+      );
+      return { locked: true, remainingMinutes: 15 };
+    }
+  } catch {}
+  return { locked: false, remainingMinutes: 0 };
+}
+
+async function recordFailedLoyaltyPinAttempt(
+  env: Env,
+  clientIp: string,
+  identifier: string,
+): Promise<void> {
+  if (!env.techno_products_kv) return;
+  const safeId = identifier.replace(/[^a-zA-Z0-9]/g, '').slice(-12);
+  const key = `rl:loypin:${clientIp}:${safeId}`;
+  const raw = await env.techno_products_kv.get(key);
+  let count = 0;
+  if (raw) {
+    try {
+      const data = JSON.parse(raw);
+      count = Number(data.count || 0);
+    } catch {}
+  }
+  count += 1;
+  const now = Date.now();
+  const lockedUntil = count >= 5 ? now + 15 * 60 * 1000 : 0;
+  await env.techno_products_kv.put(
+    key,
+    JSON.stringify({ count, lockedUntil, lastAttempt: now }),
+    { expirationTtl: 15 * 60 },
+  );
+}
+
+async function resetFailedLoyaltyPinAttempts(
+  env: Env,
+  clientIp: string,
+  identifier: string,
+): Promise<void> {
+  if (!env.techno_products_kv) return;
+  const safeId = identifier.replace(/[^a-zA-Z0-9]/g, '').slice(-12);
+  await env.techno_products_kv.delete(`rl:loypin:${clientIp}:${safeId}`);
 }
 
 async function verifyAdminPin(env: Env, submittedPin: string): Promise<boolean> {
@@ -200,14 +295,29 @@ async function setAdminPin(env: Env, newPin: string): Promise<void> {
   await env.techno_products_kv.delete('admin_pin');
 }
 
-async function createAdminSession(env: Env): Promise<string> {
-  const rawToken = crypto.randomUUID().replace(/-/g, '') + '.' + generateSecureToken();
+async function createAdminSession(
+  env: Env,
+  meta?: { ip?: string; ua?: string; country?: string },
+): Promise<string> {
+  const rawToken =
+    crypto.randomUUID().replace(/-/g, '') +
+    '.' +
+    generateSecureToken() +
+    '.' +
+    crypto.randomUUID().replace(/-/g, '');
   if (env.techno_products_kv) {
     const tokenHash = await sha256Hex(rawToken);
+    const now = Date.now();
     await env.techno_products_kv.put(
       `session:${tokenHash}`,
-      JSON.stringify({ createdAt: Date.now() }),
-      { expirationTtl: 7 * 86400 },
+      JSON.stringify({
+        createdAt: now,
+        lastActiveAt: now,
+        ip: meta?.ip || 'unknown',
+        ua: meta?.ua || 'unknown',
+        country: meta?.country || 'DZ',
+      }),
+      { expirationTtl: SESSION_MAX_AGE_SECONDS },
     );
   }
   return rawToken;
@@ -219,8 +329,55 @@ async function verifyAdminSession(env: Env, cookieHeader: string): Promise<boole
   if (!match) return false;
   const rawToken = match[1];
   const tokenHash = await sha256Hex(rawToken);
-  const sessionData = await env.techno_products_kv.get(`session:${tokenHash}`);
-  return Boolean(sessionData);
+  const sessionRaw = await env.techno_products_kv.get(`session:${tokenHash}`);
+  if (!sessionRaw) return false;
+
+  try {
+    const sessionData = JSON.parse(sessionRaw);
+    const now = Date.now();
+    const createdAt = Number(sessionData.createdAt || 0);
+    const lastActiveAt = Number(sessionData.lastActiveAt || createdAt);
+
+    // 1. Check Global Invalidation Timestamp (Revoke All Sessions)
+    const minSessionTimeRaw = await env.techno_products_kv.get('sec:min_session_time');
+    if (minSessionTimeRaw) {
+      const minSessionTime = Number(minSessionTimeRaw);
+      if (createdAt < minSessionTime) {
+        await env.techno_products_kv.delete(`session:${tokenHash}`);
+        return false;
+      }
+    }
+
+    // 2. Check Absolute Session Max Age (12 hours)
+    if (now - createdAt > SESSION_MAX_AGE_SECONDS * 1000) {
+      await env.techno_products_kv.delete(`session:${tokenHash}`);
+      return false;
+    }
+
+    // 3. Check Idle Timeout (2 hours)
+    if (now - lastActiveAt > SESSION_IDLE_TIMEOUT_SECONDS * 1000) {
+      await env.techno_products_kv.delete(`session:${tokenHash}`);
+      return false;
+    }
+
+    // 4. Slide activity window (throttled every 5 minutes)
+    if (now - lastActiveAt > 5 * 60 * 1000) {
+      sessionData.lastActiveAt = now;
+      const remainingSeconds = Math.max(
+        60,
+        Math.floor((SESSION_MAX_AGE_SECONDS * 1000 - (now - createdAt)) / 1000),
+      );
+      await env.techno_products_kv.put(
+        `session:${tokenHash}`,
+        JSON.stringify(sessionData),
+        { expirationTtl: remainingSeconds },
+      );
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function destroyAdminSession(env: Env, cookieHeader: string): Promise<void> {
@@ -230,6 +387,12 @@ async function destroyAdminSession(env: Env, cookieHeader: string): Promise<void
   const rawToken = match[1];
   const tokenHash = await sha256Hex(rawToken);
   await env.techno_products_kv.delete(`session:${tokenHash}`);
+}
+
+async function revokeAllAdminSessions(env: Env): Promise<void> {
+  if (!env.techno_products_kv) return;
+  const now = Date.now();
+  await env.techno_products_kv.put('sec:min_session_time', String(now));
 }
 
 async function checkPinBruteForce(
@@ -448,6 +611,39 @@ async function decryptCustomerData(env: Env, payload: string): Promise<any> {
   } catch {
     return payload;
   }
+}
+
+// ─── Encrypted Loyalty Requests KV Helpers (AES-256-GCM) ──────────────────────
+
+async function getLoyaltyRequests(env: Env): Promise<any[]> {
+  if (!env.techno_products_kv) return [];
+  try {
+    const raw = await env.techno_products_kv.get('loyalty_requests');
+    if (!raw) return [];
+    const decrypted = await decryptCustomerData(env, raw);
+    const list = Array.isArray(decrypted) ? decrypted : [];
+    // If stored as plaintext legacy in KV, automatically migrate to AES-256-GCM encryption
+    if (typeof raw === 'string' && !raw.includes('"enc":"AES-256-GCM"') && list.length > 0) {
+      await saveLoyaltyRequests(env, list);
+    }
+    return list;
+  } catch (err) {
+    console.error('getLoyaltyRequests error:', err);
+    return [];
+  }
+}
+
+async function saveLoyaltyRequests(env: Env, reqs: any[]): Promise<void> {
+  if (!env.techno_products_kv) return;
+  // Military sanitize: strip any plainPinBackup or plaintext PIN property
+  const sanitized = (reqs || []).map((r) => {
+    const copy = { ...r };
+    delete copy.plainPinBackup;
+    delete copy.pin;
+    return copy;
+  });
+  const encrypted = await encryptCustomerData(env, sanitized);
+  await env.techno_products_kv.put('loyalty_requests', encrypted);
 }
 
 // ─── Anti-Bot & Input Sanitization Helpers ─────────────────────────────────────
@@ -2096,7 +2292,7 @@ export default {
           status: 302,
           headers: {
             Location: basePath || '/admin',
-            'Set-Cookie': `admin_session=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax; Secure; HttpOnly`,
+            'Set-Cookie': `admin_session=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Strict; Secure; HttpOnly`,
             ...CORS_HEADERS,
           },
         });
@@ -2159,7 +2355,7 @@ export default {
             const isValid = await verifyAdminPin(env, submittedPin);
             if (isValid) {
               await resetFailedPinAttempts(env, clientIp);
-              const sessionToken = await createAdminSession(env);
+              const sessionToken = await createAdminSession(env, { ip: clientIp, ua: userAgent, country });
               await recordAdminAccessLog(env, {
                 ip: clientIp,
                 status: 'success',
@@ -2172,7 +2368,7 @@ export default {
                 status: 302,
                 headers: {
                   Location: basePath + (orderIdParam ? `?order=${encodeURIComponent(orderIdParam)}` : ''),
-                  'Set-Cookie': `admin_session=${sessionToken}; Path=/; Max-Age=604800; SameSite=Lax; Secure; HttpOnly`,
+                  'Set-Cookie': `admin_session=${sessionToken}; Path=/; Max-Age=43200; SameSite=Strict; Secure; HttpOnly`,
                   ...CORS_HEADERS,
                 },
               });
@@ -2325,6 +2521,75 @@ export default {
         try {
           const form = await request.formData();
           const formAction = form.get('action')?.toString() || '';
+
+          // Action: Change Admin PIN (Military Security with PBKDF2-HMAC-SHA256, 100k rounds)
+          if (formAction === 'change_admin_pin') {
+            const currentPin = (form.get('current_pin')?.toString() || '').trim();
+            const newPin = (form.get('new_pin')?.toString() || '').trim();
+            const confirmPin = (form.get('confirm_pin')?.toString() || '').trim();
+
+            if (!currentPin || !newPin || !confirmPin) {
+              return new Response(null, {
+                status: 302,
+                headers: { Location: `${basePath}?tab=settings&pin_err=missing`, ...responseHeaders },
+              });
+            }
+            const isCurrentValid = await verifyAdminPin(env, currentPin);
+            if (!isCurrentValid) {
+              return new Response(null, {
+                status: 302,
+                headers: { Location: `${basePath}?tab=settings&pin_err=wrong_current`, ...responseHeaders },
+              });
+            }
+            if (newPin !== confirmPin) {
+              return new Response(null, {
+                status: 302,
+                headers: { Location: `${basePath}?tab=settings&pin_err=mismatch`, ...responseHeaders },
+              });
+            }
+            if (newPin.length < 5) {
+              return new Response(null, {
+                status: 302,
+                headers: { Location: `${basePath}?tab=settings&pin_err=too_short`, ...responseHeaders },
+              });
+            }
+
+            await setAdminPin(env, newPin);
+            await revokeAllAdminSessions(env);
+            const newSessionToken = await createAdminSession(env, { ip: clientIp, ua: userAgent, country });
+
+            await recordAdminAccessLog(env, {
+              ip: clientIp,
+              status: 'success',
+              userAgent,
+              country,
+              city,
+              timestamp: new Date().toISOString(),
+            });
+
+            return new Response(null, {
+              status: 302,
+              headers: {
+                Location: `${basePath}?tab=settings&pin_changed=1`,
+                'Set-Cookie': `admin_session=${newSessionToken}; Path=/; Max-Age=43200; SameSite=Strict; Secure; HttpOnly`,
+                ...responseHeaders,
+              },
+            });
+          }
+
+          // Action: Revoke All Active Sessions (Killswitch)
+          if (formAction === 'revoke_all_sessions') {
+            await revokeAllAdminSessions(env);
+            const newSessionToken = await createAdminSession(env, { ip: clientIp, ua: userAgent, country });
+            return new Response(null, {
+              status: 302,
+              headers: {
+                Location: `${basePath}?tab=settings&sessions_revoked=1`,
+                'Set-Cookie': `admin_session=${newSessionToken}; Path=/; Max-Age=43200; SameSite=Strict; Secure; HttpOnly`,
+                ...responseHeaders,
+              },
+            });
+          }
 
           // Action: Add Product from Dashboard
           if (formAction === 'add_product') {
@@ -2637,8 +2902,7 @@ export default {
           if (isNaN(points) || points < 0) points = 50;
 
           if (targetPhone) {
-            const rawReqs = await env.techno_products_kv.get('loyalty_requests');
-            const reqs = rawReqs ? JSON.parse(rawReqs) : [];
+            const reqs = await getLoyaltyRequests(env);
             const idx = reqs.findIndex((r: any) => r.customerPhone === targetPhone);
             if (idx >= 0) {
               reqs[idx].approvedAt = new Date().toISOString();
@@ -2649,14 +2913,13 @@ export default {
               }
               if (/^\d{4,6}$/.test(pin)) {
                 reqs[idx].hasPin = true;
-                reqs[idx].pinHash = hashLoyaltyPin(pin);
-                reqs[idx].plainPinBackup = pin;
+                reqs[idx].pinHash = await secureHashLoyaltyPin(pin);
                 reqs[idx].status = 'active';
                 reqs[idx].activatedAt = new Date().toISOString();
               } else {
                 reqs[idx].status = 'approved_pending_pin';
               }
-              await env.techno_products_kv.put('loyalty_requests', JSON.stringify(reqs));
+              await saveLoyaltyRequests(env, reqs);
             }
             return new Response(null, {
               status: 302,
@@ -2670,15 +2933,13 @@ export default {
           const targetPhone = (url.searchParams.get('phone') || '').trim();
           const newPin = (url.searchParams.get('pin') || '').trim();
           if (targetPhone && /^\d{4,6}$/.test(newPin)) {
-            const rawReqs = await env.techno_products_kv.get('loyalty_requests');
-            const reqs = rawReqs ? JSON.parse(rawReqs) : [];
+            const reqs = await getLoyaltyRequests(env);
             const idx = reqs.findIndex((r: any) => r.customerPhone === targetPhone);
             if (idx >= 0) {
               reqs[idx].hasPin = true;
-              reqs[idx].pinHash = hashLoyaltyPin(newPin);
-              reqs[idx].plainPinBackup = newPin;
+              reqs[idx].pinHash = await secureHashLoyaltyPin(newPin);
               reqs[idx].status = 'active';
-              await env.techno_products_kv.put('loyalty_requests', JSON.stringify(reqs));
+              await saveLoyaltyRequests(env, reqs);
             }
             return new Response(null, {
               status: 302,
@@ -2692,13 +2953,12 @@ export default {
           const targetPhone = (url.searchParams.get('phone') || '').trim();
           const points = parseInt(url.searchParams.get('points') || '0', 10);
           if (targetPhone && !isNaN(points) && points >= 0) {
-            const rawReqs = await env.techno_products_kv.get('loyalty_requests');
-            const reqs = rawReqs ? JSON.parse(rawReqs) : [];
+            const reqs = await getLoyaltyRequests(env);
             const idx = reqs.findIndex((r: any) => r.customerPhone === targetPhone);
             if (idx >= 0) {
               reqs[idx].points = points;
               reqs[idx].tier = computeLoyaltyTier(points);
-              await env.techno_products_kv.put('loyalty_requests', JSON.stringify(reqs));
+              await saveLoyaltyRequests(env, reqs);
             }
             return new Response(null, {
               status: 302,
@@ -2712,12 +2972,11 @@ export default {
           const oldPhone = (url.searchParams.get('phone') || '').trim();
           const newPhone = (url.searchParams.get('new_phone') || '').trim();
           if (oldPhone && newPhone) {
-            const rawReqs = await env.techno_products_kv.get('loyalty_requests');
-            const reqs = rawReqs ? JSON.parse(rawReqs) : [];
+            const reqs = await getLoyaltyRequests(env);
             const idx = reqs.findIndex((r: any) => r.customerPhone === oldPhone);
             if (idx >= 0) {
               reqs[idx].customerPhone = newPhone;
-              await env.techno_products_kv.put('loyalty_requests', JSON.stringify(reqs));
+              await saveLoyaltyRequests(env, reqs);
             }
             return new Response(null, {
               status: 302,
@@ -2752,12 +3011,11 @@ export default {
           const targetPhone = url.searchParams.get('phone') || '';
           const manualCardNumber = (url.searchParams.get('card_number') || '').trim();
           if (targetPhone && manualCardNumber) {
-            const rawReqs = await env.techno_products_kv.get('loyalty_requests');
-            const reqs = rawReqs ? JSON.parse(rawReqs) : [];
+            const reqs = await getLoyaltyRequests(env);
             const idx = reqs.findIndex((r: any) => r.customerPhone === targetPhone);
             if (idx >= 0) {
               reqs[idx].cardNumber = manualCardNumber;
-              await env.techno_products_kv.put('loyalty_requests', JSON.stringify(reqs));
+              await saveLoyaltyRequests(env, reqs);
             }
             return new Response(null, {
               status: 302,
@@ -2770,13 +3028,12 @@ export default {
         if (action === 'disable_loyalty') {
           const targetPhone = url.searchParams.get('phone') || '';
           if (targetPhone) {
-            const rawReqs = await env.techno_products_kv.get('loyalty_requests');
-            const reqs = rawReqs ? JSON.parse(rawReqs) : [];
+            const reqs = await getLoyaltyRequests(env);
             const idx = reqs.findIndex((r: any) => r.customerPhone === targetPhone);
             if (idx >= 0) {
               reqs[idx].status = 'disabled';
               reqs[idx].disabledAt = new Date().toISOString();
-              await env.techno_products_kv.put('loyalty_requests', JSON.stringify(reqs));
+              await saveLoyaltyRequests(env, reqs);
             }
             return new Response(null, {
               status: 302,
@@ -2789,13 +3046,12 @@ export default {
         if (action === 'enable_loyalty') {
           const targetPhone = url.searchParams.get('phone') || '';
           if (targetPhone) {
-            const rawReqs = await env.techno_products_kv.get('loyalty_requests');
-            const reqs = rawReqs ? JSON.parse(rawReqs) : [];
+            const reqs = await getLoyaltyRequests(env);
             const idx = reqs.findIndex((r: any) => r.customerPhone === targetPhone);
             if (idx >= 0) {
               reqs[idx].status = reqs[idx].hasPin ? 'active' : 'approved_pending_pin';
               delete reqs[idx].disabledAt;
-              await env.techno_products_kv.put('loyalty_requests', JSON.stringify(reqs));
+              await saveLoyaltyRequests(env, reqs);
             }
             return new Response(null, {
               status: 302,
@@ -2808,10 +3064,9 @@ export default {
         if (action === 'delete_loyalty') {
           const targetPhone = url.searchParams.get('phone') || '';
           if (targetPhone) {
-            const rawReqs = await env.techno_products_kv.get('loyalty_requests');
-            let reqs = rawReqs ? JSON.parse(rawReqs) : [];
+            let reqs = await getLoyaltyRequests(env);
             reqs = reqs.filter((r: any) => r.customerPhone !== targetPhone);
-            await env.techno_products_kv.put('loyalty_requests', JSON.stringify(reqs));
+            await saveLoyaltyRequests(env, reqs);
             return new Response(null, {
               status: 302,
               headers: { Location: `${basePath}?tab=cards`, ...responseHeaders },
@@ -2833,8 +3088,7 @@ export default {
           const address = (url.searchParams.get('address') || '').trim();
 
           if (phone) {
-            const rawReqs = await env.techno_products_kv.get('loyalty_requests');
-            let reqs = rawReqs ? JSON.parse(rawReqs) : [];
+            let reqs = await getLoyaltyRequests(env);
             const existingIdx = reqs.findIndex((r: any) => r.customerPhone === phone);
 
             if (!cardNumber) {
@@ -2855,8 +3109,7 @@ export default {
               tier: computeLoyaltyTier(points),
               status: hasValidPin ? 'active' : 'approved_pending_pin',
               hasPin: hasValidPin,
-              pinHash: hasValidPin ? hashLoyaltyPin(pin) : undefined,
-              plainPinBackup: hasValidPin ? pin : undefined,
+              pinHash: hasValidPin ? await secureHashLoyaltyPin(pin) : undefined,
               hasPurchased: true,
               ordersCount: 1,
               totalSpent: points * 100,
@@ -2876,7 +3129,7 @@ export default {
               reqs.unshift(record);
             }
 
-            await env.techno_products_kv.put('loyalty_requests', JSON.stringify(reqs));
+            await saveLoyaltyRequests(env, reqs);
             return new Response(null, {
               status: 302,
               headers: { Location: `${basePath}?tab=cards&added=true`, ...responseHeaders },
@@ -2959,15 +3212,11 @@ export default {
       const logsList = await getAdminAccessLogs(env);
       const storePhone = await getStorePhone(env);
 
-      // Read Loyalty Card Requests/Cards from KV
+      // Read Loyalty Card Requests/Cards from KV (Decrypted securely via AES-256-GCM)
       let reqs: any[] = [];
       if (env.techno_products_kv) {
-        try {
-          const rawReqs = await env.techno_products_kv.get('loyalty_requests');
-          reqs = rawReqs ? JSON.parse(rawReqs) : [];
-        } catch {}
+        reqs = await getLoyaltyRequests(env);
       }
-      if (!Array.isArray(reqs)) reqs = [];
 
       const pendingCardsCount = reqs.filter((r: any) => r.status === 'pending').length;
       const activeCardsCount = reqs.filter((r: any) => r.status === 'active' || r.status === 'approved_pending_pin').length;
@@ -3556,14 +3805,14 @@ export default {
                           <button type="submit" style="padding:3px 7px; font-size:11px; background:#D97706; color:#fff; border:none; border-radius:6px; cursor:pointer;" title="حفظ النقاط">💾</button>
                         </form>
 
-                        <!-- Inline Edit PIN Form -->
+                        <!-- Inline Edit PIN Form (Cryptographic Salted Hash) -->
                         <form method="GET" action="${basePath}" style="display:inline-flex; align-items:center; gap:4px; background:#EEF2FF; padding:4px 8px; border-radius:8px; border:1px solid #C7D2FE;">
                           <input type="hidden" name="tab" value="cards" />
                           <input type="hidden" name="action" value="update_card_pin" />
                           <input type="hidden" name="phone" value="${escapeHtml(r.customerPhone)}" />
-                          <span style="font-size:12px;">🔒</span>
-                          <input type="text" name="pin" value="${escapeHtml(r.plainPinBackup || '')}" placeholder="PIN" maxlength="6" dir="ltr" style="width:65px; font-size:12px; font-family:monospace; font-weight:700; padding:2px 6px; border:1px solid #A5B4FC; border-radius:6px; color:#3730A3;" title="تعديل الرمز السري PIN" />
-                          <button type="submit" style="padding:3px 7px; font-size:11px; background:#4338CA; color:#fff; border:none; border-radius:6px; cursor:pointer;" title="حفظ رمز PIN">💾</button>
+                          <span style="font-size:12px;" title="${r.pinHash ? 'مشفر بأمان عالي (Salted Hash)' : 'غير محدد PIN'}">${r.pinHash ? '🛡️' : '🔒'}</span>
+                          <input type="password" name="pin" value="" placeholder="${r.pinHash ? '••••••' : 'PIN جديد'}" maxlength="6" dir="ltr" style="width:72px; font-size:12px; font-family:monospace; font-weight:700; padding:2px 6px; border:1px solid #A5B4FC; border-radius:6px; color:#3730A3;" title="${r.pinHash ? 'رمز PIN مشفر بأمان عالي. أدخل رمزاً جديداً لتغييره' : 'تعيين رمز سري PIN مشفر'}" />
+                          <button type="submit" style="padding:3px 7px; font-size:11px; background:#4338CA; color:#fff; border:none; border-radius:6px; cursor:pointer;" title="حفظ وتشفير رمز PIN">💾</button>
                         </form>
 
                         <span style="font-family:monospace; color:#334155; font-weight:700; font-size:12px; background:#F1F5F9; padding:4px 8px; border-radius:8px;">💳 ${escapeHtml(r.cardNumber || 'بانتظار التعيين')}</span>
@@ -3712,8 +3961,11 @@ export default {
         `}
       `;
 
-      // ─── TAB 5: Store Phone / Settings Content ─────────────────────────────
+      // ─── TAB 5: Store Phone & Military Security Settings Content ───────────
       const isStorePhoneSaved = url.searchParams.get('saved') === '1';
+      const isPinChanged = url.searchParams.get('pin_changed') === '1';
+      const isSessionsRevoked = url.searchParams.get('sessions_revoked') === '1';
+      const pinError = url.searchParams.get('pin_err');
 
       const settingsContent = `
         ${isStorePhoneSaved ? `
@@ -3722,31 +3974,134 @@ export default {
           </div>
         ` : ''}
 
-        <div style="background:#FFFFFF; border:1px solid #E2E8F0; border-radius:18px; padding:24px 22px; box-shadow:0 2px 8px rgba(0,0,0,0.02); max-width:540px; margin:0 auto;">
-          <div style="display:flex; align-items:center; gap:10px; margin-bottom:16px; border-bottom:1px solid #F1F5F9; padding-bottom:12px;">
-            <div style="font-size:26px;">📞</div>
-            <div>
-              <h3 style="font-size:16px; font-weight:800; color:#0F172A; margin:0;">رقم هاتف المتجر الرسمي</h3>
-              <p style="font-size:12px; color:#64748B; margin-top:2px;">يظهر هذا الرقم للزبائن في أعلى وأسفل المتجر وعند الاتصال بالفرع.</p>
-            </div>
+        ${isPinChanged ? `
+          <div style="background:#ECFDF5; border:1.5px solid #10B981; color:#065F46; padding:12px 16px; border-radius:14px; margin-bottom:18px; font-weight:700; font-size:13px;">
+            🛡️ تم بنجاح تغيير وتشفير الرمز السري الجديد للمدير (PBKDF2-SHA256 مع 100,000 تكرار وSalt ديناميكي). تم إبطال كافة الجلسات القديمة وتأمين لوحة التحكم!
           </div>
+        ` : ''}
 
-          <form method="GET" action="${basePath}">
-            <input type="hidden" name="tab" value="settings" />
-            <input type="hidden" name="action" value="update_store_phone" />
+        ${isSessionsRevoked ? `
+          <div style="background:#FEF2F2; border:1.5px solid #EF4444; color:#991B1B; padding:12px 16px; border-radius:14px; margin-bottom:18px; font-weight:700; font-size:13px;">
+            🔴 تم بنجاح إبطال وتسجيل الخروج الفوري من جميع الجلسات والأجهزة الأخرى عبر درع الأمان الشامل!
+          </div>
+        ` : ''}
 
-            <div style="margin-bottom:16px;">
-              <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:6px;">رقم الهاتف الحالي للمتجر:</label>
-              <input type="text" name="store_phone" value="${escapeHtml(storePhone.display)}" required dir="ltr" style="width:100%; box-sizing:border-box; padding:12px 14px; border:1.5px solid #CBD5E1; border-radius:10px; font-size:16px; font-family:monospace; font-weight:700; text-align:center; color:#0F172A;" />
-              <div style="font-size:11.5px; color:#94A3B8; margin-top:6px;">
-                يمكن كتابته بالصيغة المحلية (مثل: 0550 10 10 12) أو الدولية (+213 550 10 10 12).
+        ${pinError ? `
+          <div style="background:#FEF2F2; border:1.5px solid #EF4444; color:#991B1B; padding:12px 16px; border-radius:14px; margin-bottom:18px; font-weight:700; font-size:13px;">
+            ${pinError === 'wrong_current' ? '❌ الرمز السري الحالي غير صحيح! يرجى التأكد وإعادة المحاولة.' : ''}
+            ${pinError === 'mismatch' ? '❌ الرمز الجديد وتأكيده غير متطابقين! يرجى إعادة كتابة الرمز بدقة.' : ''}
+            ${pinError === 'too_short' ? '❌ الرمز السري الجديد قصير جداً! يجب أن يتكون من 5 أحرف أو أرقام على الأقل لضمان الأمان العسكري.' : ''}
+            ${pinError === 'missing' ? '❌ يرجى ملء كافة حقول تغيير الرمز السري.' : ''}
+          </div>
+        ` : ''}
+
+        <div style="display:flex; flex-direction:column; gap:20px; max-width:620px; margin:0 auto;">
+          <!-- 1. Store Official Phone -->
+          <div style="background:#FFFFFF; border:1px solid #E2E8F0; border-radius:18px; padding:22px; box-shadow:0 2px 8px rgba(0,0,0,0.02);">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:16px; border-bottom:1px solid #F1F5F9; padding-bottom:12px;">
+              <div style="font-size:26px;">📞</div>
+              <div>
+                <h3 style="font-size:16px; font-weight:800; color:#0F172A; margin:0;">رقم هاتف المتجر الرسمي</h3>
+                <p style="font-size:12px; color:#64748B; margin-top:2px;">يظهر هذا الرقم للزبائن في أعلى وأسفل المتجر وعند الاتصال بالفرع.</p>
               </div>
             </div>
 
-            <button type="submit" style="width:100%; background:#0F172A; color:#FFD100; border:none; padding:12px 20px; border-radius:12px; font-weight:800; font-size:14px; cursor:pointer; box-shadow:0 3px 10px rgba(15,23,42,0.15);">
-              💾 حفظ رقم الهاتف الجديد
-            </button>
-          </form>
+            <form method="GET" action="${basePath}">
+              <input type="hidden" name="tab" value="settings" />
+              <input type="hidden" name="action" value="update_store_phone" />
+
+              <div style="margin-bottom:14px;">
+                <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:6px;">رقم الهاتف الحالي للمتجر:</label>
+                <input type="text" name="store_phone" value="${escapeHtml(storePhone.display)}" required dir="ltr" style="width:100%; box-sizing:border-box; padding:12px 14px; border:1.5px solid #CBD5E1; border-radius:10px; font-size:16px; font-family:monospace; font-weight:700; text-align:center; color:#0F172A;" />
+                <div style="font-size:11.5px; color:#94A3B8; margin-top:6px;">
+                  يمكن كتابته بالصيغة المحلية (مثل: 0560 15 46 63) أو الدولية (+213 560 15 46 63).
+                </div>
+              </div>
+
+              <button type="submit" style="width:100%; background:#0F172A; color:#FFD100; border:none; padding:12px 20px; border-radius:12px; font-weight:800; font-size:14px; cursor:pointer; box-shadow:0 3px 10px rgba(15,23,42,0.15);">
+                💾 حفظ رقم الهاتف الجديد
+              </button>
+            </form>
+          </div>
+
+          <!-- 2. Admin Security: Change Admin PIN -->
+          <div style="background:#FFFFFF; border:1px solid #E2E8F0; border-radius:18px; padding:22px; box-shadow:0 2px 8px rgba(0,0,0,0.02);">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:16px; border-bottom:1px solid #F1F5F9; padding-bottom:12px;">
+              <div style="font-size:26px;">🔐</div>
+              <div>
+                <h3 style="font-size:16px; font-weight:800; color:#0F172A; margin:0;">تغيير الرمز السري للإدارة (Admin PIN)</h3>
+                <p style="font-size:12px; color:#64748B; margin-top:2px;">يتم التشفير عبر PBKDF2-HMAC-SHA256 بـ 100,000 دورة تجزئة مع ملح تشفيري Salt فريد.</p>
+              </div>
+            </div>
+
+            <form method="POST" action="${basePath}">
+              <input type="hidden" name="action" value="change_admin_pin" />
+
+              <div style="margin-bottom:12px;">
+                <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:6px;">الرمز السري الحالي:</label>
+                <input type="password" name="current_pin" required placeholder="أدخل الرمز السري الحالي" dir="ltr" style="width:100%; box-sizing:border-box; padding:10px 14px; border:1.5px solid #CBD5E1; border-radius:10px; font-size:14px; font-family:monospace; outline:none;" />
+              </div>
+
+              <div style="margin-bottom:12px;">
+                <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:6px;">الرمز السري الجديد (5 خانات على الأقل):</label>
+                <input type="password" name="new_pin" minlength="5" required placeholder="أدخل الرمز السري الجديد" dir="ltr" style="width:100%; box-sizing:border-box; padding:10px 14px; border:1.5px solid #CBD5E1; border-radius:10px; font-size:14px; font-family:monospace; outline:none;" />
+              </div>
+
+              <div style="margin-bottom:16px;">
+                <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:6px;">تأكيد الرمز السري الجديد:</label>
+                <input type="password" name="confirm_pin" minlength="5" required placeholder="أعد إدخال الرمز الجديد للتأكيد" dir="ltr" style="width:100%; box-sizing:border-box; padding:10px 14px; border:1.5px solid #CBD5E1; border-radius:10px; font-size:14px; font-family:monospace; outline:none;" />
+              </div>
+
+              <button type="submit" style="width:100%; background:#1E293B; color:#FFFFFF; border:none; padding:12px 20px; border-radius:12px; font-weight:800; font-size:14px; cursor:pointer; box-shadow:0 3px 10px rgba(30,41,59,0.15);">
+                🛡️ تشفير وتحديث الرمز السري للمدير
+              </button>
+            </form>
+          </div>
+
+          <!-- 3. Military Session Security & Killswitch -->
+          <div style="background:#FFFFFF; border:1px solid #E2E8F0; border-radius:18px; padding:22px; box-shadow:0 2px 8px rgba(0,0,0,0.02);">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:16px; border-bottom:1px solid #F1F5F9; padding-bottom:12px;">
+              <div style="font-size:26px;">🛡️</div>
+              <div>
+                <h3 style="font-size:16px; font-weight:800; color:#0F172A; margin:0;">نظام الحماية العسكري ومراقبة الجلسات</h3>
+                <p style="font-size:12px; color:#64748B; margin-top:2px;">بروتوكول حماية الجلسات النشطة، المهلة الزمنية، وتشفير البيانات المتصلة.</p>
+              </div>
+            </div>
+
+            <div style="background:#F8FAFC; border:1px solid #E2E8F0; border-radius:12px; padding:14px; margin-bottom:16px; font-size:12.5px; line-height:1.8; color:#334155;">
+              <div style="display:flex; justify-content:space-between; border-bottom:1px solid #E2E8F0; padding-bottom:6px; margin-bottom:6px;">
+                <span>حالة التشفير للبيانات (At-Rest):</span>
+                <strong style="color:#059669;">🟢 مشفر بالكامل بـ AES-256-GCM</strong>
+              </div>
+              <div style="display:flex; justify-content:space-between; border-bottom:1px solid #E2E8F0; padding-bottom:6px; margin-bottom:6px;">
+                <span>صلاحية الجلسة القصوى (Max Age):</span>
+                <strong>⏱️ 12 ساعة كحد أقصى</strong>
+              </div>
+              <div style="display:flex; justify-content:space-between; border-bottom:1px solid #E2E8F0; padding-bottom:6px; margin-bottom:6px;">
+                <span>مهلة إغلاق الخمول (Idle Timeout):</span>
+                <strong>⏳ ساعتان من عدم النشاط</strong>
+              </div>
+              <div style="display:flex; justify-content:space-between; border-bottom:1px solid #E2E8F0; padding-bottom:6px; margin-bottom:6px;">
+                <span>عنوان IP الحالي للجلسة:</span>
+                <code style="font-family:monospace; direction:ltr;">${escapeHtml(clientIp)}</code>
+              </div>
+              <div style="display:flex; justify-content:space-between; border-bottom:1px solid #E2E8F0; padding-bottom:6px; margin-bottom:6px;">
+                <span>الموقع الجغرافي:</span>
+                <strong>📍 ${escapeHtml(country)} — ${escapeHtml(city)}</strong>
+              </div>
+              <div style="display:flex; justify-content:space-between;">
+                <span>جهاز الاتصال الحالي:</span>
+                <strong>${escapeHtml(userAgent)}</strong>
+              </div>
+            </div>
+
+            <form method="POST" action="${basePath}" onsubmit="return confirm('هل أنت متأكد من رغبتك في إبطال جميع الجلسات المفتوحة على الأجهزة الأخرى فوراً؟');">
+              <input type="hidden" name="action" value="revoke_all_sessions" />
+              <button type="submit" style="width:100%; background:#FEF2F2; color:#DC2626; border:1.5px solid #FCA5A5; padding:12px 20px; border-radius:12px; font-weight:800; font-size:13.5px; cursor:pointer;">
+                🔴 إبطال وتسجيل الخروج من كافة الأجهزة الأخرى فوراً
+              </button>
+            </form>
+          </div>
         </div>
       `;
 
@@ -4836,8 +5191,7 @@ export default {
             } catch {}
           }
 
-          const rawReqs = await env.techno_products_kv.get('loyalty_requests');
-          const reqs = rawReqs ? JSON.parse(rawReqs) : [];
+          const reqs = await getLoyaltyRequests(env);
           const existingIdx = reqs.findIndex((r: any) => r.customerPhone === customerPhone);
           const newReq = {
             firstName,
@@ -4860,7 +5214,7 @@ export default {
           } else {
             reqs.unshift(newReq);
           }
-          await env.techno_products_kv.put('loyalty_requests', JSON.stringify(reqs));
+          await saveLoyaltyRequests(env, reqs);
         }
 
         return jsonResponse({ success: true, status: 'pending', hasPurchased, ordersCount, totalSpent });
@@ -4869,7 +5223,7 @@ export default {
       }
     }
 
-    // 9a-loyalty. GET /api/loyalty/status
+    // 9a-loyalty. GET /api/loyalty/status (Military Privacy Protected: Never leaks customer PII before PIN)
     if (url.pathname === '/api/loyalty/status' && request.method === 'GET') {
       const phone = (url.searchParams.get('phone') || '').trim();
       const query = (url.searchParams.get('query') || url.searchParams.get('card_number') || '').trim();
@@ -4883,8 +5237,7 @@ export default {
       if ((!phone && !query) || !env.techno_products_kv) {
         return new Response(JSON.stringify({ exists: false }), { headers: statusHeaders });
       }
-      const rawReqs = await env.techno_products_kv.get('loyalty_requests');
-      const reqs = rawReqs ? JSON.parse(rawReqs) : [];
+      const reqs = await getLoyaltyRequests(env);
       const item = reqs.find((r: any) => {
         if (phone && r.customerPhone === phone) return true;
         if (query) {
@@ -4895,47 +5248,83 @@ export default {
         return false;
       });
       if (!item) return new Response(JSON.stringify({ exists: false }), { headers: statusHeaders });
-      return new Response(JSON.stringify({
-        exists: true,
-        status: item.status,
-        hasPin: !!(item.hasPin || item.pinHash),
-        request: {
-          ...item,
-          hasPin: !!(item.hasPin || item.pinHash),
-        }
-      }), { headers: statusHeaders });
+
+      const hasPin = Boolean(item.hasPin || item.pinHash);
+      return new Response(
+        JSON.stringify({
+          exists: true,
+          status: item.status,
+          hasPin,
+          maskedName: maskCustomerName(item.customerName || ''),
+          maskedPhone: maskPhoneNumber(item.customerPhone || ''),
+          cardNumber: item.cardNumber,
+          request: {
+            customerName: maskCustomerName(item.customerName || ''),
+            customerPhone: maskPhoneNumber(item.customerPhone || ''),
+            cardNumber: item.cardNumber,
+            status: item.status,
+            hasPin,
+            tier: item.tier || 'classic',
+            points: item.status === 'active' ? (item.points || 0) : 0,
+            // Sensitive PII (address & email) is strictly withheld until PIN verification
+          },
+        }),
+        { headers: statusHeaders },
+      );
     }
 
-    // 9a-loyalty. POST /api/loyalty/verify-pin (Customer verification with PIN securely)
+    // 9a-loyalty. POST /api/loyalty/verify-pin (Customer verification with PIN securely, Rate-Limited)
     if (url.pathname === '/api/loyalty/verify-pin' && request.method === 'POST') {
       try {
+        const clientIp = request.headers.get('cf-connecting-ip') || 'unknown';
         const body: any = await request.json();
         const phone = (body.phone || body.query || '').trim();
         const pin = (body.pin || '').trim();
         if (!phone || !pin || !env.techno_products_kv) {
           return jsonResponse({ success: false, valid: false, error: 'البيانات غير مكتملة' }, 400);
         }
-        const rawReqs = await env.techno_products_kv.get('loyalty_requests');
-        const reqs = rawReqs ? JSON.parse(rawReqs) : [];
-        const item = reqs.find((r: any) => {
+
+        // Anti-Brute-Force Rate Limiting (5 attempts / 15 minutes lockout)
+        const brute = await checkLoyaltyPinBruteForce(env, clientIp, phone);
+        if (brute.locked) {
+          return jsonResponse(
+            {
+              success: false,
+              valid: false,
+              error: `تم قفل محاولات التحقق مؤقتاً لحماية أمان البطاقة. يرجى الانتظار ${brute.remainingMinutes} دقيقة والمحاولة مجدداً.`,
+              locked: true,
+              remainingMinutes: brute.remainingMinutes,
+            },
+            429,
+          );
+        }
+
+        const reqs = await getLoyaltyRequests(env);
+        const idx = reqs.findIndex((r: any) => {
           if (r.customerPhone === phone) return true;
           if (r.cardNumber === phone) return true;
           if (r.cardNumber && r.cardNumber.replace(/[-\s]/g, '') === phone.replace(/[-\s]/g, '')) return true;
           return false;
         });
-        if (!item) {
+        if (idx < 0) {
           return jsonResponse({ success: false, valid: false, error: 'لم يتم العثور على بطاقة مسجلة بهذا الرقم' }, 404);
         }
+        const item = reqs[idx];
         if (item.status === 'disabled') {
           return jsonResponse({ success: false, valid: false, error: 'تم تعطيل هذه البطاقة من طرف إدارة متجر تكنو الأغواط' }, 403);
         }
 
-        const inputHash = hashLoyaltyPin(pin);
-        const matches = item.pinHash
-          ? timingSafeEqual(inputHash, item.pinHash)
-          : (item.plainPinBackup ? item.plainPinBackup === pin : false);
+        const matches = await verifyLoyaltyPinMatch(pin, item.pinHash);
 
         if (matches) {
+          await resetFailedLoyaltyPinAttempts(env, clientIp, phone);
+
+          // Automatically upgrade legacy hash to cryptographic SHA-256 salt v2 on first match
+          if (item.pinHash && !item.pinHash.startsWith('v2_')) {
+            reqs[idx].pinHash = await secureHashLoyaltyPin(pin);
+            await saveLoyaltyRequests(env, reqs);
+          }
+
           return jsonResponse({
             success: true,
             valid: true,
@@ -4952,14 +5341,19 @@ export default {
               firstName: item.firstName,
               lastName: item.lastName,
               customerAddress: item.customerAddress,
-            }
+              customerEmail: item.customerEmail,
+            },
           });
         } else {
-          return jsonResponse({
-            success: false,
-            valid: false,
-            error: 'الرمز السري غير صحيح، يرجى التحقق والمحاولة مجدداً'
-          }, 401);
+          await recordFailedLoyaltyPinAttempt(env, clientIp, phone);
+          return jsonResponse(
+            {
+              success: false,
+              valid: false,
+              error: 'الرمز السري غير صحيح، يرجى التحقق والمحاولة مجدداً',
+            },
+            401,
+          );
         }
       } catch (err: any) {
         return jsonResponse({ error: err?.message }, 500);
@@ -4973,18 +5367,16 @@ export default {
         const phone = (body.phone || body.query || '').trim();
         const pin = (body.pin || '').trim();
         if (phone && env.techno_products_kv) {
-          const rawReqs = await env.techno_products_kv.get('loyalty_requests');
-          const reqs = rawReqs ? JSON.parse(rawReqs) : [];
+          const reqs = await getLoyaltyRequests(env);
           const idx = reqs.findIndex((r: any) => r.customerPhone === phone || r.cardNumber === phone);
           if (idx >= 0) {
             reqs[idx].status = 'active';
             reqs[idx].hasPin = true;
             if (/^\d{4,6}$/.test(pin)) {
-              reqs[idx].pinHash = hashLoyaltyPin(pin);
-              reqs[idx].plainPinBackup = pin;
+              reqs[idx].pinHash = await secureHashLoyaltyPin(pin);
             }
             reqs[idx].activatedAt = new Date().toISOString();
-            await env.techno_products_kv.put('loyalty_requests', JSON.stringify(reqs));
+            await saveLoyaltyRequests(env, reqs);
             return jsonResponse({ success: true, status: 'active', card: reqs[idx] });
           }
         }
@@ -5000,13 +5392,12 @@ export default {
         const body: any = await request.json();
         const phone = (body.phone || '').trim();
         if (phone && env.techno_products_kv) {
-          const rawReqs = await env.techno_products_kv.get('loyalty_requests');
-          const reqs = rawReqs ? JSON.parse(rawReqs) : [];
+          const reqs = await getLoyaltyRequests(env);
           const idx = reqs.findIndex((r: any) => r.customerPhone === phone);
           if (idx >= 0) {
             reqs[idx].status = 'disabled';
             reqs[idx].disabledAt = new Date().toISOString();
-            await env.techno_products_kv.put('loyalty_requests', JSON.stringify(reqs));
+            await saveLoyaltyRequests(env, reqs);
             return jsonResponse({ success: true, status: 'disabled' });
           }
         }
@@ -5023,8 +5414,7 @@ export default {
         const phone = (body.phone || '').trim();
         const manualCardNumber = (body.cardNumber || body.card_number || '').trim();
         if (phone && env.techno_products_kv) {
-          const rawReqs = await env.techno_products_kv.get('loyalty_requests');
-          const reqs = rawReqs ? JSON.parse(rawReqs) : [];
+          const reqs = await getLoyaltyRequests(env);
           const idx = reqs.findIndex((r: any) => r.customerPhone === phone);
           if (idx >= 0) {
             reqs[idx].status = 'approved_pending_pin';
@@ -5032,7 +5422,7 @@ export default {
             if (manualCardNumber) {
               reqs[idx].cardNumber = manualCardNumber;
             }
-            await env.techno_products_kv.put('loyalty_requests', JSON.stringify(reqs));
+            await saveLoyaltyRequests(env, reqs);
             return jsonResponse({ success: true, status: 'approved_pending_pin', cardNumber: reqs[idx].cardNumber });
           }
         }

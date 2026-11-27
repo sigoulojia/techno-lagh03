@@ -596,6 +596,10 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
         if (vData?.valid) {
           verifiedViaServer = true;
           if (vData.card && retrievedCardTemp) {
+            retrievedCardTemp.customerName = vData.card.customerName || retrievedCardTemp.customerName;
+            retrievedCardTemp.customerPhone = vData.card.customerPhone || retrievedCardTemp.customerPhone;
+            retrievedCardTemp.customerAddress = vData.card.customerAddress || retrievedCardTemp.customerAddress;
+            retrievedCardTemp.customerEmail = vData.card.customerEmail || retrievedCardTemp.customerEmail;
             retrievedCardTemp.points = vData.card.points ?? retrievedCardTemp.points;
             retrievedCardTemp.tier = vData.card.tier ?? retrievedCardTemp.tier;
           }
@@ -606,6 +610,24 @@ export function LoyaltyCardSection({ savedOrders = [] }: LoyaltyCardSectionProps
           });
           return;
         }
+      } else {
+        const errData: any = await vRes.json().catch(() => null);
+        setFeedback({
+          type: 'error',
+          message: errData?.error || 'الرمز السري غير صحيح، يرجى التحقق وإعادة المحاولة',
+        });
+        return;
+      } else {
+        const errData: any = await vRes.json().catch(() => null);
+        setFeedback({
+          type: 'error',
+          message:
+            errData?.error ||
+            (vRes.status === 429
+              ? 'تم قفل المحاولات مؤقتاً لحماية أمان البطاقة. يرجى الانتظار 15 دقيقة.'
+              : 'الرمز السري غير صحيح، يرجى التحقق والمحاولة مجدداً'),
+        });
+        return;
       }
     } catch {}
 
